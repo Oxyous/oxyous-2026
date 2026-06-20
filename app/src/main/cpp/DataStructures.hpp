@@ -22,6 +22,14 @@ struct appEngine{
     Renderer* renderer;
 };
 
+/* GPUBuffer*/
+typedef struct GPUBuffer {
+    VkBuffer buffer;
+    VkDeviceMemory memory;
+    VkDeviceSize size;
+    VkDescriptorBufferInfo descriptor;
+} GPUBuffer;
+
 /* GPU Image Struct */
 typedef struct GPUImage {
     VkFormat format;
@@ -29,6 +37,23 @@ typedef struct GPUImage {
     VkImageView imageView;
     VkDeviceMemory memory;
 } GPUImage;
+
+/* GPU Texture - GPU image with sampler */
+typedef struct GPUTexture {
+    GPUImage image;
+    VkSampler sampler;
+    uint32_t width;
+    uint32_t height;
+    VkDescriptorImageInfo descriptor;
+} GPUTexture;
+
+/* Static Mesh Vertex */
+typedef struct StaticMeshVertex {
+    glm::vec3 position;
+    glm::vec3 normal;
+    glm::vec4 tangent;
+    glm::vec2 uv;
+} StaticMeshVertex;
 
 
 

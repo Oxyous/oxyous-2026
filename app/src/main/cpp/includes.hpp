@@ -32,6 +32,7 @@
 #include <array>
 #include <queue>
 #include <future>
+#include "external/glm/glm.hpp"
 
 #include "AndroidOut.h"
 

@@ -31,6 +31,7 @@ void ResourceManager::loadShader(const std::string& fileName, std::vector<uint8_
     int read = AAsset_read(asset, data.data(), length);
 
     if (read != length) {
+        AAsset_close(asset);
         aout << "Error: Failed to read asset" << std::endl;
         return;
     }

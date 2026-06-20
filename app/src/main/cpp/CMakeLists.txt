@@ -9,11 +9,15 @@ project("oxyous_2026")
 # one used for loading in your Kotlin/Java or AndroidManifest.txt files.
 add_library(oxyous_2026 SHARED
         main.cpp
+
+        engine/GameView.cpp
+        render/meshes/GPUStaticMesh.cpp
         render/vulkan/pipelines/Deferred.cpp
         render/vulkan/Renderer.cpp
         render/vulkan/Swapchain.cpp
         render/vulkan/RenderDevice.cpp
         resources/ResourceManager.cpp
+        resources/GPUTextureResource.cpp
         AndroidOut.cpp
 )
 

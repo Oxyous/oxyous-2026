@@ -6,6 +6,7 @@
 #include "../../AndroidOut.h"
 #include "RenderDevice.hpp"
 #include "../../DataStructures.hpp"
+#include "../../engine/GameView.hpp"
 #include <game-activity/native_app_glue/android_native_app_glue.h>
 
 VkBool32
@@ -191,6 +192,11 @@ bool Renderer::initialize(ANativeWindow* window) {
 
     if (!prepareCommandBuffers()){
         aout << "Error: Failed to prepare command buffers" << std::endl;
+        return false;
+    }
+
+    if(!GAME_VIEW->initialize()){
+        aout << "Error: Failed to initialize game view" << std::endl;
         return false;
     }
 
