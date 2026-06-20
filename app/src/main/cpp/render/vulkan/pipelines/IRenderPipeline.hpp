@@ -1,0 +1,41 @@
+//
+// Created by Mr Steven J Baldwin on 18/06/2026.
+//
+
+#ifndef OXYOUS_2026_IRENDERPIPELINE_HPP
+#define OXYOUS_2026_IRENDERPIPELINE_HPP
+
+
+#include <vulkan/vulkan.h>
+
+class IRenderPipeline {
+public:
+    /* */
+    IRenderPipeline() = default;
+
+    /* */
+    virtual ~IRenderPipeline() = default;
+
+    /* */
+    virtual void update() = 0;
+
+    /* */
+    virtual bool initialize() = 0;
+
+    /* */
+    virtual void execute(const VkSemaphore& waitSemaphore, const VkSemaphore& signalSemaphore, const VkFence& fence) = 0;
+
+    /* */
+    virtual void destroy() = 0;
+
+    /* */
+    virtual void resize(int width, int height) = 0;
+protected:
+    VkCommandBuffer m_commandBuffer{};
+    VkPipeline m_pipeline{};
+    VkPipelineLayout m_pipelineLayout{};
+    VkRenderPass m_renderPass{};
+};
+
+
+#endif //OXYOUS_2026_IRENDERPIPELINE_HPP
