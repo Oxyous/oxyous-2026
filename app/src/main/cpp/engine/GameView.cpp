@@ -12,6 +12,7 @@
 #include "../render/vulkan/pipelines/Deferred.hpp"
 #include "../render/vulkan/pipelines/PostProcess.hpp"
 #include "components/OGStaticMeshComponent.hpp"
+#include "GPUResources.hpp"
 
 void GameView::render() {
 
@@ -44,16 +45,21 @@ bool GameView::initialize() {
     postProcess->updateDescriptors();
 
     /* Test loading assets*/
-    auto texture = RESOURCE_MANAGER->get<GPUTextureResource>("android_robot.png");
+    auto texture = RESOURCE_MANAGER->get<GPUTextureResource>("debug-uv.jpg");
 
     auto mesh = RESOURCE_MANAGER->get<GPUStaticMeshResource>("cube.osm");
     auto mesh2 = RESOURCE_MANAGER->get<GPUStaticMeshResource>("cube.osm");
 
-    auto& actor = m_entities.emplace_back(new OGEntity("actor"));
-    actor->addComponent<OGStaticMeshComponent>();
-    actor->getComponent<OGStaticMeshComponent>()->setMeshResource(mesh);
-    actor->getComponent<OGStaticMeshComponent>()->setTextureResource(TEXTURE_SLOT_0, texture);
+    GPU_RESOURCES->registerMaterial({
+        0, 0, 0, 0, 1.0f, 1.0f, 1.0f, 1.0f
+    });
 
+    GPU_RESOURCES->registerTexture(*texture->get());
+
+    auto& actor = m_entities.emplace_back(new OGEntity("actor"));
+    auto meshComponent = actor->addComponent<OGStaticMeshComponent>();
+    meshComponent->setMeshResource(mesh);
+    meshComponent->setTextureResource(TEXTURE_SLOT_0, texture);
 
 
     return true;

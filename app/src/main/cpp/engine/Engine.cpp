@@ -3,9 +3,11 @@
 //
 
 #include "Engine.hpp"
+#include "../render/vulkan/DescriptorCache.hpp"
 
 bool Engine::initialize() {
-    return false;
+
+    return true;
 }
 
 void Engine::destroy() {

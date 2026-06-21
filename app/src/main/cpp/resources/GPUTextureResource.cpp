@@ -48,9 +48,6 @@ bool GPUTextureResource::load(AAssetManager *assetManager, const std::vector<uin
         return false;
     }
 
-    DescriptorKey key;
-    key.imageBindings.push_back(*m_texture);
-
     return true;
 }
 

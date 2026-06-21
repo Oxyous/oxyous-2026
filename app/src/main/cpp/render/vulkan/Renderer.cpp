@@ -9,6 +9,7 @@
 #include "../../engine/GameView.hpp"
 #include "../../engine/Engine.hpp"
 #include "pipelines/PostProcess.hpp"
+#include "../../engine/GPUResources.hpp"
 #include <game-activity/native_app_glue/android_native_app_glue.h>
 
 VkBool32
@@ -41,8 +42,8 @@ bool Renderer::initialize(ANativeWindow *window) {
     appInfo.pApplicationName = "Oxyous 2026";
     appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
     appInfo.pEngineName = "Oxyous Engine";
-    appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.apiVersion = VK_API_VERSION_1_0;
+    appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 3);
+    appInfo.apiVersion = VK_API_VERSION_1_3;
 
     const char *extensions[] = {
             VK_KHR_SURFACE_EXTENSION_NAME,
@@ -123,6 +124,11 @@ bool Renderer::initialize(ANativeWindow *window) {
         return false;
     }
 
+    if (!GPU_RESOURCES->initialize()) {
+        aout << "Error: Failed to initialize GPU resources" << std::endl;
+        return false;
+    }
+
     if(!GAME_VIEW->initialize()){
         aout << "Error: Failed to initialize game view" << std::endl;
         return false;
@@ -134,6 +140,7 @@ bool Renderer::initialize(ANativeWindow *window) {
         postProcess->initialize();
         postProcess->updateDescriptors();
     }
+
 
     m_graphicsInitialized = true;
 
@@ -339,6 +346,8 @@ void Renderer::render() {
         return;
     }
 
+    vkResetFences(device, 1, &m_fences[m_currentFrame]);
+
     uint32_t imageIndex = 0;
     // Acquire signals m_presentCompleteSemaphores[m_currentFrame] when image is ready
     VkResult result = vkAcquireNextImageKHR(device, SWAPCHAIN->getSwapChain(), UINT64_MAX,
@@ -464,10 +473,10 @@ void Renderer::prepareFrame(int index, VkCommandBuffer commandBuffer) {
     auto postProcess = ENGINE->getPipeline<PostProcess>("post-process");
 
     if (deferred) {
-        deferred->record(commandBuffer);
+        deferred->record(commandBuffer, m_currentFrame, m_framebuffers[index]);
     }
 
     if (postProcess) {
-        postProcess->record(commandBuffer, m_framebuffers[index]);
+        postProcess->record(commandBuffer, m_currentFrame, m_framebuffers[index]);
     }
 }

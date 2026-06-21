@@ -9,6 +9,12 @@
 
 class Renderer;
 
+constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
+constexpr uint32_t MAX_OBJECTS = 65536;
+constexpr uint32_t MAX_MATERIALS = 4096;
+constexpr uint32_t MAX_LIGHTS = 256;
+constexpr uint32_t MAX_TEXTURES = 4096;
+
 struct saveState {
 
 };
@@ -33,6 +39,8 @@ typedef struct GPUBuffer {
     VkDeviceSize offset = 0;
     VkDeviceSize range = 0;
     VkDescriptorType type = VK_DESCRIPTOR_TYPE_MAX_ENUM;
+
+    void* mapped;
 
     bool operator==(const GPUBuffer &other) const {
         return buffer == other.buffer &&
@@ -108,5 +116,71 @@ typedef struct PostProcessUBO {
     glm::mat4 invView;
     glm::vec4 cameraPosition;
 } PostProcessUBO;
+
+/* Texture bindless handle */
+typedef struct GPUTextureHandle {
+    uint32_t index;         /* Index of the texture in the texture array */
+    bool valid = false;     /* Whether the texture is valid or not */
+} GPUTextureHandle;
+
+/* Material bindless handle */
+typedef struct GPUMaterialHandle {
+    uint32_t albedoIndex;
+    uint32_t normalIndex;
+    uint32_t ormIndex;
+    uint32_t emissiveIndex;
+
+    float metallic;
+    float roughness;
+    float ao;
+    float emissiveIntensity;
+
+} GPUMaterialHandle;
+
+/* Object GPU handle */
+typedef struct GPUMeshHandle {
+    glm::mat4 model;
+    uint32_t materialIndex;
+}GPUMeshHandle;
+
+/* Bindless Frame Data */
+typedef struct FrameData {
+    VkCommandBuffer cmd = VK_NULL_HANDLE;
+    VkSemaphore imageAvailable = VK_NULL_HANDLE;
+    VkSemaphore renderComplete = VK_NULL_HANDLE;
+    VkFence fence = VK_NULL_HANDLE;
+
+    VkDescriptorSet bindlessSet = VK_NULL_HANDLE;
+
+    GPUBuffer meshBuffer;
+    GPUBuffer materialBuffer;
+    GPUBuffer perFrameBuffer;
+
+    PerFrameUBO perFrame;
+
+}FrameData;
+
+/* Bindless Renderer */
+typedef struct BindlessRenderer {
+    VkDescriptorPool bindlessPool = VK_NULL_HANDLE;
+    VkDescriptorSetLayout bindlessSetLayout = VK_NULL_HANDLE;
+
+    VkPipeline pipeline = VK_NULL_HANDLE;
+    VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+
+    std::array<FrameData, MAX_FRAMES_IN_FLIGHT> frameData { };
+    uint32_t currentFrame = 0;
+
+    std::vector<GPUMaterialHandle> materials;
+    std::vector<GPUTextureHandle> textures;
+    std::vector<GPUMeshHandle> meshes;
+    std::vector<bool> textureSlotUsed;
+} BindlessRenderer;
+
+/* Bindless Push constants for mapping index to resource*/
+typedef struct BindlessPushConstants {
+    uint32_t materialIndex;
+    uint32_t objectIndex;
+} BindlessPushConstants;
 
 #endif //OXYOUS_2026_DATASTRUCTURES_HPP

@@ -362,6 +362,7 @@ public:
         buffer->descriptor.buffer = buffer->buffer;
         buffer->descriptor.offset = 0;
         buffer->descriptor.range = VK_WHOLE_SIZE;
+        vkMapMemory(device, buffer->memory, 0, buffer->size, 0, &buffer->mapped);
 
         return true;
     }

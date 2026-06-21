@@ -9,12 +9,15 @@
 #include "../../../engine/components/OGStaticMeshComponent.hpp"
 #include "../../../engine/Engine.hpp"
 #include "../../../engine/GameView.hpp"
+#include "../../../engine/GPUResources.hpp"
 
-Deferred::Deferred() = default;
+Deferred::Deferred() : m_width(0), m_height(0), m_vertShaderModule(VK_NULL_HANDLE),
+                       m_fragShaderModule(VK_NULL_HANDLE) {
 
-Deferred::~Deferred() = default;
+}
 
-void Deferred::update() {
+
+void Deferred::update(double delta) {
 
 }
 
@@ -41,8 +44,8 @@ bool Deferred::initialize() {
     std::vector<uint8_t> vertShaderCode;
     std::vector<uint8_t> fragShaderCode;
 
-    RESOURCE_MANAGER->loadShader("shaders/deferred.vert.spv", vertShaderCode);
-    RESOURCE_MANAGER->loadShader("shaders/deferred.frag.spv", fragShaderCode);
+    RESOURCE_MANAGER->loadShader("shaders/bindless-deferred.vert.spv", vertShaderCode);
+    RESOURCE_MANAGER->loadShader("shaders/bindless-deferred.frag.spv", fragShaderCode);
 
     if (vertShaderCode.empty() || fragShaderCode.empty()) {
         aout << "Failed to load shaders!" << std::endl;
@@ -54,7 +57,7 @@ bool Deferred::initialize() {
     vertShaderModuleInfo.codeSize = vertShaderCode.size();
     vertShaderModuleInfo.pCode = reinterpret_cast<const uint32_t *>(vertShaderCode.data());
     if (vkCreateShaderModule(RENDER_DEVICE->getDevice(), &vertShaderModuleInfo, nullptr,
-                         &m_vertShaderModule) != VK_SUCCESS) {
+                             &m_vertShaderModule) != VK_SUCCESS) {
         aout << "Failed to create vertex shader module!" << std::endl;
         return false;
     }
@@ -64,7 +67,7 @@ bool Deferred::initialize() {
     fragShaderModuleInfo.codeSize = fragShaderCode.size();
     fragShaderModuleInfo.pCode = reinterpret_cast<const uint32_t *>(fragShaderCode.data());
     if (vkCreateShaderModule(RENDER_DEVICE->getDevice(), &fragShaderModuleInfo, nullptr,
-                         &m_fragShaderModule) != VK_SUCCESS) {
+                             &m_fragShaderModule) != VK_SUCCESS) {
         aout << "Failed to create fragment shader module!" << std::endl;
         return false;
     }
@@ -83,12 +86,7 @@ bool Deferred::initialize() {
 
     VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
-    /* Step 1 - Create Descriptor Set Layout */
-    if (!createDescriptorSetLayout())
-    {
-        aout << "Failed to create descriptor set layout!" << std::endl;
-        return false;
-    }
+    m_pipelineLayout = GPU_RESOURCES->getPipelineLayout();
 
     /* Step 3 Fixed Function states */
     VkVertexInputBindingDescription bindingDescription{};
@@ -176,8 +174,9 @@ bool Deferred::initialize() {
 
     VkPipelineColorBlendAttachmentState colorBlendAttachments[4] = {};
     for (int i = 0; i < 4; ++i) {
-        colorBlendAttachments[i].colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-                                               VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+        colorBlendAttachments[i].colorWriteMask =
+                VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+                VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
         colorBlendAttachments[i].blendEnable = VK_FALSE;
     }
 
@@ -217,7 +216,7 @@ bool Deferred::initialize() {
 
     if (vkCreateGraphicsPipelines(RENDER_DEVICE->getDevice(), VK_NULL_HANDLE, 1, &pipelineInfo,
                                   nullptr,
-                                  &m_pipeline) != VK_SUCCESS) {
+                                 &m_pipeline) != VK_SUCCESS) {
         aout << "Failed to create graphics pipeline!" << std::endl;
         return false;
     }
@@ -225,27 +224,6 @@ bool Deferred::initialize() {
     /* Step 6 Destroy Shader Modules */
     vkDestroyShaderModule(RENDER_DEVICE->getDevice(), m_vertShaderModule, nullptr);
     vkDestroyShaderModule(RENDER_DEVICE->getDevice(), m_fragShaderModule, nullptr);
-
-    /* Step 7 - Create Sampler */
-    VkSamplerCreateInfo samplerInfo = {};
-    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    samplerInfo.magFilter = VK_FILTER_NEAREST;
-    samplerInfo.minFilter = VK_FILTER_NEAREST;
-    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.anisotropyEnable = VK_FALSE;
-    samplerInfo.maxAnisotropy = 1.0f;
-    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-    samplerInfo.unnormalizedCoordinates = VK_FALSE;
-    samplerInfo.compareEnable = VK_FALSE;
-    samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-
-    if (vkCreateSampler(RENDER_DEVICE->getDevice(), &samplerInfo, nullptr, &m_sampler) != VK_SUCCESS) {
-        aout << "Failed to create sampler!" << std::endl;
-        return false;
-    }
 
     return true;
 }
@@ -263,16 +241,6 @@ void Deferred::destroy() {
         m_pipelineLayout = VK_NULL_HANDLE;
     }
 
-    if (m_perObjectDSL != VK_NULL_HANDLE) {
-        vkDestroyDescriptorSetLayout(device, m_perObjectDSL, nullptr);
-        m_perObjectDSL = VK_NULL_HANDLE;
-    }
-
-    if (m_perFrameDSL != VK_NULL_HANDLE) {
-        vkDestroyDescriptorSetLayout(device, m_perFrameDSL, nullptr);
-        m_perFrameDSL = VK_NULL_HANDLE;
-    }
-
     if (m_frameBuffer != VK_NULL_HANDLE) {
         vkDestroyFramebuffer(device, m_frameBuffer, nullptr);
         m_frameBuffer = VK_NULL_HANDLE;
@@ -283,8 +251,8 @@ void Deferred::destroy() {
         m_renderPass = VK_NULL_HANDLE;
     }
 
-    for (auto& pair : m_frameBufferImages) {
-      //  RenderFramework::destroyGPUTexture(&pair.second);
+    for (auto &pair: m_frameBufferImages) {
+        //  RenderFramework::destroyGPUTexture(&pair.second);
     }
     m_frameBufferImages.clear();
 }
@@ -387,14 +355,16 @@ bool Deferred::initializeRenderPass() {
     dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
     dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-    dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependencies[0].dstAccessMask =
+            VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
     dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
     dependencies[1].srcSubpass = 0;
     dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
     dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-    dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependencies[1].srcAccessMask =
+            VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
     dependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
     dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
@@ -407,7 +377,8 @@ bool Deferred::initializeRenderPass() {
     renderPassInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
     renderPassInfo.pDependencies = dependencies.data();
 
-    if (vkCreateRenderPass(RENDER_DEVICE->getDevice(), &renderPassInfo, nullptr, &m_renderPass) != VK_SUCCESS) {
+    if (vkCreateRenderPass(RENDER_DEVICE->getDevice(), &renderPassInfo, nullptr, &m_renderPass) !=
+        VK_SUCCESS) {
         return false;
     }
 
@@ -484,7 +455,8 @@ bool Deferred::initializeFramebuffers() {
     framebufferInfo.layers = 1;
     framebufferInfo.flags = 0;
 
-    if (vkCreateFramebuffer(RENDER_DEVICE->getDevice(), &framebufferInfo, nullptr, &m_frameBuffer) != VK_SUCCESS) {
+    if (vkCreateFramebuffer(RENDER_DEVICE->getDevice(), &framebufferInfo, nullptr,
+                            &m_frameBuffer) != VK_SUCCESS) {
         aout << "Failed to create framebuffer!" << std::endl;
         return false;
     }
@@ -492,77 +464,21 @@ bool Deferred::initializeFramebuffers() {
     return true;
 }
 
-bool Deferred::createDescriptorSetLayout() {
-    const auto &device = RENDER_DEVICE->getDevice();
 
-    /* Per Object Descriptor Set Layout */
-    std::array<VkDescriptorSetLayoutBinding, 4> bindings = {};
-    bindings[0].binding = 0;
-    bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    bindings[0].descriptorCount = 1;
-    bindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+void
+Deferred::record(VkCommandBuffer commandBuffer, uint64_t currentFrame, VkFramebuffer framebuffer) {
 
-    bindings[1].binding = 1;
-    bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    bindings[1].descriptorCount = 1;
-    bindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    /* Upload Frame Data*/
+    FrameData &frame = GPU_RESOURCES->getFrameData(currentFrame);
 
-    bindings[2].binding = 2;
-    bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    bindings[2].descriptorCount = 1;
-    bindings[2].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    frame.perFrame.projection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
+    frame.perFrame.view = glm::lookAt(glm::vec3(8.0f, 8.0f, 8.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
-    bindings[3].binding = 3;
-    bindings[3].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    bindings[3].descriptorCount = 1;
-    bindings[3].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    GPU_RESOURCES->uploadFrameData(frame);
 
-    VkDescriptorSetLayoutCreateInfo perObjectLayoutInfo = {};
-    perObjectLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    perObjectLayoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
-    perObjectLayoutInfo.pBindings = bindings.data();
-
-    if (vkCreateDescriptorSetLayout(device, &perObjectLayoutInfo, nullptr, &m_perObjectDSL) != VK_SUCCESS) {
-        aout << "Failed to create descriptor set layout!" << std::endl;
-        return false;
-    }
-
-    /* Per Frame Descriptor Set Layout */
-    VkDescriptorSetLayoutBinding perFrameBinding = {};
-    perFrameBinding.binding = 0;
-    perFrameBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    perFrameBinding.descriptorCount = 1;
-    perFrameBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-    VkDescriptorSetLayoutCreateInfo perFrameLayoutInfo = {};
-    perFrameLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    perFrameLayoutInfo.bindingCount = 1;
-    perFrameLayoutInfo.pBindings = &perFrameBinding;
-
-    if (vkCreateDescriptorSetLayout(device, &perFrameLayoutInfo, nullptr, &m_perFrameDSL) != VK_SUCCESS) {
-        aout << "Failed to create descriptor set layout!" << std::endl;
-        return false;
-    }
-
-    std::array<VkDescriptorSetLayout, 2> descriptorSetLayouts = {m_perObjectDSL, m_perFrameDSL};
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
-    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = 2;
-    pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
-    pipelineLayoutInfo.pushConstantRangeCount = 0;
-
-    if (vkCreatePipelineLayout(RENDER_DEVICE->getDevice(), &pipelineLayoutInfo, nullptr, &m_pipelineLayout) != VK_SUCCESS) {
-        aout << "Failed to create pipeline layout!" << std::endl;
-        return false;
-    }
-
-    return true;
-}
-
-void Deferred::record(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer) {
     /* Clear Framebuffers */
     VkClearValue clearValues[5] = {};
-    clearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}}; // Diffuse
+    clearValues[0].color = {{0.05f, 0.2f, 0.8f, 1.0f}}; // Diffuse
     clearValues[1].color = {{0.0f, 0.0f, 0.0f, 1.0f}}; // Normal
     clearValues[2].color = {{0.0f, 0.0f, 0.0f, 1.0f}}; // PBR
     clearValues[3].color = {{0.0f, 0.0f, 0.0f, 1.0f}}; // World Position
@@ -601,13 +517,18 @@ void Deferred::record(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer) 
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
 
+    /* Bind the bindless descriptor set Once*/
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            m_pipelineLayout, 0, 1,
+                            &GPU_RESOURCES->getBindlessSet(currentFrame), 0, nullptr);
+
     /* Render Objects */
-    std::vector<std::shared_ptr<OGEntity>>& staticMeshes = GAME_VIEW->getEntities();
+    std::vector<std::shared_ptr<OGEntity>> &staticMeshes = GAME_VIEW->getEntities();
     for (auto &mesh: staticMeshes) {
         if (mesh->getComponent<OGStaticMeshComponent>()) {
             auto *component = mesh->getComponent<OGStaticMeshComponent>();
-            if(component) {
-                component->render(commandBuffer);
+            if (component) {
+                component->render(commandBuffer, currentFrame);
             }
         }
     }

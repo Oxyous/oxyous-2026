@@ -4,6 +4,7 @@
 
 #include "RenderDevice.hpp"
 #include "RenderFramework.hpp"
+#include "DescriptorCache.hpp"
 
 PFN_vkCreateDebugReportCallbackEXT RenderDevice::fvkCreateDebugReportCallbackEXT;
 PFN_vkDestroyDebugReportCallbackEXT RenderDevice::fvkDestroyDebugReportCallbackEXT;
@@ -24,7 +25,7 @@ bool RenderDevice::initialize(VkInstance &instance, VkSurfaceKHR &surface) {
 
     // Find a GPU that supports graphics and presentation
     bool foundGpu = false;
-    for (const auto& gpu : physicalDevices) {
+    for (const auto &gpu: physicalDevices) {
         // Get Family Properties for this GPU
         uint32_t queueFamilyCount = 0;
         vkGetPhysicalDeviceQueueFamilyProperties(gpu, &queueFamilyCount, nullptr);
@@ -52,7 +53,8 @@ bool RenderDevice::initialize(VkInstance &instance, VkSurfaceKHR &surface) {
     }
 
     if (!foundGpu) {
-        aout << "Error: No suitable Vulkan GPU found (graphics + present support required)" << std::endl;
+        aout << "Error: No suitable Vulkan GPU found (graphics + present support required)"
+             << std::endl;
         return false;
     }
 
@@ -76,7 +78,9 @@ bool RenderDevice::initialize(VkInstance &instance, VkSurfaceKHR &surface) {
 
     // Check if the physical device supports the required features
     if (!m_gpuFeatures.geometryShader) {
-        aout << "Warning: Physical device does not support geometry shaders. This may limit some effects." << std::endl;
+        aout
+                << "Warning: Physical device does not support geometry shaders. This may limit some effects."
+                << std::endl;
     }
 
     // Device Layer Properties
@@ -102,27 +106,39 @@ bool RenderDevice::initialize(VkInstance &instance, VkSurfaceKHR &surface) {
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
     std::vector<uint32_t> uniqueQueueFamilies;
 
-    if (m_graphicsQueueFamilyIndex != UINT32_MAX) uniqueQueueFamilies.push_back(m_graphicsQueueFamilyIndex);
+    if (m_graphicsQueueFamilyIndex != UINT32_MAX)
+        uniqueQueueFamilies.push_back(m_graphicsQueueFamilyIndex);
 
     if (m_presentQueueFamilyIndex != UINT32_MAX) {
         bool found = false;
-        for (uint32_t f : uniqueQueueFamilies) { if (f == m_presentQueueFamilyIndex) { found = true; break; } }
+        for (uint32_t f: uniqueQueueFamilies) {
+            if (f == m_presentQueueFamilyIndex) {
+                found = true;
+                break;
+            }
+        }
         if (!found) uniqueQueueFamilies.push_back(m_presentQueueFamilyIndex);
     }
 
     if (m_computeQueueFamilyIndex != UINT32_MAX) {
         bool found = false;
-        for (uint32_t f : uniqueQueueFamilies) { if (f == m_computeQueueFamilyIndex) { found = true; break; } }
+        for (uint32_t f: uniqueQueueFamilies) {
+            if (f == m_computeQueueFamilyIndex) {
+                found = true;
+                break;
+            }
+        }
         if (!found) uniqueQueueFamilies.push_back(m_computeQueueFamilyIndex);
     }
 
-    if (uniqueQueueFamilies.empty() || m_graphicsQueueFamilyIndex == UINT32_MAX || m_presentQueueFamilyIndex == UINT32_MAX) {
+    if (uniqueQueueFamilies.empty() || m_graphicsQueueFamilyIndex == UINT32_MAX ||
+        m_presentQueueFamilyIndex == UINT32_MAX) {
         aout << "Error: Necessary queue families not found" << std::endl;
         return false;
     }
 
     float queuePriority = 1.0f;
-    for (uint32_t queueFamily : uniqueQueueFamilies) {
+    for (uint32_t queueFamily: uniqueQueueFamilies) {
         VkDeviceQueueCreateInfo queueCreateInfo = {};
         queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
         queueCreateInfo.queueFamilyIndex = queueFamily;
@@ -131,6 +147,46 @@ bool RenderDevice::initialize(VkInstance &instance, VkSurfaceKHR &surface) {
         queueCreateInfos.push_back(queueCreateInfo);
     }
 
+    /* Descriptor indexing feature */
+
+    /* Check for support for descriptor indexing */
+    VkPhysicalDeviceDescriptorIndexingFeatures features{};
+    features.sType =
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+
+    VkPhysicalDeviceFeatures2 features2{};
+    features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    features2.pNext = &features;
+    vkGetPhysicalDeviceFeatures2(m_physicalDevice, &features2);
+
+    if (!features.descriptorBindingPartiallyBound) {
+        aout << "Error: Descriptor indexing not supported" << std::endl;
+        return false;
+    }
+
+    if (!features.descriptorBindingSampledImageUpdateAfterBind) {
+        aout << "Error: Descriptor indexing not supported" << std::endl;
+        return false;
+    }
+
+    if (!features.runtimeDescriptorArray) {
+        aout << "Error: Descriptor indexing not supported" << std::endl;
+        return false;
+    }
+
+    if (!features.descriptorBindingVariableDescriptorCount) {
+        aout << "Error: Descriptor indexing not supported" << std::endl;
+        return false;
+    }
+
+    VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures = {};
+    descriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+    descriptorIndexingFeatures.runtimeDescriptorArray = VK_TRUE;
+    descriptorIndexingFeatures.descriptorBindingVariableDescriptorCount = VK_TRUE;
+    descriptorIndexingFeatures.descriptorBindingPartiallyBound = VK_TRUE;
+    descriptorIndexingFeatures.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
+
+    /* Create Vulkan Device */
     VkDeviceCreateInfo deviceCreateInfo = {};
     deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
@@ -139,6 +195,7 @@ bool RenderDevice::initialize(VkInstance &instance, VkSurfaceKHR &surface) {
     deviceCreateInfo.ppEnabledLayerNames = enabledLayers.data();
     deviceCreateInfo.enabledExtensionCount = 1;
     deviceCreateInfo.ppEnabledExtensionNames = deviceExtensions;
+    deviceCreateInfo.pNext = &descriptorIndexingFeatures;
 
     VkPhysicalDeviceFeatures deviceFeatures = {};
     if (m_gpuFeatures.geometryShader) {

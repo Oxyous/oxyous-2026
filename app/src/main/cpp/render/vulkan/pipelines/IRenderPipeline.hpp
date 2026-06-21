@@ -17,7 +17,7 @@ public:
     virtual ~IRenderPipeline() = default;
 
     /* */
-    virtual void update() = 0;
+    virtual void update(double delta) = 0;
 
     /* */
     virtual bool initialize() = 0;
@@ -32,13 +32,16 @@ public:
     virtual void resize(int width, int height) = 0;
 
     /* Record Command  */
-    virtual void record(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer = VK_NULL_HANDLE) = 0;
+    virtual void record(VkCommandBuffer commandBuffer, uint64_t currentFrame, VkFramebuffer framebuffer = VK_NULL_HANDLE) = 0;
 
     /* Set render pass */
     virtual void setRenderPass(VkRenderPass renderPass) { m_renderPass = renderPass; }
 
     /* */
     virtual void bindPipeline(VkCommandBuffer const& commandBuffer) = 0;
+
+    /* Get pipeline layout */
+    virtual VkPipelineLayout getPipelineLayout() const { return m_pipelineLayout; }
 protected:
     VkCommandBuffer m_commandBuffer{};
     VkPipeline m_pipeline{};

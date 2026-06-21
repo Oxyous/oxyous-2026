@@ -48,6 +48,7 @@ protected:
     /* Prepare Command Buffers */
     bool prepareCommandBuffers();
 
+    /* Recreate Swap Chain */
     void recreateSwapChain();
 protected:
     void prepareFrame(int index, VkCommandBuffer commandBuffer);

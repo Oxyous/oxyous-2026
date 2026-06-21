@@ -17,7 +17,7 @@ public:
     ~PostProcess() override;
 
     /*  Update Render Pipeline */
-    void update() override;
+    void update(double delta) override;
 
     /* Execute Render Pipeline */
     void execute(const VkSemaphore &waitSemaphore, const VkSemaphore &signalSemaphore,
@@ -42,7 +42,7 @@ public:
     void setFrameBufferImage(const std::string& name, const VkDescriptorImageInfo& image);
 
     /* Record Command Buffer */
-    void record(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer = VK_NULL_HANDLE) override;
+    void record(VkCommandBuffer commandBuffer, uint64_t currentFrame, VkFramebuffer framebuffer = VK_NULL_HANDLE) override;
 
 protected:
     /* Initialize Render Pass */
