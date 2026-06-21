@@ -6,6 +6,7 @@
 #define OXYOUS_2026_DESCRIPTORCACHE_HPP
 
 #include "../../includes.hpp"
+#include "../../DataStructures.hpp"
 
 inline void hashCombine(std::size_t &seed, std::size_t hash) {
     seed ^= hash + 0x9e3779b97f4a7c15ull + (seed << 6) + (seed >> 2);
@@ -22,48 +23,11 @@ inline std::uint64_t handleToUint64(const T &handle) {
 
 /* Resource descriptions used as keys in the descriptor cache. */
 
-/* Uniform Buffer Key */
-struct UniformBufferKey {
-    uint32_t binding = 0;
-    uint32_t arrayElement = 0;
-    VkDescriptorType type = VK_DESCRIPTOR_TYPE_MAX_ENUM;
-    VkBuffer buffer = VK_NULL_HANDLE;
-    VkDeviceSize offset = 0;
-    VkDeviceSize range = 0;
-
-    bool operator==(const UniformBufferKey &other) const noexcept {
-        return binding == other.binding &&
-               arrayElement == other.arrayElement &&
-               type == other.type &&
-               buffer == other.buffer &&
-               offset == other.offset &&
-               range == other.range;
-    }
-};
-
-/* Image Key */
-struct ImageBindingKey {
-    uint32_t binding = 0;
-    uint32_t arrayElement = 0;
-    VkDescriptorType type = VK_DESCRIPTOR_TYPE_MAX_ENUM;
-    VkSampler sampler = VK_NULL_HANDLE;
-    VkImageView imageView = VK_NULL_HANDLE;
-    VkImageLayout imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-
-    bool operator==(const ImageBindingKey &other) const noexcept {
-        return binding == other.binding &&
-               arrayElement == other.arrayElement &&
-               type == other.type &&
-               sampler == other.sampler &&
-               imageView == other.imageView &&
-               imageLayout == other.imageLayout;
-    }
-};
 
 struct DescriptorKey {
     VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
-    std::vector<UniformBufferKey> uniformBuffers;
-    std::vector<ImageBindingKey> imageBindings;
+    std::vector<GPUBuffer> uniformBuffers;
+    std::vector<GPUTexture> imageBindings;
 
     bool operator==(const DescriptorKey &other) const noexcept {
         return descriptorSetLayout == other.descriptorSetLayout &&
@@ -72,22 +36,19 @@ struct DescriptorKey {
     }
 
     void canonicalize() {
-        auto bufLess = [](const UniformBufferKey &a, const UniformBufferKey &b) {
-            if (a.binding != b.binding) return a.binding < b.binding;
-            if (a.arrayElement != b.arrayElement) return a.arrayElement < b.arrayElement;
-            if (a.type != b.type) return a.type < b.type;
+        auto bufLess = [](const GPUBuffer &a, const GPUBuffer &b) {
             if (a.buffer != b.buffer) return a.buffer < b.buffer;
             if (a.offset != b.offset) return a.offset < b.offset;
             return a.range < b.range;
         };
 
-        auto imgLess = [](const ImageBindingKey &a, const ImageBindingKey &b) {
-            if (a.binding != b.binding) return a.binding < b.binding;
-            if (a.arrayElement != b.arrayElement) return a.arrayElement < b.arrayElement;
-            if (a.type != b.type) return a.type < b.type;
+        auto imgLess = [](const GPUTexture &a, const GPUTexture &b) {
+            if (a.image.image != b.image.image) return a.image.image < b.image.image;
+            if (a.image.imageView != b.image.imageView) return a.image.imageView < b.image.imageView;
+            if (a.image.memory != b.image.memory) return a.image.memory < b.image.memory;
             if (a.sampler != b.sampler) return a.sampler < b.sampler;
-            if (a.imageView != b.imageView) return a.imageView < b.imageView;
-            return a.imageLayout < b.imageLayout;
+            if (a.width != b.width) return a.width < b.width;
+            return a.height < b.height;
         };
 
         std::sort(uniformBuffers.begin(), uniformBuffers.end(), bufLess);
@@ -118,7 +79,7 @@ struct DescriptorKeyHasher {
             hashCombine(seed, std::hash<std::uint32_t>{}(image.arrayElement));
             hashCombine(seed, std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(image.type)));
             hashCombine(seed, std::hash<std::uint64_t>{}(handleToUint64(image.sampler)));
-            hashCombine(seed, std::hash<std::uint64_t>{}(handleToUint64(image.imageView)));
+            hashCombine(seed, std::hash<std::uint64_t>{}(handleToUint64(image.image.imageView)));
             hashCombine(seed,
                         std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(image.imageLayout)));
         }
@@ -243,7 +204,7 @@ private:
         for (const auto &image: key.imageBindings) {
             VkDescriptorImageInfo imageInfo = {};
             imageInfo.sampler = image.sampler;
-            imageInfo.imageView = image.imageView;
+            imageInfo.imageView = image.image.imageView;
             imageInfo.imageLayout = image.imageLayout;
             imageInfos.push_back(imageInfo);
         }
@@ -262,7 +223,6 @@ private:
         }
 
         vkUpdateDescriptorSets(m_device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
-
     }
 
 private:
@@ -270,5 +230,7 @@ private:
     DescriptorAllocator m_descriptorAllocator {};
     std::unordered_map<DescriptorKey, CachedDescriptorSet, DescriptorKeyHasher> m_cache;
 };
+
+#define DESCRIPTORS OGSingleton<DescriptorCache>::getInstance()
 
 #endif //OXYOUS_2026_DESCRIPTORCACHE_HPP

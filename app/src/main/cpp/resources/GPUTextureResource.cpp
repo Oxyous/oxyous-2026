@@ -47,6 +47,10 @@ bool GPUTextureResource::load(AAssetManager *assetManager, const std::vector<uin
         aout << "Failed to create gpu texture" << std::endl;
         return false;
     }
+
+    DescriptorKey key;
+    key.imageBindings.push_back(*m_texture);
+
     return true;
 }
 

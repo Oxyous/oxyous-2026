@@ -33,6 +33,10 @@
 #include <queue>
 #include <future>
 #include "external/glm/glm.hpp"
+#include "external/glm/glm.hpp"
+#include "external/glm/common.hpp"
+#include "external/glm/vec4.hpp"
+#include "external/glm/gtc/quaternion.hpp"
 
 #include "AndroidOut.h"
 

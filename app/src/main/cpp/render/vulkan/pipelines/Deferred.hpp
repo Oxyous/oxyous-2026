@@ -8,8 +8,9 @@
 #include "IRenderPipeline.hpp"
 #include "../../../includes.hpp"
 #include "../../../DataStructures.hpp"
+#include "../uniform/UniformBuffer.hpp"
 
-class Deferred: public IRenderPipeline{
+class Deferred : public IRenderPipeline {
 public:
     Deferred();
 
@@ -20,13 +21,11 @@ public:
     void update() override;
 
     /* */
-    void execute(const VkSemaphore& waitSemaphore, const VkSemaphore& signalSemaphore, const VkFence& fence) override;
+    void execute(const VkSemaphore &waitSemaphore, const VkSemaphore &signalSemaphore,
+                         const VkFence &fence) override;
 
     /* */
     bool initialize() override;
-
-    /* Set render pass from parent (Renderer) */
-    void setRenderPass(VkRenderPass renderPass) { m_renderPass = renderPass; }
 
     /* */
     void destroy() override;
@@ -35,17 +34,38 @@ public:
     void resize(int width, int height) override;
 
     /* */
-    void bindPipeline(const VkCommandBuffer& commandBuffer);
+    void bindPipeline(const VkCommandBuffer &commandBuffer) override;
+
+    /* Get Frame Buffer image*/
+    virtual VkDescriptorImageInfo *getFrameBufferImage(const std::string &name);
+
+    /* Record Command buffer */
+    void record(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer = VK_NULL_HANDLE) override;
+protected:
+    /* Initialize Render Pass */
+    virtual bool initializeRenderPass();
+
+    /* Initialize Frame Buffers */
+    virtual bool initializeFramebuffers();
+
+    /* Create Descriptor set layouts
+     * Describes how to bind data to the shader
+     * */
+    virtual bool createDescriptorSetLayout();
 
 protected:
-    std::unordered_map<std::string, GPUImage> m_frameBufferImages;
-    VkFramebuffer m_frameBuffer;
-    VkRenderPass m_renderPass;
+    std::unordered_map<std::string, GPUTexture> m_frameBufferImages;
     VkShaderModule m_vertShaderModule;
     VkShaderModule m_fragShaderModule;
-    VkPipelineLayout m_pipelineLayout;
-    VkCommandPool m_commandPool;
-    VkCommandBuffer m_commandBuffer;
+    uint32_t m_width;
+    uint32_t m_height;
+    VkDescriptorSetLayout m_perObjectDSL;
+    VkDescriptorSetLayout m_perFrameDSL;
+    UniformBuffer m_perFrameUBO;
+    PerFrameUBO m_perFrameUBOData;
+    VkFramebuffer m_frameBuffer;
+    VkSampler m_sampler;
+    VkCommandBuffer m_commandBuffer {VK_NULL_HANDLE};
 };
 
 

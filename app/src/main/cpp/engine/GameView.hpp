@@ -5,6 +5,8 @@
 #ifndef OXYOUS_2026_GAMEVIEW_HPP
 #define OXYOUS_2026_GAMEVIEW_HPP
 
+#include "../includes.hpp"
+#include "entity/OGEntity.hpp"
 
 class IGameView {
 public:
@@ -40,8 +42,14 @@ public:
 
     /* Destroy Scene Graph */
     void destroy() override;
-private:
 
+    /* Get Entities */
+    std::vector<std::shared_ptr<OGEntity>>& getEntities() {
+        return m_entities;
+    }
+
+private:
+    std::vector<std::shared_ptr<OGEntity>> m_entities;
 };
 
 #define GAME_VIEW OGSingleton<GameView>::getInstance()

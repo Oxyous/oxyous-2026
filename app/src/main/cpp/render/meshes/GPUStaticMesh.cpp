@@ -25,8 +25,11 @@ GPUStaticMesh::upload(std::vector<StaticMeshVertex> &vertices, std::vector<uint3
     return true;
 }
 
-void GPUStaticMesh::render() {
-
+/* Render Mesh */
+void GPUStaticMesh::render(VkCommandBuffer &commandBuffer) {
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer.buffer, &vertexBuffer.offset);
+    vkCmdBindIndexBuffer(commandBuffer, indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexed(commandBuffer, indexCount, 1, 0, 0, 0);
 }
 
 /* Load Vertices/Indexes from raw data */

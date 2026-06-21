@@ -25,6 +25,8 @@ public:
 
     virtual void setHeight(uint32_t height) { m_height = height; }
 
+    virtual VkRenderPass getRenderPass() const { return m_renderPass; }
+
     virtual ~Renderer() = default;
 protected:
 
@@ -67,7 +69,6 @@ protected:
     VkSurfaceKHR m_surface{};
 
     ANativeWindow* m_window{};
-    Deferred m_deferredPipeline;
 
     bool m_graphicsInitialized{false};
     uint32_t m_currentFrame{0};

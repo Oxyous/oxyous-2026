@@ -8,6 +8,7 @@
 #include <android/asset_manager.h>
 #include "../includes.hpp"
 #include "../system/OGSingleton.hpp"
+#include "../render/vulkan/DescriptorCache.hpp"
 
 template<typename T>
 class GPUResource {
@@ -80,6 +81,7 @@ public:
 
         std::vector<uint8_t> data;
         auto resource = load<T>(assetPath, data);
+
         if (!resource) {
             return nullptr;
         }

@@ -7,144 +7,79 @@
 #include "RenderDevice.hpp"
 #include "../../DataStructures.hpp"
 #include "../../engine/GameView.hpp"
+#include "../../engine/Engine.hpp"
+#include "pipelines/PostProcess.hpp"
 #include <game-activity/native_app_glue/android_native_app_glue.h>
 
 VkBool32
 Renderer::vulkanCallback(VkDebugReportFlagsEXT msgFlags, VkDebugReportObjectTypeEXT objType,
                          uint64_t srcObj, size_t location, int32_t msgCode, const char *layerPrefix,
                          const char *msg, void *userData) {
-
     if (msgFlags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {
-        aout << "Vulkan Error: " << msg << std::endl;
+        aout << "ERROR: " << layerPrefix << " - " << msg << std::endl;
     } else if (msgFlags & VK_DEBUG_REPORT_WARNING_BIT_EXT) {
-        aout << "Vulkan Warning: " << msg << std::endl;
+        aout << "WARNING: " << layerPrefix << " - " << msg << std::endl;
     } else if (msgFlags & VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT) {
-        aout << "Vulkan Performance Warning: " << msg << std::endl;
-    } else if (msgFlags & VK_DEBUG_REPORT_INFORMATION_BIT_EXT) {
-        aout << "Vulkan Info: " << msg << std::endl;
-    } else if (msgFlags & VK_DEBUG_REPORT_DEBUG_BIT_EXT) {
-        aout << "Vulkan Debug: " << msg << std::endl;
+        aout << "PERF: " << layerPrefix << " - " << msg << std::endl;
+    } else {
+        aout << "INFO: " << layerPrefix << " - " << msg << std::endl;
     }
 
-    return VK_TRUE;
+    return VK_FALSE;
 }
 
-bool Renderer::initialize(ANativeWindow* window) {
-    //if (m_graphicsInitialized)
-    //    return true;
-
+bool Renderer::initialize(ANativeWindow *window) {
     m_window = window;
+    m_width = ANativeWindow_getWidth(window);
+    m_height = ANativeWindow_getHeight(window);
 
-    /* Get Instance Layer Properties */
-    uint32_t instanceLayerCount = 0;
-    if (vkEnumerateInstanceLayerProperties(&instanceLayerCount, nullptr) != VK_SUCCESS) {
-        aout << "Error: Failed to enumerate instance layer properties" << std::endl;
-        return false;
-    }
+    VkResult result;
 
-    std::vector<VkLayerProperties> instanceLayers(instanceLayerCount);
-    if (vkEnumerateInstanceLayerProperties(&instanceLayerCount, instanceLayers.data()) !=
-        VK_SUCCESS) {
-        aout << "Error: Failed to enumerate instance layer properties" << std::endl;
-        return false;
-    }
-
-    for (const auto &layer: instanceLayers) {
-        aout << "Instance Layer: " << layer.layerName << std::endl;
-    }
-
-    /* Get Instance Extension Properties */
-    uint32_t instanceExtensionCount = 0;
-    if (vkEnumerateInstanceExtensionProperties(nullptr, &instanceExtensionCount, nullptr) !=
-        VK_SUCCESS) {
-        aout << "Error: Failed to enumerate instance extension properties" << std::endl;
-        return false;
-    }
-
-    /* */
-    uint32_t extensionCount = 0;
-    if (vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr) != VK_SUCCESS) {
-        aout << "Error: Failed to enumerate instance extension properties" << std::endl;
-        return false;
-    }
-
-    std::vector<VkExtensionProperties> extensions(extensionCount);
-    if (vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data()) !=
-        VK_SUCCESS) {
-        aout << "Error: Failed to enumerate instance extension properties" << std::endl;
-        return false;
-    }
-
-    for (const auto &extension: extensions) {
-        aout << "Instance Extension: " << extension.extensionName << std::endl;
-    }
-
-    std::vector<const char *> enabledLayers;
-    std::vector<const char *> enabledExtensions;
-
-    enabledExtensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
-    enabledExtensions.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
-    bool debugReportExtensionPresent = false;
-    for (const auto &extension: extensions) {
-        if (strcmp(extension.extensionName, VK_EXT_DEBUG_REPORT_EXTENSION_NAME) == 0) {
-            debugReportExtensionPresent = true;
-            break;
-        }
-    }
-
-    if (debugReportExtensionPresent) {
-        enabledExtensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
-        aout << "Enabling instance extension: " << VK_EXT_DEBUG_REPORT_EXTENSION_NAME << std::endl;
-    }
-
-    /* */
-    VkApplicationInfo appInfo{};
+    /* Create Vulkan Instance */
+    VkApplicationInfo appInfo = {};
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     appInfo.pApplicationName = "Oxyous 2026";
     appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.pEngineName = "Oxyous 2026 Engine";
+    appInfo.pEngineName = "Oxyous Engine";
     appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
     appInfo.apiVersion = VK_API_VERSION_1_0;
 
-    VkInstanceCreateInfo createInfo{};
+    const char *extensions[] = {
+            VK_KHR_SURFACE_EXTENSION_NAME,
+            VK_KHR_ANDROID_SURFACE_EXTENSION_NAME,
+            VK_EXT_DEBUG_REPORT_EXTENSION_NAME
+    };
+
+    VkInstanceCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     createInfo.pApplicationInfo = &appInfo;
-    createInfo.enabledLayerCount = static_cast<uint32_t>(enabledLayers.size());
-    createInfo.ppEnabledLayerNames = enabledLayers.data();
-    createInfo.enabledExtensionCount = static_cast<uint32_t>(enabledExtensions.size());
-    createInfo.ppEnabledExtensionNames = enabledExtensions.data();
+    createInfo.enabledExtensionCount = 3;
+    createInfo.ppEnabledExtensionNames = extensions;
 
-    VkResult result = vkCreateInstance(&createInfo, nullptr, &m_instance);
+    result = vkCreateInstance(&createInfo, nullptr, &m_instance);
     if (result != VK_SUCCESS) {
         aout << "Error: Failed to create Vulkan instance, error code: " << result << std::endl;
         return false;
     }
 
-    if (debugReportExtensionPresent) {
-        if (RENDER_DEVICE->initializeDebug(m_instance)) {
-            m_debugReportCallbackCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
-            m_debugReportCallbackCreateInfo.flags =
-                    VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT |
-                    VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
-            m_debugReportCallbackCreateInfo.pfnCallback = vulkanCallback;
-            m_debugReportCallbackCreateInfo.pUserData = nullptr;
+    /* Create Debug Report Callback */
+    VkDebugReportCallbackCreateInfoEXT debugReportCallbackCreateInfo = {};
+    debugReportCallbackCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
+    debugReportCallbackCreateInfo.flags =
+            VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT;
+    debugReportCallbackCreateInfo.pfnCallback = vulkanCallback;
 
-            result = RenderDevice::fvkCreateDebugReportCallbackEXT(m_instance,
-                                                                   &m_debugReportCallbackCreateInfo,
-                                                                   nullptr, &m_debugReportCallback);
-            if (result != VK_SUCCESS) {
-                aout << "Warning: Failed to create Vulkan debug report callback" << std::endl;
-            }
-        } else {
-            aout << "Warning: Failed to initialize Vulkan debug functions" << std::endl;
-        }
+    auto vkCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT) vkGetInstanceProcAddr(
+            m_instance, "vkCreateDebugReportCallbackEXT");
+    if (vkCreateDebugReportCallbackEXT != nullptr) {
+        vkCreateDebugReportCallbackEXT(m_instance, &debugReportCallbackCreateInfo, nullptr,
+                                       &m_debugReportCallback);
     }
 
-    /* Android Surface Create */
-    VkAndroidSurfaceCreateInfoKHR surfaceCreateInfo{};
+    /* Create Android Surface */
+    VkAndroidSurfaceCreateInfoKHR surfaceCreateInfo = {};
     surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR;
     surfaceCreateInfo.window = window;
-    surfaceCreateInfo.flags = 0;
 
     result = vkCreateAndroidSurfaceKHR(m_instance, &surfaceCreateInfo, nullptr, &m_surface);
     if (result != VK_SUCCESS) {
@@ -183,13 +118,6 @@ bool Renderer::initialize(ANativeWindow* window) {
         return false;
     }
 
-    m_deferredPipeline.setRenderPass(m_renderPass);
-
-    if(!m_deferredPipeline.initialize()){
-        aout << "Error: Failed to initialize deferred pipeline" << std::endl;
-        return false;
-    }
-
     if (!prepareCommandBuffers()){
         aout << "Error: Failed to prepare command buffers" << std::endl;
         return false;
@@ -200,30 +128,32 @@ bool Renderer::initialize(ANativeWindow* window) {
         return false;
     }
 
+    auto postProcess = ENGINE->getPipeline<PostProcess>("post-process");
+    if (postProcess) {
+        postProcess->setRenderPass(m_renderPass);
+        postProcess->initialize();
+        postProcess->updateDescriptors();
+    }
+
     m_graphicsInitialized = true;
 
     return true;
 }
 
 bool Renderer::initializeSemaphores() {
-
     VkDevice device = RENDER_DEVICE->getDevice();
-    uint32_t imageCount = SWAPCHAIN->getImageCount();
-
-    m_presentCompleteSemaphores.resize(imageCount);
-    m_renderCompleteSemaphores.resize(imageCount);
-
-    VkSemaphoreCreateInfo semaphoreInfo{};
+    VkSemaphoreCreateInfo semaphoreInfo = {};
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
-    for (uint32_t i = 0; i < imageCount; i++) {
-        if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &m_presentCompleteSemaphores[i]) != VK_SUCCESS) {
-            aout << "Error: Failed to create present complete semaphore" << std::endl;
-            return false;
-        }
+    m_presentCompleteSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+    m_renderCompleteSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
 
-        if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &m_renderCompleteSemaphores[i]) != VK_SUCCESS) {
-            aout << "Error: Failed to create render complete semaphore" << std::endl;
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &m_presentCompleteSemaphores[i]) !=
+            VK_SUCCESS ||
+            vkCreateSemaphore(device, &semaphoreInfo, nullptr, &m_renderCompleteSemaphores[i]) !=
+            VK_SUCCESS) {
+            aout << "Error: Failed to create semaphores" << std::endl;
             return false;
         }
     }
@@ -233,20 +163,19 @@ bool Renderer::initializeSemaphores() {
 
 bool Renderer::initializeFences() {
     VkDevice device = RENDER_DEVICE->getDevice();
-    
-    m_fences.resize(SWAPCHAIN->getImageCount());
-    
-    for (auto& fence : m_fences) {
-        VkFenceCreateInfo fenceCreateInfo{};
-        fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-        fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-        
-        if (vkCreateFence(device, &fenceCreateInfo, nullptr, &fence) != VK_SUCCESS) {
-            aout << "Error: Failed to create fence" << std::endl;
+    VkFenceCreateInfo fenceInfo = {};
+    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+    m_fences.resize(MAX_FRAMES_IN_FLIGHT);
+
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        if (vkCreateFence(device, &fenceInfo, nullptr, &m_fences[i]) != VK_SUCCESS) {
+            aout << "Error: Failed to create fences" << std::endl;
             return false;
         }
     }
-    
+
     return true;
 }
 
@@ -373,115 +302,30 @@ void Renderer::destroy() {
 
     vkDeviceWaitIdle(device);
 
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        vkDestroySemaphore(device, m_presentCompleteSemaphores[i], nullptr);
+        vkDestroySemaphore(device, m_renderCompleteSemaphores[i], nullptr);
+        vkDestroyFence(device, m_fences[i], nullptr);
+    }
+
     for (auto framebuffer : m_framebuffers) {
         vkDestroyFramebuffer(device, framebuffer, nullptr);
     }
-    m_framebuffers.clear();
-
-    if (!m_commandBuffers.empty()) {
-        vkFreeCommandBuffers(device, RENDER_DEVICE->getPrimaryCommandPool(),
-                             static_cast<uint32_t>(m_commandBuffers.size()), m_commandBuffers.data());
-        m_commandBuffers.clear();
-    }
-
-    m_deferredPipeline.destroy();
 
     vkDestroyRenderPass(device, m_renderPass, nullptr);
 
-    for (auto semaphore : m_presentCompleteSemaphores) {
-        vkDestroySemaphore(device, semaphore, nullptr);
+    auto vkDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT) vkGetInstanceProcAddr(
+            m_instance, "vkDestroyDebugReportCallbackEXT");
+    if (vkDestroyDebugReportCallbackEXT != nullptr) {
+        vkDestroyDebugReportCallbackEXT(m_instance, m_debugReportCallback, nullptr);
     }
-    m_presentCompleteSemaphores.clear();
-
-    for (auto semaphore : m_renderCompleteSemaphores) {
-        vkDestroySemaphore(device, semaphore, nullptr);
-    }
-    m_renderCompleteSemaphores.clear();
-
-    for (auto fence : m_fences) {
-        vkDestroyFence(device, fence, nullptr);
-    }
-    m_fences.clear();
-
-    SWAPCHAIN->destroy();
 
     vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
-    m_surface = VK_NULL_HANDLE;
-
-    RENDER_DEVICE->destroy();
-
-    if (m_debugReportCallback) {
-        RenderDevice::fvkDestroyDebugReportCallbackEXT(m_instance, m_debugReportCallback, nullptr);
-    }
-
     vkDestroyInstance(m_instance, nullptr);
-    m_instance = VK_NULL_HANDLE;
-    m_graphicsInitialized = false;
 }
 
 void Renderer::recreateSwapChain() {
-    VkDevice device = RENDER_DEVICE->getDevice();
-    vkDeviceWaitIdle(device);
 
-    // Destroy old fences
-    for (auto fence : m_fences) {
-        vkDestroyFence(device, fence, nullptr);
-    }
-    m_fences.clear();
-
-    // Destroy old semaphores
-    for (auto semaphore : m_presentCompleteSemaphores) {
-        vkDestroySemaphore(device, semaphore, nullptr);
-    }
-    m_presentCompleteSemaphores.clear();
-
-    for (auto semaphore : m_renderCompleteSemaphores) {
-        vkDestroySemaphore(device, semaphore, nullptr);
-    }
-    m_renderCompleteSemaphores.clear();
-
-    // Swapchain resize handles internal recreation
-    SWAPCHAIN->resize(m_width, m_height);
-
-    uint32_t imageCount = SWAPCHAIN->getImageCount();
-
-    // Recreate semaphores for the new swapchain image count
-    m_presentCompleteSemaphores.resize(imageCount);
-    m_renderCompleteSemaphores.resize(imageCount);
-
-    VkSemaphoreCreateInfo semaphoreInfo{};
-    semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-    for (uint32_t i = 0; i < imageCount; i++) {
-        if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &m_presentCompleteSemaphores[i]) != VK_SUCCESS) {
-            aout << "Error: Failed to create present complete semaphore during swapchain recreation" << std::endl;
-        }
-
-        if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &m_renderCompleteSemaphores[i]) != VK_SUCCESS) {
-            aout << "Error: Failed to create render complete semaphore during swapchain recreation" << std::endl;
-        }
-    }
-
-    // Recreate fences for the new swapchain image count
-    m_fences.resize(imageCount);
-    for (auto& fence : m_fences) {
-        VkFenceCreateInfo fenceCreateInfo{};
-        fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-        fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-        
-        if (vkCreateFence(device, &fenceCreateInfo, nullptr, &fence) != VK_SUCCESS) {
-            aout << "Error: Failed to create fence during swapchain recreation" << std::endl;
-        }
-    }
-
-    // Re-initialize resources that depend on the swapchain
-    if (!initializeFramebuffers()) {
-        aout << "Error: Failed to re-initialize framebuffers during swapchain recreation" << std::endl;
-    }
-
-    if (!prepareCommandBuffers()) {
-        aout << "Error: Failed to re-prepare command buffers during swapchain recreation" << std::endl;
-    }
 }
 
 void Renderer::render() {
@@ -534,6 +378,11 @@ void Renderer::render() {
     }
 
     prepareFrame(imageIndex, commandBuffer);
+
+    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+        aout << "Error: Failed to end command buffer" << std::endl;
+        return;
+    }
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -611,46 +460,14 @@ bool Renderer::prepareCommandBuffers() {
 
 /*  */
 void Renderer::prepareFrame(int index, VkCommandBuffer commandBuffer) {
-    VkClearValue clearValues[2];
-    clearValues[0].color.float32[0] = 0.15f;
-    clearValues[0].color.float32[1] = 0.32f;
-    clearValues[0].color.float32[2] = 0.65f;
-    clearValues[0].color.float32[3] = 1.0f;
-    clearValues[1].depthStencil = {1.0f, 0};
+    auto deferred = ENGINE->getPipeline<Deferred>("deferred");
+    auto postProcess = ENGINE->getPipeline<PostProcess>("post-process");
 
-    VkRenderPassBeginInfo renderPassInfo{};
-    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = m_renderPass;
-    renderPassInfo.framebuffer = m_framebuffers[index];
-    renderPassInfo.renderArea.offset = {0, 0};
-    renderPassInfo.renderArea.extent = SWAPCHAIN->getExtent();
-    renderPassInfo.clearValueCount = 2;
-    renderPassInfo.pClearValues = clearValues;
+    if (deferred) {
+        deferred->record(commandBuffer);
+    }
 
-    vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-    VkViewport viewport{};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = (float) SWAPCHAIN->getExtent().width;
-    viewport.height = (float) SWAPCHAIN->getExtent().height;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-    VkRect2D scissor{};
-    scissor.offset = {0, 0};
-    scissor.extent = SWAPCHAIN->getExtent();
-    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-    m_deferredPipeline.bindPipeline(commandBuffer);
-
-    vkCmdDraw(commandBuffer, 3, 1, 0, 0);
-
-    vkCmdEndRenderPass(commandBuffer);
-
-    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
-        aout << "Error: Failed to end command buffer" << std::endl;
-        return;
+    if (postProcess) {
+        postProcess->record(commandBuffer, m_framebuffers[index]);
     }
 }

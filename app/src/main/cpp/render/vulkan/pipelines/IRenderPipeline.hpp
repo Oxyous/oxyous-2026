@@ -30,6 +30,15 @@ public:
 
     /* */
     virtual void resize(int width, int height) = 0;
+
+    /* Record Command  */
+    virtual void record(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer = VK_NULL_HANDLE) = 0;
+
+    /* Set render pass */
+    virtual void setRenderPass(VkRenderPass renderPass) { m_renderPass = renderPass; }
+
+    /* */
+    virtual void bindPipeline(VkCommandBuffer const& commandBuffer) = 0;
 protected:
     VkCommandBuffer m_commandBuffer{};
     VkPipeline m_pipeline{};

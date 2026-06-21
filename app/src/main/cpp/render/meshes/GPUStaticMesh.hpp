@@ -19,7 +19,7 @@ public:
     virtual bool upload(std::vector<StaticMeshVertex> &vertices, std::vector<uint32_t> &indices);
 
     /* */
-    virtual void render() override;
+    void render(VkCommandBuffer& commandBuffer) override;
 
 private:
     GPUBuffer vertexBuffer;
