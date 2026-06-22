@@ -32,7 +32,7 @@ public:
     virtual void destroy() = 0;
 
     /* Render the component */
-    virtual void render(VkCommandBuffer &commandBuffer) = 0;
+    virtual void render(VkCommandBuffer &commandBuffer, uint64_t currentFrame) = 0;
 
     /* Set the owner of the component */
     [[nodiscard]] virtual OGEntity* getOwner() const {
@@ -139,6 +139,13 @@ public:
         child->setParent(this);
         m_children.push_back(child);
         return child;
+    }
+
+    /* Update */
+    virtual void update(double deltaTime) {
+        for (auto& [type, component] : m_components) {
+            component->update(deltaTime);
+        }
     }
 
     /* Get World Transform */

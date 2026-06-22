@@ -21,6 +21,8 @@ public:
 
     virtual void render();
 
+    virtual void update(double delta);
+
     virtual void setWidth(uint32_t width) { m_width = width; }
 
     virtual void setHeight(uint32_t height) { m_height = height; }
@@ -48,6 +50,7 @@ protected:
     /* Prepare Command Buffers */
     bool prepareCommandBuffers();
 
+    /* Recreate Swap Chain */
     void recreateSwapChain();
 protected:
     void prepareFrame(int index, VkCommandBuffer commandBuffer);

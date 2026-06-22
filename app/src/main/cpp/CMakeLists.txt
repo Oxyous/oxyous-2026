@@ -11,6 +11,7 @@ add_library(oxyous_2026 SHARED
         main.cpp
         engine/GameView.cpp
         engine/Engine.cpp
+        engine/GPUResources.cpp
         render/meshes/GPUStaticMesh.cpp
         render/vulkan/pipelines/PostProcess.cpp
         render/vulkan/pipelines/Deferred.cpp

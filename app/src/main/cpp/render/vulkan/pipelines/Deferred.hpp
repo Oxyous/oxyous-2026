@@ -15,10 +15,10 @@ public:
     Deferred();
 
     /* */
-    ~Deferred() override;
+    ~Deferred() = default;
 
     /* */
-    void update() override;
+    void update(double delta) override;
 
     /* */
     void execute(const VkSemaphore &waitSemaphore, const VkSemaphore &signalSemaphore,
@@ -40,7 +40,7 @@ public:
     virtual VkDescriptorImageInfo *getFrameBufferImage(const std::string &name);
 
     /* Record Command buffer */
-    void record(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer = VK_NULL_HANDLE) override;
+    void record(VkCommandBuffer commandBuffer, uint64_t currentFrame, VkFramebuffer framebuffer = VK_NULL_HANDLE) override;
 protected:
     /* Initialize Render Pass */
     virtual bool initializeRenderPass();
@@ -48,21 +48,12 @@ protected:
     /* Initialize Frame Buffers */
     virtual bool initializeFramebuffers();
 
-    /* Create Descriptor set layouts
-     * Describes how to bind data to the shader
-     * */
-    virtual bool createDescriptorSetLayout();
-
 protected:
     std::unordered_map<std::string, GPUTexture> m_frameBufferImages;
     VkShaderModule m_vertShaderModule;
     VkShaderModule m_fragShaderModule;
     uint32_t m_width;
     uint32_t m_height;
-    VkDescriptorSetLayout m_perObjectDSL;
-    VkDescriptorSetLayout m_perFrameDSL;
-    UniformBuffer m_perFrameUBO;
-    PerFrameUBO m_perFrameUBOData;
     VkFramebuffer m_frameBuffer;
     VkSampler m_sampler;
     VkCommandBuffer m_commandBuffer {VK_NULL_HANDLE};

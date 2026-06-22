@@ -93,7 +93,10 @@ class DescriptorAllocator {
 public:
     DescriptorAllocator() = default;
 
-    void initialize(VkDevice device, VkDescriptorPool descriptorPool) {
+    bool initialize(VkDevice device, VkDescriptorPool descriptorPool) {
+        if (descriptorPool == VK_NULL_HANDLE) {
+            return false;
+        }
         m_device = device;
         m_descriptorPool = descriptorPool;
     }
@@ -135,9 +138,9 @@ class DescriptorCache {
 public:
     DescriptorCache() = default;
 
-    void initialize(VkDevice device, VkDescriptorPool descriptorPool) {
+    bool initialize(VkDevice device, VkDescriptorPool descriptorPool) {
         m_device = device;
-        m_descriptorAllocator.initialize(device, descriptorPool);
+        return m_descriptorAllocator.initialize(device, descriptorPool);
     }
 
     VkDescriptorSet fetch(DescriptorKey key, uint64_t currentFrame) {

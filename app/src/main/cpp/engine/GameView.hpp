@@ -17,7 +17,7 @@ public:
     virtual void render() = 0;
 
     /* Update Scene Graph */
-    virtual void update(float deltaTime) = 0;
+    virtual void update(double deltaTime) = 0;
 
     /* Initialize Scene Graph */
     virtual bool initialize() = 0;
@@ -35,7 +35,7 @@ public:
     void render() override;
 
     /* Update Scene Graph */
-    void update(float deltaTime) override;
+    void update(double deltaTime) override;
 
     /* Initialize Scene Graph */
     bool initialize() override;

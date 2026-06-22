@@ -18,7 +18,7 @@ void PostProcess::resize(int width, int height) {
     m_height = height;
 }
 
-void PostProcess::update() {
+void PostProcess::update(double delta) {
 
 }
 
@@ -481,7 +481,7 @@ void PostProcess::updateDescriptors() {
     vkUpdateDescriptorSets(device, 5, descriptorWrites, 0, nullptr);
 }
 
-void PostProcess::record(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer) {
+void PostProcess::record(VkCommandBuffer commandBuffer, uint64_t currentFrame, VkFramebuffer framebuffer) {
     if (framebuffer == VK_NULL_HANDLE) {
         aout << "PostProcess::record called with null framebuffer!" << std::endl;
         return;
@@ -523,7 +523,7 @@ void PostProcess::record(VkCommandBuffer commandBuffer, VkFramebuffer framebuffe
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1,
                             &m_descriptorSet, 0, nullptr);
 
-    vkCmdDraw(commandBuffer, 4, 1, 0, 0);
+    vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 
     vkCmdEndRenderPass(commandBuffer);
 }

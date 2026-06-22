@@ -11,6 +11,7 @@
 #include "../entity/OGEntity.hpp"
 #include "../../render/meshes/GPUStaticMesh.hpp"
 #include "../../resources/GPUTextureResource.hpp"
+#include "../../render/vulkan/uniform/UniformBuffer.hpp"
 
 class OGStaticMeshComponent : public OGComponent {
 public:
@@ -28,7 +29,7 @@ public:
     void destroy() override;
 
     /* render static mesh component*/
-    void render(VkCommandBuffer &commandBuffer) override;
+    void render(VkCommandBuffer &commandBuffer, uint64_t currentFrame) override;
 public:
     /* set mesh resource */
     void setMeshResource(std::shared_ptr<GPUStaticMeshResource> mesh);
@@ -36,9 +37,14 @@ public:
     /* set texture resource */
     void setTextureResource(TEXTURE_SLOT slot, std::shared_ptr<GPUTextureResource> texture);
 
+
+
 protected:
     std::shared_ptr<GPUStaticMeshResource> m_mesh;
     std::unordered_map<TEXTURE_SLOT, std::shared_ptr<GPUTextureResource>> m_textures;
+
+    uint32_t m_objectIndex = 0xFFFFFFFF;
+    uint32_t m_materialIndex = 0xFFFFFFFF;
 };
 
 
