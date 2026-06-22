@@ -135,16 +135,26 @@ public:
     T* addChild(TArgs&&... args) {
         static_assert(std::is_base_of<OGEntity, T>::value, "T must derive from OGEntity");
 
-        T* child = new T(std::forward<TArgs>(args)...);
+        T* child = new T(static_cast<OGEntity>(std::forward<TArgs>(args))...);
+
         child->setParent(this);
         m_children.push_back(child);
         return child;
+    }
+
+    /* Get children */
+    virtual std::vector<OGEntity*> getChildren() {
+        return m_children;
     }
 
     /* Update */
     virtual void update(double deltaTime) {
         for (auto& [type, component] : m_components) {
             component->update(deltaTime);
+        }
+
+        for (auto& child : m_children) {
+            child->update(deltaTime);
         }
     }
 

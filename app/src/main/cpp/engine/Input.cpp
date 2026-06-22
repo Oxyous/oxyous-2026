@@ -32,7 +32,7 @@ void Input::handleInput() {
 
         glm::vec3  worldPos = glm::unProject(screenPos, view, projection, glm::vec4(0.0f, 0.0f, SWAPCHAIN->getExtent().width, SWAPCHAIN->getExtent().height));
 
-        auto renderEntities = GAME_VIEW->getEntities()[1];
+        auto renderEntities = GAME_VIEW->getEntities()[0];
         renderEntities->setTranslation(worldPos);
 
         switch (action & AMOTION_EVENT_ACTION_MASK) {

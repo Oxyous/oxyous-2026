@@ -65,9 +65,13 @@ bool GameView::initialize() {
     meshComponent->setMeshResource(mesh);
     meshComponent->setTextureResource(TEXTURE_SLOT_0, texture);
 
-    auto& actor2 = m_entities.emplace_back(new OGEntity("actor2"));
+
+    auto actor2 = actor->addChild<OGEntity>("actor2");
+    //auto& actor2 = m_entities.emplace_back(new OGEntity("actor2"));
     auto meshComponent2 = actor2->addComponent<OGStaticMeshComponent>();
     meshComponent2->setMeshResource(mesh2);
+    meshComponent->setTextureResource(TEXTURE_SLOT_0, texture);
+    actor2->setTranslation(glm::vec3(0.0f, 2.0f, 0.0f));
 
     return true;
 }

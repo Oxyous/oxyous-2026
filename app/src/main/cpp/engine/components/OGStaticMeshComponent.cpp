@@ -46,6 +46,5 @@ void OGStaticMeshComponent::render(VkCommandBuffer &commandBuffer, uint64_t curr
     pc.objectIndex = m_objectIndex;
     vkCmdPushConstants(commandBuffer, GPU_RESOURCES->getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(BindlessPushConstants), &pc);
 
-
     m_mesh->get()->render(commandBuffer);
 }

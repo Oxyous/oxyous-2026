@@ -527,6 +527,16 @@ Deferred::record(VkCommandBuffer commandBuffer, uint64_t currentFrame, VkFramebu
     /* Render Objects */
     std::vector<std::shared_ptr<OGEntity>> &staticMeshes = GAME_VIEW->getEntities();
     for (auto &mesh: staticMeshes) {
+
+        for(auto child : mesh->getChildren()){
+            if (child->getComponent<OGStaticMeshComponent>()) {
+                auto *component = child->getComponent<OGStaticMeshComponent>();
+                if (component) {
+                    component->render(commandBuffer, currentFrame);
+                }
+            }
+        }
+
         if (mesh->getComponent<OGStaticMeshComponent>()) {
             auto *component = mesh->getComponent<OGStaticMeshComponent>();
             if (component) {
