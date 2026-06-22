@@ -41,12 +41,11 @@ void OGStaticMeshComponent::destroy() {
 void OGStaticMeshComponent::render(VkCommandBuffer &commandBuffer, uint64_t currentFrame) {
     if (!m_mesh || !m_mesh->get()) return;
 
-    auto deferred = ENGINE->getPipeline<Deferred>("deferred");
-    if (deferred) {
-        BindlessPushConstants pc = {};
-        pc.objectIndex = m_objectIndex;
-        vkCmdPushConstants(commandBuffer, GPU_RESOURCES->getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(BindlessPushConstants), &pc);
-    }
+    BindlessPushConstants pc = {};
+    pc.materialIndex = 0;
+    pc.objectIndex = m_objectIndex;
+    vkCmdPushConstants(commandBuffer, GPU_RESOURCES->getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(BindlessPushConstants), &pc);
+
 
     m_mesh->get()->render(commandBuffer);
 }

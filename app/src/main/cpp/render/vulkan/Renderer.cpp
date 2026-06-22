@@ -480,3 +480,8 @@ void Renderer::prepareFrame(int index, VkCommandBuffer commandBuffer) {
         postProcess->record(commandBuffer, m_currentFrame, m_framebuffers[index]);
     }
 }
+
+void Renderer::update(double delta) {
+    if (!m_graphicsInitialized) return;
+    GAME_VIEW->update(delta);
+}

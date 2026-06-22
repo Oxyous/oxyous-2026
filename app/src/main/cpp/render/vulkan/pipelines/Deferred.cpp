@@ -471,7 +471,9 @@ Deferred::record(VkCommandBuffer commandBuffer, uint64_t currentFrame, VkFramebu
     /* Upload Frame Data*/
     FrameData &frame = GPU_RESOURCES->getFrameData(currentFrame);
 
-    frame.perFrame.projection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
+    const float aspect = static_cast<float>(m_height) / static_cast<float>(m_width);
+
+    frame.perFrame.projection = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 100.0f);
     frame.perFrame.view = glm::lookAt(glm::vec3(8.0f, 8.0f, 8.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
     GPU_RESOURCES->uploadFrameData(frame);

@@ -201,6 +201,8 @@ bool RenderDevice::initialize(VkInstance &instance, VkSurfaceKHR &surface) {
     if (m_gpuFeatures.geometryShader) {
         deviceFeatures.geometryShader = VK_TRUE;
     }
+    deviceFeatures.shaderSampledImageArrayDynamicIndexing = VK_TRUE;
+    deviceFeatures.shaderStorageBufferArrayDynamicIndexing = VK_TRUE;
     deviceCreateInfo.pEnabledFeatures = &deviceFeatures;
 
     VkResult result = vkCreateDevice(m_physicalDevice, &deviceCreateInfo, nullptr, &m_device);

@@ -130,6 +130,7 @@ bool GPUResources::createBindlessDescriptors() {
     layoutInfo.bindingCount = 4;
     layoutInfo.pBindings = bindings.data();
     layoutInfo.pNext = &flagsInfo;
+    layoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
 
     /* Create Descriptor Set Layout */
     if (vkCreateDescriptorSetLayout(RENDER_DEVICE->getDevice(), &layoutInfo, nullptr,

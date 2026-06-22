@@ -141,6 +141,13 @@ public:
         return child;
     }
 
+    /* Update */
+    virtual void update(double deltaTime) {
+        for (auto& [type, component] : m_components) {
+            component->update(deltaTime);
+        }
+    }
+
     /* Get World Transform */
     virtual glm::mat4 getWorldTransform() {
         if (m_parent) {

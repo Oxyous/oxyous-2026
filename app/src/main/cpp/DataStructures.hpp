@@ -141,6 +141,9 @@ typedef struct GPUMaterialHandle {
 typedef struct GPUMeshHandle {
     glm::mat4 model;
     uint32_t materialIndex;
+    uint32_t pad0;
+    uint32_t pad1;
+    uint32_t pad2;
 }GPUMeshHandle;
 
 /* Bindless Frame Data */

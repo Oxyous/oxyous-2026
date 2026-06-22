@@ -271,7 +271,7 @@ public:
 
         uint32_t memoryTypeIndex = 0;
         if (!findMemoryType(RENDER_DEVICE->getPhysicalDevice(), memRequirements.memoryTypeBits,
-                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, memoryTypeIndex)) {
+                            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, memoryTypeIndex)) {
             aout << "Failed to find suitable memory type!" << std::endl;
             return false;
         }
@@ -334,7 +334,7 @@ public:
 
         uint32_t memoryTypeIndex = 0;
         if (!findMemoryType(RENDER_DEVICE->getPhysicalDevice(), memRequirements.memoryTypeBits,
-                       properties, memoryTypeIndex)) {
+                            properties, memoryTypeIndex)) {
             aout << "Failed to find suitable memory type!" << std::endl;
             return false;
         }
@@ -521,7 +521,7 @@ public:
         allocInfo.allocationSize = memRequirements.size;
 
         if (!findMemoryType(RENDER_DEVICE->getPhysicalDevice(), memRequirements.memoryTypeBits,
-                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocInfo.memoryTypeIndex)) {
+                            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocInfo.memoryTypeIndex)) {
             aout << "Failed to find suitable memory type!" << std::endl;
             return false;
         }
@@ -553,7 +553,8 @@ public:
         VkImageSubresourceRange subresourceRange = {};
         subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         subresourceRange.baseMipLevel = 0;
-        subresourceRange.levelCount = mipLevels;
+        subresourceRange.levelCount = 1; // Start with just level 0
+        subresourceRange.layerCount = 1;
 
         setImageLayout(copyCommandBuffer, texture->image.image, VK_IMAGE_ASPECT_COLOR_BIT,
                        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -569,16 +570,11 @@ public:
         bufferCopyRegion.imageSubresource.baseArrayLayer = 0;
         bufferCopyRegion.imageSubresource.layerCount = 1;
         bufferCopyRegion.imageOffset = {0, 0, 0};
-        bufferCopyRegion.imageExtent = {texture->width, texture->height, 1};
+        bufferCopyRegion.imageExtent = {static_cast<uint32_t>(texture->width),
+                                        static_cast<uint32_t>(texture->height), 1};
 
         vkCmdCopyBufferToImage(copyCommandBuffer, stagingBuffer.buffer, texture->image.image,
                                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &bufferCopyRegion);
-
-        setImageLayout(copyCommandBuffer, texture->image.image, VK_IMAGE_ASPECT_COLOR_BIT,
-                       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                       subresourceRange, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                       VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
         /* End Recording */
         if (vkEndCommandBuffer(copyCommandBuffer) != VK_SUCCESS) {
@@ -607,66 +603,75 @@ public:
         /* Generate Mipmap chain */
         VkCommandBuffer blitCommandBuffer;
         allocateCommandBuffer(RENDER_DEVICE->getPrimaryCommandPool(), blitCommandBuffer);
-        if (!beginCommandBuffer(blitCommandBuffer, nullptr)) {
+        VkCommandBufferBeginInfo blitBeginInfo = {};
+        blitBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        blitBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+        if (vkBeginCommandBuffer(blitCommandBuffer, &blitBeginInfo) != VK_SUCCESS) {
             aout << "Failed to begin recording command buffer!" << std::endl;
             return false;
         }
 
+        int32_t mipWidth = width;
+        int32_t mipHeight = height;
+
         for (uint32_t i = 1; i < mipLevels; i++) {
-            VkImageBlit imageBlit = {};
+            VkImageSubresourceRange rangeSrc = {VK_IMAGE_ASPECT_COLOR_BIT, i - 1, 1, 0, 1};
+            VkImageSubresourceRange rangeDst = {VK_IMAGE_ASPECT_COLOR_BIT, i, 1, 0, 1};
 
-            /* source */
-            imageBlit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            imageBlit.srcSubresource.mipLevel = i - 1;
-            imageBlit.srcSubresource.baseArrayLayer = 0;
-            imageBlit.srcSubresource.layerCount = 1;
-            imageBlit.srcOffsets[1].x = std::max(1u, texture->width >> i);
-            imageBlit.srcOffsets[1].y = std::max(1u, texture->height >> i);
-            imageBlit.srcOffsets[1].z = 1;
-
-            /* Destination */
-            imageBlit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            imageBlit.dstSubresource.mipLevel = i;
-            imageBlit.dstSubresource.baseArrayLayer = 0;
-            imageBlit.dstSubresource.layerCount = 1;
-            imageBlit.dstOffsets[1].x = std::max(1u, texture->width >> (i - 1));
-            imageBlit.dstOffsets[1].y = std::max(1u, texture->height >> (i - 1));
-            imageBlit.dstOffsets[1].z = 1;
-
-            VkImageSubresourceRange subresourceRangeMipmap = {};
-            subresourceRangeMipmap.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            subresourceRangeMipmap.baseMipLevel = i;
-            subresourceRangeMipmap.levelCount = 1;
-            subresourceRangeMipmap.layerCount = 1;
-
-            setImageLayout(blitCommandBuffer, texture->image.image, VK_IMAGE_ASPECT_COLOR_BIT,
-                           VK_IMAGE_LAYOUT_UNDEFINED,
-                           VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, subresourceRangeMipmap,
-                           VK_PIPELINE_STAGE_TRANSFER_BIT);
-
-            vkCmdBlitImage(blitCommandBuffer, texture->image.image,
-                           VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, texture->image.image,
-                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageBlit, VK_FILTER_LINEAR);
-
+            // Transition i-1 to TRANSFER_SRC
             setImageLayout(blitCommandBuffer, texture->image.image, VK_IMAGE_ASPECT_COLOR_BIT,
                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                           subresourceRangeMipmap, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                           VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+                           VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, rangeSrc,
+                           VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+            // Transition i to TRANSFER_DST
+            setImageLayout(blitCommandBuffer, texture->image.image, VK_IMAGE_ASPECT_COLOR_BIT,
+                           VK_IMAGE_LAYOUT_UNDEFINED,
+                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, rangeDst,
+                           VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+            VkImageBlit blit{};
+            blit.srcOffsets[0] = {0, 0, 0};
+            blit.srcOffsets[1] = {mipWidth, mipHeight, 1};
+            blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            blit.srcSubresource.mipLevel = i - 1;
+            blit.srcSubresource.baseArrayLayer = 0;
+            blit.srcSubresource.layerCount = 1;
+            blit.dstOffsets[0] = {0, 0, 0};
+            blit.dstOffsets[1] = {mipWidth > 1 ? mipWidth / 2 : 1,
+                                  mipHeight > 1 ? mipHeight / 2 : 1, 1};
+            blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            blit.dstSubresource.mipLevel = i;
+            blit.dstSubresource.baseArrayLayer = 0;
+            blit.dstSubresource.layerCount = 1;
+
+            vkCmdBlitImage(blitCommandBuffer, texture->image.image,
+                           VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                           texture->image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit,
+                           VK_FILTER_LINEAR);
+
+            // Transition i-1 to SHADER_READ_ONLY
+            setImageLayout(blitCommandBuffer, texture->image.image, VK_IMAGE_ASPECT_COLOR_BIT,
+                           VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, rangeSrc,
+                           VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+
+            if (mipWidth > 1) mipWidth /= 2;
+            if (mipHeight > 1) mipHeight /= 2;
         }
 
-        subresourceRange.levelCount = mipLevels;
-
-        setImageLayout(blitCommandBuffer, texture->image.image, 0,
-                       VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                       subresourceRange, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                       VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+        // Transition last mip level to SHADER_READ_ONLY
+        VkImageSubresourceRange lastRange = {VK_IMAGE_ASPECT_COLOR_BIT, mipLevels - 1, 1, 0, 1};
+        setImageLayout(blitCommandBuffer, texture->image.image, VK_IMAGE_ASPECT_COLOR_BIT,
+                       (mipLevels == 1) ? VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+                                        : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, lastRange,
+                       VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
         vkEndCommandBuffer(blitCommandBuffer);
 
-        /* Submit copy command buffer */
-
+        /* Submit blit command buffer */
         submitInfo = {};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         submitInfo.commandBufferCount = 1;
@@ -696,7 +701,8 @@ public:
 
         viewInfo.image = texture->image.image;
 
-        if (vkCreateImageView(device, &viewInfo, nullptr, &texture->image.imageView) != VK_SUCCESS) {
+        if (vkCreateImageView(device, &viewInfo, nullptr, &texture->image.imageView) !=
+            VK_SUCCESS) {
             aout << "Failed to create image view!" << std::endl;
             return false;
         }
@@ -713,14 +719,14 @@ public:
         samplerInfo.mipLodBias = 0.0f;
         samplerInfo.maxAnisotropy = 1.0f;
         samplerInfo.minLod = 0.0f;
-        samplerInfo.maxLod = static_cast<float>(mipLevels);
+        samplerInfo.maxLod = static_cast<float>(mipLevels - 1);
         samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
         samplerInfo.unnormalizedCoordinates = VK_FALSE;
 
         if (vkCreateSampler(device, &samplerInfo, nullptr, &texture->sampler) != VK_SUCCESS) {
             aout << "Failed to create sampler!" << std::endl;
             return false;
-            }
+        }
 
         texture->descriptor.sampler = texture->sampler;
         texture->descriptor.imageView = texture->image.imageView;
@@ -730,8 +736,10 @@ public:
     }
 
     /* Create FrameBuffer Image*/
-    inline static bool createFrameBufferImage(VkFormat format, int usage, uint32_t width, uint32_t height, GPUTexture *frameBuffer) {
-        const auto& device = RENDER_DEVICE->getDevice();
+    inline static bool
+    createFrameBufferImage(VkFormat format, int usage, uint32_t width, uint32_t height,
+                           GPUTexture *frameBuffer) {
+        const auto &device = RENDER_DEVICE->getDevice();
 
         VkImageAspectFlags aspectFlagBits = 0;
         VkImageLayout imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -780,7 +788,7 @@ public:
         allocInfo.allocationSize = memRequirements.size;
 
         if (!findMemoryType(RENDER_DEVICE->getPhysicalDevice(), memRequirements.memoryTypeBits,
-                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocInfo.memoryTypeIndex)) {
+                            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocInfo.memoryTypeIndex)) {
             aout << "Failed to find suitable memory type!" << std::endl;
             return false;
         }
@@ -793,7 +801,8 @@ public:
         }
 
         /* Bind Image Memory */
-        if (vkBindImageMemory(device, frameBuffer->image.image, frameBuffer->image.memory, 0) != VK_SUCCESS) {
+        if (vkBindImageMemory(device, frameBuffer->image.image, frameBuffer->image.memory, 0) !=
+            VK_SUCCESS) {
             aout << "Failed to bind image memory!" << std::endl;
             return false;
         }
@@ -808,7 +817,8 @@ public:
         viewInfo.subresourceRange.levelCount = 1;
         viewInfo.subresourceRange.layerCount = 1;
 
-        if (vkCreateImageView(device, &viewInfo, nullptr, &frameBuffer->image.imageView) != VK_SUCCESS) {
+        if (vkCreateImageView(device, &viewInfo, nullptr, &frameBuffer->image.imageView) !=
+            VK_SUCCESS) {
             aout << "Failed to create image view!" << std::endl;
             return false;
         }

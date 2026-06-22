@@ -143,6 +143,7 @@ void android_main(struct android_app *pApp) {
             if (gameEngine->renderer) {
                 // Render a frame
                 gameEngine->renderer->render();
+                gameEngine->renderer->update(0.0f);
             }
         }
     } while (!pApp->destroyRequested);
