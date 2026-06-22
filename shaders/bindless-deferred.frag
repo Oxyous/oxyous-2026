@@ -74,6 +74,9 @@ void main()
     vec4 emissive= texture(textures[nonuniformEXT(emiIdx)], vs_out.uvCoord);
     vec4 normalTex = texture(textures[nonuniformEXT(nrmIdx)], vs_out.uvCoord);
 
+    if(albedo.a < 0.01)
+        discard;
+
     // ========= BUILD TBN =========
     vec3 T = normalize(vs_out.tangent);
     vec3 B = normalize(vs_out.bitangent);

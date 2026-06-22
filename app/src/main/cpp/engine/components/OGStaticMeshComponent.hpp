@@ -30,6 +30,7 @@ public:
 
     /* render static mesh component*/
     void render(VkCommandBuffer &commandBuffer, uint64_t currentFrame) override;
+
 public:
     /* set mesh resource */
     void setMeshResource(std::shared_ptr<GPUStaticMeshResource> mesh);
@@ -37,7 +38,8 @@ public:
     /* set texture resource */
     void setTextureResource(TEXTURE_SLOT slot, std::shared_ptr<GPUTextureResource> texture);
 
-
+    /**/
+    void setMaterialIndex(uint32_t index);
 
 protected:
     std::shared_ptr<GPUStaticMeshResource> m_mesh;

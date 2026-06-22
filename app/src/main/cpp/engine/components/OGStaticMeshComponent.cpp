@@ -30,6 +30,7 @@ void OGStaticMeshComponent::update(double deltaTime) {
 
         GPUMeshHandle data = {};
         data.model = worldTransform;
+        data.materialIndex = m_materialIndex;
         GPU_RESOURCES->updateObject(m_objectIndex, data);
     }
 }
@@ -47,4 +48,8 @@ void OGStaticMeshComponent::render(VkCommandBuffer &commandBuffer, uint64_t curr
     vkCmdPushConstants(commandBuffer, GPU_RESOURCES->getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(BindlessPushConstants), &pc);
 
     m_mesh->get()->render(commandBuffer);
+}
+
+void OGStaticMeshComponent::setMaterialIndex(uint32_t index) {
+    m_materialIndex = index;
 }

@@ -7,6 +7,7 @@
 
 #include "../includes.hpp"
 #include "entity/OGEntity.hpp"
+#include "collision/Collision.hpp"
 
 class IGameView {
 public:
@@ -48,7 +49,28 @@ public:
         return m_entities;
     }
 
+    /* Temporary Collision */
+    template<typename T>
+    T* addCollider(T* collider) {
+        m_colliders.push_back((T*)std::move(collider));
+    }
+
+    /* Add Entity to Scene */
+    void addEntity(std::shared_ptr<OGEntity> entity) {
+        m_entities.push_back(std::move(entity));
+    }
+
+    /* */
+    std::vector<std::shared_ptr<IVolume>>& getColliders() {
+        return m_colliders;
+    }
+
+    std::function<void(const Ray&, RaycastHit&)> raycastCallback;
+
 private:
+    /* Temporary Collision */
+    std::vector<std::shared_ptr<IVolume>> m_colliders;
+
     std::vector<std::shared_ptr<OGEntity>> m_entities;
 };
 
