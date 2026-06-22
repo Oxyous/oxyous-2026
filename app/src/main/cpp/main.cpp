@@ -6,6 +6,7 @@
 #include "AndroidOut.h"
 #include "render/vulkan/Renderer.hpp"
 #include "resources/ResourceManager.hpp"
+#include "engine/Engine.hpp"
 
 extern "C" {
 
@@ -27,6 +28,8 @@ void handle_cmd(android_app *pApp, int32_t cmd) {
                 aout << "Window is null or gameEngine is null" << std::endl;
                 return;
             }
+
+            ENGINE->initialize(pApp);
 
             int32_t width = ANativeWindow_getWidth(pApp->window);
             int32_t height = ANativeWindow_getHeight(pApp->window);
@@ -141,6 +144,7 @@ void android_main(struct android_app *pApp) {
             auto *gameEngine = reinterpret_cast<appEngine *>(pApp->userData);
 
             if (gameEngine->renderer) {
+                ENGINE->handleInput();
                 // Render a frame
                 gameEngine->renderer->render();
                 gameEngine->renderer->update(0.0f);

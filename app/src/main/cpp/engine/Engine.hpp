@@ -5,9 +5,11 @@
 #ifndef OXYOUS_2026_ENGINE_HPP
 #define OXYOUS_2026_ENGINE_HPP
 
+#include <game-activity/native_app_glue/android_native_app_glue.h>
 #include "../includes.hpp"
 #include "../system/OGSingleton.hpp"
 #include "../render/vulkan/pipelines/IRenderPipeline.hpp"
+#include "Input.hpp"
 
 class Engine {
 public:
@@ -15,7 +17,7 @@ public:
     virtual ~Engine() = default;
 public:
     /* Initialize Game Engine */
-    virtual bool initialize();
+    virtual bool initialize(android_app* app);
 
     /* Destroy Game Engine */
     virtual void destroy();
@@ -25,6 +27,9 @@ public:
 
     /*  Render Game Engine */
     virtual void render();
+
+    /* handle input */
+    virtual void handleInput();
 
 public:
     template<typename T, typename... TArgs>
@@ -51,8 +56,15 @@ public:
         return dynamic_cast<T*>(it->second.get());
     }
 
+    /* Get Android App */
+    android_app* getApp() {
+        return m_app;
+    }
+
 protected:
     std::unordered_map<std::string, std::unique_ptr<IRenderPipeline>> m_pipelines;
+    android_app *m_app;
+    Input m_input;
 };
 
 #define ENGINE OGSingleton<Engine>::getInstance()

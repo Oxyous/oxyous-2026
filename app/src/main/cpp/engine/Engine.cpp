@@ -5,7 +5,8 @@
 #include "Engine.hpp"
 #include "../render/vulkan/DescriptorCache.hpp"
 
-bool Engine::initialize() {
+bool Engine::initialize(android_app* app) {
+    m_app = app;
 
     return true;
 }
@@ -20,4 +21,8 @@ void Engine::render() {
 
 void Engine::update(float deltaTime) {
 
+}
+
+void Engine::handleInput() {
+    m_input.handleInput();
 }

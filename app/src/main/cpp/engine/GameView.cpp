@@ -26,8 +26,8 @@ void GameView::update(double deltaTime) {
     auto rot = glm::rotate(glm::mat4(1.0f), (float)t, glm::vec3(0.0f, 1.0f, 0.0f));
     actor->setRotation(glm::vec3(0.0f, 0.0f, t));
 
-    auto& actor2 = m_entities[1];
-    actor2->setTranslation(glm::vec3(0.0f, 2.0f, 0.0f));
+    //auto& actor2 = m_entities[1];
+    //actor2->setTranslation(glm::vec3(0.0f, 2.0f, 0.0f));
 
     for (auto& entity : m_entities) {
         entity->update(deltaTime);
@@ -46,14 +46,6 @@ bool GameView::initialize() {
     postProcess->setFrameBufferImage("gNormal", *deferred->getFrameBufferImage("gNormal"));
     postProcess->setFrameBufferImage("gPBR", *deferred->getFrameBufferImage("gPBR"));
     postProcess->setFrameBufferImage("gWorldPosition", *deferred->getFrameBufferImage("gWorldPosition"));
-    postProcess->updateDescriptors();
-
-    postProcess->setFrameBufferImage("gDiffuse", *deferred->getFrameBufferImage("gDiffuse"));
-    postProcess->setFrameBufferImage("gNormal", *deferred->getFrameBufferImage("gNormal"));
-    postProcess->setFrameBufferImage("gPBR", *deferred->getFrameBufferImage("gPBR"));
-    postProcess->setFrameBufferImage("gWorldPosition", *deferred->getFrameBufferImage("gWorldPosition"));
-    postProcess->setFrameBufferImage("gDepth", *deferred->getFrameBufferImage("gDepth"));
-
     postProcess->updateDescriptors();
 
     /* Test loading assets*/
