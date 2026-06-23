@@ -7,6 +7,7 @@
 #include "render/vulkan/Renderer.hpp"
 #include "resources/ResourceManager.hpp"
 #include "engine/Engine.hpp"
+#include "system/OGTimer.hpp"
 
 extern "C" {
 
@@ -101,6 +102,8 @@ void android_main(struct android_app *pApp) {
     pApp->onAppCmd = handle_cmd;
     pApp->userData = &gameEngine;
 
+    SYS_TIMER->Start();
+
 
     RESOURCE_MANAGER->setAssetManager(pApp->activity->assetManager);
 
@@ -145,9 +148,10 @@ void android_main(struct android_app *pApp) {
 
             if (gameEngine->renderer) {
                 ENGINE->handleInput();
+                SYS_TIMER->Tick();
                 // Render a frame
                 gameEngine->renderer->render();
-                gameEngine->renderer->update(0.0f);
+                gameEngine->renderer->update(SYS_TIMER->GetDelta());
             }
         }
     } while (!pApp->destroyRequested);

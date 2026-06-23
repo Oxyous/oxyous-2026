@@ -22,13 +22,40 @@ bool PlaneVolume::intersect(const Ray &ray, RaycastHit &hit) const {
 }
 
 bool PlaneVolume::intersect(const SphereVolume &sphere) const {
-    return false;
+    float dist = glm::dot(sphere.getCenter(), m_normal) + m_distance;
+
+    return fabs(dist) <= sphere.getRadius();
 }
 
 bool PlaneVolume::intersect(const AABBVolume &aabb) const {
+    const auto center = (aabb.getMax() + aabb.getMin()) / 2.0f;
+    const auto extents = aabb.getMax() - center;
+
+    float r = extents.x * fabs(glm::dot(m_normal, glm::vec3(1.0f, 0.0f, 0.0f)));
+
+    float dist = glm::dot(center, m_normal) + m_distance;
+
+    if (fabs(dist) <= r) {
+        return true;
+    }
+
     return false;
 }
 
 bool PlaneVolume::intersect(const OBBVolume &obb) const {
+    const auto axisX = obb.getOrientation() * glm::vec3(1.0f, 0.0f, 0.0f);
+    const auto axisY = obb.getOrientation() * glm::vec3(0.0f, 1.0f, 0.0f);
+    const auto axisZ = obb.getOrientation() * glm::vec3(0.0f, 0.0f, 1.0f);
+
+    float r = obb.getExtents().x * fabs(glm::dot(m_normal, axisX)) +
+              obb.getExtents().y * fabs(glm::dot(m_normal, axisY)) +
+              obb.getExtents().z * fabs(glm::dot(m_normal, axisZ));
+
+    float dist = glm::dot(obb.getCenter(), m_normal) + m_distance;
+
+    if (fabs(dist) <= r) {
+        return true;
+    }
+
     return false;
 }

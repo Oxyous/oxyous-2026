@@ -59,6 +59,9 @@ public:
     SphereVolume(const glm::vec3& center, float radius) : m_center(center), m_radius(radius) {}
     ~SphereVolume() override = default;
 
+    [[nodiscard]] glm::vec3 getCenter() const { return m_center; }
+    [[nodiscard]] float getRadius() const { return m_radius; }
+
 public:
     /* Intersect Ray with Volume */
     bool intersect(const Ray& ray, RaycastHit& hit) const override;
@@ -79,6 +82,12 @@ public:
     AABBVolume(const glm::vec3& min, const glm::vec3& max) : m_min(min), m_max(max) {}
 
     ~AABBVolume() override = default;
+
+    /* */
+    glm::vec3 getMin() const { return m_min; }
+
+    /* */
+    glm::vec3 getMax() const { return m_max; }
 
 public:
     /* Intersect Ray with Volume */
@@ -104,6 +113,14 @@ public:
     OBBVolume(const glm::vec3& center, const glm::vec3& extents, const glm::quat& rotation) : m_center(center), m_extents(extents), m_rotation(rotation) {}
 
     ~OBBVolume() override = default;
+
+    /**/
+    glm::quat getOrientation() const { return m_rotation; }
+
+    glm::vec3 getCenter() const { return m_center; }
+
+    glm::vec3 getExtents() const { return m_extents; }
+
 public:
     /* Intersect Ray with Volume */
     bool intersect(const Ray& ray, RaycastHit& hit) const override;

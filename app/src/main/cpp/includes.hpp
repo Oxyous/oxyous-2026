@@ -11,6 +11,9 @@
 #include <cstddef>
 #include <functional>
 
+
+#include <algorithm>
+
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netdb.h>

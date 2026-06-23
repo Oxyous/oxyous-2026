@@ -45,7 +45,7 @@ public:
     void destroy() override;
 
     /* Get Entities */
-    std::vector<std::shared_ptr<OGEntity>>& getEntities() {
+    std::vector<std::unique_ptr<OGEntity>>& getEntities() {
         return m_entities;
     }
 
@@ -55,11 +55,6 @@ public:
         m_colliders.push_back((T*)std::move(collider));
     }
 
-    /* Add Entity to Scene */
-    void addEntity(std::shared_ptr<OGEntity> entity) {
-        m_entities.push_back(std::move(entity));
-    }
-
     /* */
     std::vector<std::shared_ptr<IVolume>>& getColliders() {
         return m_colliders;
@@ -67,11 +62,22 @@ public:
 
     std::function<void(const Ray&, RaycastHit&)> raycastCallback;
 
+    template<typename T, typename... TArgs>
+    T* addActor(TArgs&&... args) {
+        T* actor(new T(std::forward<TArgs>(args)...));
+
+        std::unique_ptr<OGEntity> uPtr {actor};
+
+        m_entities.push_back(std::move(uPtr));
+
+        return (T*)m_entities[m_entities.size() - 1].get();
+    }
+
 private:
     /* Temporary Collision */
     std::vector<std::shared_ptr<IVolume>> m_colliders;
 
-    std::vector<std::shared_ptr<OGEntity>> m_entities;
+    std::vector<std::unique_ptr<OGEntity>> m_entities;
 };
 
 #define GAME_VIEW OGSingleton<GameView>::getInstance()

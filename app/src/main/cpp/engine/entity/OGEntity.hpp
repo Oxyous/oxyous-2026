@@ -183,6 +183,10 @@ public:
         m_scale = glm::scale(glm::mat4(1.0f), scale);
     }
 
+    /* Get Translation  */
+    glm::vec3 getTranslation() const {
+        return glm::vec3(m_translation[3]);
+    }
 protected:
     std::unordered_map<ComponentID, std::unique_ptr<OGComponent>> m_components { MAX_COMPONENTS };
     OGEntity* m_parent;

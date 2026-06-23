@@ -13,6 +13,8 @@
 #include "../render/vulkan/pipelines/PostProcess.hpp"
 #include "components/OGStaticMeshComponent.hpp"
 #include "GPUResources.hpp"
+#include "algorithms/AStar.hpp"
+#include "actors/OGActor.hpp"
 
 void GameView::render() {
 
@@ -81,10 +83,10 @@ bool GameView::initialize() {
     //auto& actor2 = m_entities.emplace_back(new OGEntity("actor2"));
     auto meshComponent2 = actor2->addComponent<OGStaticMeshComponent>();
     meshComponent2->setMeshResource(mesh2);
-    meshComponent->setTextureResource(TEXTURE_SLOT_0, texture);
+    meshComponent2->setTextureResource(TEXTURE_SLOT_0, texture);
     actor2->setTranslation(glm::vec3(0.0f, 2.0f, 0.0f));
 
-/*
+
     auto& actor3 = m_entities.emplace_back(new OGEntity("tank"));
     auto meshComponent3 = actor3->addComponent<OGStaticMeshComponent>();
     meshComponent3->setMeshResource(tank);
@@ -95,20 +97,43 @@ bool GameView::initialize() {
     auto meshComponent4 = actor4->addComponent<OGStaticMeshComponent>();
     meshComponent4->setMeshResource(plane);
     meshComponent4->setTextureResource(TEXTURE_SLOT_0, texture);
-    meshComponent4->setMaterialIndex(1);*/
+    meshComponent4->setMaterialIndex(1);
+
+    auto playerActor = addActor<OGActor>("player-actor");
+    auto playerMesh = playerActor->addComponent<OGStaticMeshComponent>();
+    playerMesh->setMeshResource(RESOURCE_MANAGER->get<GPUStaticMeshResource>("blender.osm"));
+    playerMesh->setTextureResource(TEXTURE_SLOT_0, texture2);
+    playerMesh->setMaterialIndex(0);
+    playerActor->setTranslation(glm::vec3(0.0f, 2.0f, 0.0f));
+
 
     /* Testing Colliders */
     m_colliders.emplace_back(new PlaneVolume(glm::vec3(0.0f, 1.0f, 0.0f), 0.0f));
 
-    raycastCallback = [&](const Ray& ray, RaycastHit& hit) {
-        //aout << "Raycast Hit: " << hit.m_position.x << ", " << hit.m_position.y << ", " << hit.m_position.z << std::endl;
-        auto mesh = RESOURCE_MANAGER->get<GPUStaticMeshResource>("cube.osm");
+    Grid path2D(100, std::vector<int>(100, 0));
+
+    raycastCallback = [playerActor, path2D](const Ray& ray, RaycastHit& hit) {
+        /*auto mesh = RESOURCE_MANAGER->get<GPUStaticMeshResource>("tank.osm");
         auto& newActor = m_entities.emplace_back(new OGEntity("plane23"));
         auto meshComp = newActor->addComponent<OGStaticMeshComponent>();
         meshComp->setMeshResource(mesh);
         meshComp->setMaterialIndex(0);
-        newActor->setTranslation(hit.m_position);
+        newActor->setTranslation(hit.m_position);*/
+
+        Path path;
+        auto endPoint = AStar::worldToGrid(hit.m_position, 1.0f);
+        std::vector<glm::vec3> pathPoints;
+        if (AStar::execute(path2D, AStar::worldToGrid(playerActor->getTranslation(), 1.0f), endPoint, path)) {
+            for(auto& point : path) {
+                pathPoints.push_back(AStar::gridToWorld(point, 1.0f));
+            }
+            playerActor->setPath(pathPoints);
+        }else {
+            playerActor->setPath(std::vector<glm::vec3>());
+        }
     };
+
+
 
 
     return true;

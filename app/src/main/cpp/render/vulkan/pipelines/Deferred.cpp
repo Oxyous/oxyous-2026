@@ -525,7 +525,7 @@ Deferred::record(VkCommandBuffer commandBuffer, uint64_t currentFrame, VkFramebu
                             &GPU_RESOURCES->getBindlessSet(currentFrame), 0, nullptr);
 
     /* Render Objects */
-    std::vector<std::shared_ptr<OGEntity>> &staticMeshes = GAME_VIEW->getEntities();
+    auto& staticMeshes = GAME_VIEW->getEntities();
     for (auto &mesh: staticMeshes) {
 
         for(auto child : mesh->getChildren()){
