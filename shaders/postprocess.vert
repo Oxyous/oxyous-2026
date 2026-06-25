@@ -17,7 +17,7 @@ const vec2 uvs[3] = vec2[](
 
 void main()
 {
-    
+
     vec2 uv = uvs[gl_VertexIndex];
     uvCoord = vec2(1.0 - uv.y, uv.x);
 

@@ -58,11 +58,12 @@ public:
         std::priority_queue<ANode, std::vector<ANode>, std::greater<>> openSet;
         std::vector<std::vector<bool>> closedSet(height, std::vector<bool>(width, false));
         std::map<Point, Point> cameFrom;
-        std::vector<std::vector<double>> gScore(height, std::vector<double>(width, std::numeric_limits<double>::max()));
+        std::vector<std::vector<double>> gScore(height, std::vector<double>(width,
+                                                                            std::numeric_limits<double>::max()));
 
 
         ANode startNode = {start.first, start.second, 0,
-                         heuristic(start.first, start.second, end.first, end.second)};
+                           heuristic(start.first, start.second, end.first, end.second)};
         gScore[start.first][start.second] = 0;
         openSet.push(startNode);
 
@@ -84,7 +85,7 @@ public:
                 return true;
             }
 
-            for (auto& direction : directions) {
+            for (auto &direction: directions) {
                 int nx = x + direction.first;
                 int ny = y + direction.second;
 
@@ -92,7 +93,8 @@ public:
                     continue;
                 }
 
-                double moveCost = (direction.first == 0 || direction.second == 0) ? 1.0 : 1.41421356237; // sqrt(2.0)
+                double moveCost = (direction.first == 0 || direction.second == 0) ? 1.0
+                                                                                  : 1.41421356237; // sqrt(2.0)
                 double tentativeG = gScore[x][y] + moveCost;
                 if (tentativeG < gScore[nx][ny]) {
                     cameFrom[std::make_pair(nx, ny)] = std::make_pair(x, y);
@@ -107,15 +109,15 @@ public:
     }
 
     /* Grid to World Space */
-    inline static glm::vec3 gridToWorld(const Point& point, float scale, float height = 0.0f) {
-        return {point.first * scale, height + 2.0, point.second * scale};
+    inline static glm::vec3
+    gridToWorld(const Point &point, float scale, float height = 0.0f, float offset = 5.0f) {
+        return {(point.first * scale) - offset, height + 2.0, (point.second * scale) - offset};
     }
 
     /* World to Grid Space */
-    inline static Point worldToGrid(const glm::vec3& point, float scale) {
-        return { point.x / scale, point.z / scale};
+    inline static Point worldToGrid(const glm::vec3 &point, float scale, float offset = 5.0f) {
+        return {ceil(point.x + offset) / scale, ceil(point.z + offset) / scale};
     }
-
 
 };
 

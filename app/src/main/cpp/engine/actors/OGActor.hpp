@@ -38,14 +38,31 @@ public:
                 // Normalize the direction and move towards the target position
                 direction = glm::normalize(direction);
                 setTranslation(getTranslation() + direction * speed * static_cast<float>(deltaTime));
+
+                auto newDirection = glm::quat_cast(lookRotation(direction, glm::vec3(0.0f, 1.0f, 0.0f)));
+
+                m_rotation =glm::lerp( glm::normalize(m_rotation), newDirection, (float)deltaTime * 5.0f); // Smoothly interpolate rotation
+
             }
         }
     }
 
+    glm::mat4 lookRotation(glm::vec3 direction, glm::vec3 up) {
+        glm::vec3 zAxis = glm::normalize(direction);
+        glm::vec3 xAxis = glm::normalize(glm::cross(up, zAxis));
+        glm::vec3 yAxis = glm::cross(zAxis, xAxis);
+
+        glm::mat4 rotationMatrix(1.0f);
+        rotationMatrix[0] = glm::vec4(xAxis, 0.0f);
+        rotationMatrix[1] = glm::vec4(yAxis, 0.0f);
+        rotationMatrix[2] = glm::vec4(zAxis, 0.0f);
+
+        return rotationMatrix;
+    }
 protected:
     std::vector<glm::vec3> m_path;
 private:
-    float speed = 1.0f;
+    float speed = 3.0f;
     std::size_t m_pathIndex = 0;
 };
 

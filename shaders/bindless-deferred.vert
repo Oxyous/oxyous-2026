@@ -54,8 +54,15 @@ void main()
     vec3 worldPos = vec3(worldMatrix * vec4(position, 1.0));
 
     vec3 normalW = normalize(normalMatrix * normal);
-    vec3 tanW    = normalize(normalMatrix * tangent.xyz);
-    vec3 biTanW  = normalize(cross(normalW, tanW) * tangent.w);
+
+    // Tangent should be transformed by the model matrix top-left 3x3
+    vec3 tanW = normalize(mat3(worldMatrix) * tangent.xyz);
+
+    // Gram-Schmidt orthogonalization
+    tanW = normalize(tanW - normalW * dot(normalW, tanW));
+
+    // Correct bitangent calculation with handedness
+    vec3 biTanW = normalize(cross(normalW, tanW) * tangent.w);
 
     vs_out.uvCoord = uvCoord;
     vs_out.worldPos = worldPos;

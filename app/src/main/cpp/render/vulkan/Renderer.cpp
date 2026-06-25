@@ -476,6 +476,17 @@ void Renderer::prepareFrame(int index, VkCommandBuffer commandBuffer) {
         deferred->record(commandBuffer, m_currentFrame, m_framebuffers[index]);
     }
 
+    // Add barrier to ensure G-Buffer writes are finished before PostProcess reads
+    VkMemoryBarrier barrier = {};
+    barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    vkCmdPipelineBarrier(commandBuffer,
+                         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                         0, 1, &barrier, 0, nullptr, 0, nullptr);
+
     if (postProcess) {
         postProcess->record(commandBuffer, m_currentFrame, m_framebuffers[index]);
     }
@@ -484,4 +495,9 @@ void Renderer::prepareFrame(int index, VkCommandBuffer commandBuffer) {
 void Renderer::update(double delta) {
     if (!m_graphicsInitialized) return;
     GAME_VIEW->update(delta);
+
+    auto postProcess = ENGINE->getPipeline<PostProcess>("post-process");
+    if (postProcess) {
+        postProcess->update(delta);
+    }
 }

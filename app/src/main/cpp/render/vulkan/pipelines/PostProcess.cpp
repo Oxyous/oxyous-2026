@@ -19,7 +19,12 @@ void PostProcess::resize(int width, int height) {
 }
 
 void PostProcess::update(double delta) {
-
+    /*m_uniformBuffer.update<PostProcessUBO>({
+            .projection = glm::ortho(0.0f, (float) m_width, (float) m_height, 0.0f, -1.0f, 1.0f),
+            .view = glm::mat4(1.0f),
+            .invView = glm::mat4(1.0f),
+            .cameraPosition = glm::vec4(8.0f, 8.0f, 8.0f, 1.0f)
+    });*/
 }
 
 void PostProcess::execute(const VkSemaphore &waitSemaphore, const VkSemaphore &signalSemaphore,
@@ -181,7 +186,7 @@ bool PostProcess::initialize() {
     /* Pipeline Vertex input assembly */
     VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
     inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN;
+    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     inputAssembly.primitiveRestartEnable = VK_FALSE;
 
     /* Pipeline Viewport and scissor */
@@ -338,7 +343,7 @@ bool PostProcess::initialize() {
         .projection = glm::ortho(0.0f, (float) m_width, (float) m_height, 0.0f, -1.0f, 1.0f),
         .view = glm::mat4(1.0f),
         .invView = glm::mat4(1.0f),
-        .cameraPosition = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f)
+        .cameraPosition = glm::vec4(8.0f, 8.0f, 8.0f, 1.0f)
     })){
         aout << "Failed to create uniform buffer!" << std::endl;
         return false;

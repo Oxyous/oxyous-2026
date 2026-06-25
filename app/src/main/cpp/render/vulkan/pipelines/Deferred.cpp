@@ -40,6 +40,30 @@ bool Deferred::initialize() {
         return false;
     }
 
+    /* Create Sampler */
+    VkSamplerCreateInfo samplerInfo{};
+    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerInfo.magFilter = VK_FILTER_NEAREST;
+    samplerInfo.minFilter = VK_FILTER_NEAREST;
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.anisotropyEnable = VK_FALSE;
+    samplerInfo.maxAnisotropy = 1.0f;
+    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    samplerInfo.unnormalizedCoordinates = VK_FALSE;
+    samplerInfo.compareEnable = VK_FALSE;
+    samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerInfo.mipLodBias = 0.0f;
+    samplerInfo.minLod = 0.0f;
+    samplerInfo.maxLod = 1.0f;
+
+    if (vkCreateSampler(RENDER_DEVICE->getDevice(), &samplerInfo, nullptr, &m_sampler) != VK_SUCCESS) {
+        aout << "Failed to create sampler!" << std::endl;
+        return false;
+    }
+
     /* Step 2 - Shaders */
     std::vector<uint8_t> vertShaderCode;
     std::vector<uint8_t> fragShaderCode;
@@ -230,6 +254,11 @@ bool Deferred::initialize() {
 
 void Deferred::destroy() {
     VkDevice device = RENDER_DEVICE->getDevice();
+
+    if (m_sampler != VK_NULL_HANDLE) {
+        vkDestroySampler(device, m_sampler, nullptr);
+        m_sampler = VK_NULL_HANDLE;
+    }
 
     if (m_pipeline != VK_NULL_HANDLE) {
         vkDestroyPipeline(device, m_pipeline, nullptr);

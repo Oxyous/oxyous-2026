@@ -47,7 +47,7 @@ class OGEntity : public OGObject {
 public:
     OGEntity(const std::string& name) : OGObject("OGEntity") {
         m_parent = nullptr;
-        m_rotation = glm::mat4(1.0f);
+        m_rotation = glm::quat(1.0f,0.0f,0.0f,0.0f);
         m_scale = glm::mat4(1.0f);
         m_translation = glm::mat4(1.0f);
         m_worldTransform = glm::mat4(1.0f);
@@ -161,9 +161,9 @@ public:
     /* Get World Transform */
     virtual glm::mat4 getWorldTransform() {
         if (m_parent) {
-            return m_parent->getWorldTransform() * m_translation * m_rotation * m_scale;
+            return m_parent->getWorldTransform() * m_translation * glm::mat4_cast(m_rotation) * m_scale;
         }
-        return m_translation * m_rotation * m_scale;
+        return m_translation * glm::mat4_cast(m_rotation) * m_scale;
     }
 
     /* Set Local Translation */
@@ -176,6 +176,8 @@ public:
         m_rotation = glm::rotate(glm::mat4(1.0f), rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
         m_rotation = glm::rotate(m_rotation, rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
         m_rotation = glm::rotate(m_rotation, rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
+
+
     }
 
     /* Set Local Scale */
@@ -193,7 +195,7 @@ protected:
     std::string m_name;
 
     glm::mat4 m_translation{};
-    glm::mat4 m_rotation{};
+    glm::quat m_rotation{};
     glm::mat4 m_scale{};
 
     glm::mat4 m_worldTransform{};

@@ -72,7 +72,7 @@ void main()
     vec4 albedo  = texture(textures[nonuniformEXT(albIdx)], vs_out.uvCoord);
     vec4 orm     = texture(textures[nonuniformEXT(ormIdx)], vs_out.uvCoord);
     vec4 emissive= texture(textures[nonuniformEXT(emiIdx)], vs_out.uvCoord);
-    vec4 normalTex = texture(textures[nonuniformEXT(nrmIdx)], vs_out.uvCoord);
+    vec4 normalSample = texture(textures[nonuniformEXT(nrmIdx)], vs_out.uvCoord);
 
     if(albedo.a < 0.01)
         discard;
@@ -85,7 +85,13 @@ void main()
     mat3 TBN = mat3(T, B, N);
 
     // ========= NORMAL MAP DECODE =========
-    vec3 nrm = normalize(normalTex.xyz * 2.0 - 1.0);
+    // If the normal map is missing (nearly zero), default to the vertex normal
+    vec3 nrm;
+    if (length(normalSample.rgb) < 0.01) {
+        nrm = vec3(0.0, 0.0, 1.0);
+    } else {
+        nrm = normalize(normalSample.rgb * 2.0 - 1.0);
+    }
     vec3 worldNormal = normalize(TBN * nrm);
 
     // ========= OUTPUT =========

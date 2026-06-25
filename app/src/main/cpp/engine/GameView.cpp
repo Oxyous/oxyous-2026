@@ -22,16 +22,17 @@ void GameView::render() {
 
 void GameView::update(double deltaTime) {
 
-    auto& actor = m_entities[0];
+    auto &actor = m_entities[0];
     static float t = 0.0f;
-    t+= 0.01;
-    auto rot = glm::rotate(glm::mat4(1.0f), (float)t, glm::vec3(0.0f, 1.0f, 0.0f));
+    t += 0.01;
+    auto rot = glm::rotate(glm::mat4(1.0f), (float) t, glm::vec3(0.0f, 1.0f, 0.0f));
     actor->setRotation(glm::vec3(0.0f, 0.0f, t));
+    actor->setTranslation(glm::vec3(0.0f, 2.0f, 0.0f));
 
     //auto& actor2 = m_entities[1];
     //actor2->setTranslation(glm::vec3(0.0f, 2.0f, 0.0f));
 
-    for (auto& entity : m_entities) {
+    for (auto &entity: m_entities) {
         entity->update(deltaTime);
     }
 }
@@ -47,13 +48,15 @@ bool GameView::initialize() {
     postProcess->setFrameBufferImage("gDiffuse", *deferred->getFrameBufferImage("gDiffuse"));
     postProcess->setFrameBufferImage("gNormal", *deferred->getFrameBufferImage("gNormal"));
     postProcess->setFrameBufferImage("gPBR", *deferred->getFrameBufferImage("gPBR"));
-    postProcess->setFrameBufferImage("gWorldPosition", *deferred->getFrameBufferImage("gWorldPosition"));
+    postProcess->setFrameBufferImage("gWorldPosition",
+                                     *deferred->getFrameBufferImage("gWorldPosition"));
     postProcess->updateDescriptors();
 
     /* Test loading assets*/
     auto texture = RESOURCE_MANAGER->get<GPUTextureResource>("debug-uv.png");
     auto texture2 = RESOURCE_MANAGER->get<GPUTextureResource>("android_robot.png");
     auto texture3 = RESOURCE_MANAGER->get<GPUTextureResource>("grass-land-diffuse.jpg");
+    auto normal = RESOURCE_MANAGER->get<GPUTextureResource>("grunge1_nm.png");
 
     auto mesh = RESOURCE_MANAGER->get<GPUStaticMeshResource>("cube.osm");
     auto mesh2 = RESOURCE_MANAGER->get<GPUStaticMeshResource>("blender.osm");
@@ -61,22 +64,24 @@ bool GameView::initialize() {
     auto plane = RESOURCE_MANAGER->get<GPUStaticMeshResource>("plane.osm");
 
     GPU_RESOURCES->registerMaterial({
-        0, 0, 0, 0, 1.0f, 1.0f, 1.0f, 1.0f
-    });
+                                            0, 1, 1, 0, 1.0f, 1.0f, 1.0f, 1.0f
+                                    });
 
     GPU_RESOURCES->registerTexture(*texture->get());
+    GPU_RESOURCES->registerTexture(*normal->get());
 
     GPU_RESOURCES->registerTexture(*texture3->get());
 
     GPU_RESOURCES->registerMaterial({
-            1, 1, 1, 1, 1.0f, 1.0f, 1.0f, 1.0f
-    });
+                                            2, 1, 1, 1, 1.0f, 1.0f, 1.0f, 1.0f
+                                    });
 
 
-    auto& actor = m_entities.emplace_back(new OGEntity("actor"));
+    auto &actor = m_entities.emplace_back(new OGEntity("actor"));
     auto meshComponent = actor->addComponent<OGStaticMeshComponent>();
     meshComponent->setMeshResource(mesh);
     meshComponent->setTextureResource(TEXTURE_SLOT_0, texture);
+    meshComponent->setMaterialIndex(1);
 
 
     auto actor2 = actor->addChild<OGEntity>("actor2");
@@ -85,15 +90,16 @@ bool GameView::initialize() {
     meshComponent2->setMeshResource(mesh2);
     meshComponent2->setTextureResource(TEXTURE_SLOT_0, texture);
     actor2->setTranslation(glm::vec3(0.0f, 2.0f, 0.0f));
+    meshComponent2->setMaterialIndex(1);
 
 
-    auto& actor3 = m_entities.emplace_back(new OGEntity("tank"));
+   /* auto &actor3 = m_entities.emplace_back(new OGEntity("tank"));
     auto meshComponent3 = actor3->addComponent<OGStaticMeshComponent>();
     meshComponent3->setMeshResource(tank);
     meshComponent3->setTextureResource(TEXTURE_SLOT_0, texture);
-    actor3->setScale(glm::vec3(2.0f));
+    actor3->setScale(glm::vec3(2.0f));*/
 
-    auto& actor4 = m_entities.emplace_back(new OGEntity("plane"));
+    auto &actor4 = m_entities.emplace_back(new OGEntity("plane"));
     auto meshComponent4 = actor4->addComponent<OGStaticMeshComponent>();
     meshComponent4->setMeshResource(plane);
     meshComponent4->setTextureResource(TEXTURE_SLOT_0, texture);
@@ -101,7 +107,7 @@ bool GameView::initialize() {
 
     auto playerActor = addActor<OGActor>("player-actor");
     auto playerMesh = playerActor->addComponent<OGStaticMeshComponent>();
-    playerMesh->setMeshResource(RESOURCE_MANAGER->get<GPUStaticMeshResource>("blender.osm"));
+    playerMesh->setMeshResource(tank);
     playerMesh->setTextureResource(TEXTURE_SLOT_0, texture2);
     playerMesh->setMaterialIndex(0);
     playerActor->setTranslation(glm::vec3(0.0f, 2.0f, 0.0f));
@@ -112,28 +118,21 @@ bool GameView::initialize() {
 
     Grid path2D(100, std::vector<int>(100, 0));
 
-    raycastCallback = [playerActor, path2D](const Ray& ray, RaycastHit& hit) {
-        /*auto mesh = RESOURCE_MANAGER->get<GPUStaticMeshResource>("tank.osm");
-        auto& newActor = m_entities.emplace_back(new OGEntity("plane23"));
-        auto meshComp = newActor->addComponent<OGStaticMeshComponent>();
-        meshComp->setMeshResource(mesh);
-        meshComp->setMaterialIndex(0);
-        newActor->setTranslation(hit.m_position);*/
+    raycastCallback = [playerActor, path2D](const Ray &ray, RaycastHit &hit) {
 
         Path path;
-        auto endPoint = AStar::worldToGrid(hit.m_position, 1.0f);
+        auto endPoint = AStar::worldToGrid(hit.m_position, 1.5f);
         std::vector<glm::vec3> pathPoints;
-        if (AStar::execute(path2D, AStar::worldToGrid(playerActor->getTranslation(), 1.0f), endPoint, path)) {
-            for(auto& point : path) {
-                pathPoints.push_back(AStar::gridToWorld(point, 1.0f));
+        if (AStar::execute(path2D, AStar::worldToGrid(playerActor->getTranslation(), 1.5f),
+                           endPoint, path)) {
+            for (auto &point: path) {
+                pathPoints.push_back(AStar::gridToWorld(point, 1.5f));
             }
             playerActor->setPath(pathPoints);
-        }else {
+        } else {
             playerActor->setPath(std::vector<glm::vec3>());
         }
     };
-
-
 
 
     return true;
