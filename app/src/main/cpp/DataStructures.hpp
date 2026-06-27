@@ -15,6 +15,7 @@ constexpr uint32_t MAX_MATERIALS = 4096;
 constexpr uint32_t MAX_LIGHTS = 256;
 constexpr uint32_t MAX_TEXTURES = 4096;
 constexpr uint32_t MAX_SCREEN_TEXTURES = 256;
+constexpr float DESIGN_HEIGHT = 1080.0f;
 
 struct saveState {
 
@@ -111,6 +112,12 @@ typedef struct PerFrameUBO {
     glm::mat4 projection;
 } PerFrameUBO;
 
+/* Screen Space UBO*/
+typedef struct ScreenSpaceUBO {
+    glm::mat4 projection;
+    glm::vec2 screenSize;
+}ScreenSpaceUBO;
+
 /* Per Object UBO */
 typedef struct PerObjectUBO {
     glm::mat4 model;
@@ -157,6 +164,9 @@ typedef struct GPUMeshHandle {
 typedef struct GPUElementHandle {
     glm::mat4 transform;
     uint32_t textureId;
+    uint32_t pad0;
+    uint32_t pad1;
+    uint32_t pad2;
 }GPUElementHandle;
 
 /* Bindless Frame Data */
@@ -211,7 +221,7 @@ typedef struct ScreenElements {
     GPUBuffer meshBuffer;
     GPUBuffer perFrameBuffer;
 
-    PerFrameUBO perFrame;
+    ScreenSpaceUBO perFrame;
 } ScreenElements;
 
     /* Bindless Renderer 2D Elements*/
@@ -231,8 +241,8 @@ typedef struct BindlessRenderer2D {
 } BindlessRenderer2D;
 
 typedef struct PCScreenElements{
+    uint32_t textureIndex;
     uint32_t objectIndex;
-    uint32_t materialIndex;
 } PCScreenElements;
 
 #endif //OXYOUS_2026_DATASTRUCTURES_HPP

@@ -147,7 +147,15 @@ bool ScreenSpace::initialize() {
         colorBlendAttachments[i].colorWriteMask =
                 VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
                 VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-        colorBlendAttachments[i].blendEnable = VK_FALSE;
+
+        colorBlendAttachments[i].srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+        colorBlendAttachments[i].dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        colorBlendAttachments[i].colorBlendOp = VK_BLEND_OP_ADD;
+
+        colorBlendAttachments[i].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+        colorBlendAttachments[i].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+        colorBlendAttachments[i].alphaBlendOp = VK_BLEND_OP_ADD;
+        colorBlendAttachments[i].blendEnable = VK_TRUE;
     }
 
     colorBlending.attachmentCount = 2;
@@ -243,6 +251,21 @@ void ScreenSpace::resize(int width, int height) {
 void ScreenSpace::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
                          VkFramebuffer framebuffer) {
     auto& frame = SCREEN_RENDER->getScreenElements(currentFrame);
+
+    float width = (float) SWAPCHAIN->getExtent().width;
+    float height = (float) SWAPCHAIN->getExtent().height;
+
+    // Fixed design resolution for consistency across different screen sizes
+    float aspect = width / height;
+    float designWidth = DESIGN_HEIGHT * aspect;
+
+    // Standard UI coordinate system: (0,0) at Top-Left, (designWidth, DESIGN_HEIGHT) at Bottom-Right
+    // GLM's ortho(left, right, bottom, top) maps [bottom, top] to NDC [-1, 1].
+    // In Vulkan, NDC Y is -1 at top and 1 at bottom.
+    // So we map 0 to -1 and DESIGN_HEIGHT to 1.
+    frame.perFrame.projection = glm::ortho(0.0f, height, width, 0.0f, -1.0f, 1.0f);
+
+    frame.perFrame.screenSize = glm::vec2(designWidth, DESIGN_HEIGHT);
 
     SCREEN_RENDER->uploadFrameData(frame);
 

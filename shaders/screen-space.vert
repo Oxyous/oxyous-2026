@@ -9,6 +9,10 @@ layout (location = 1) in vec2 uvCoord;
 struct ObjectData
 {
     mat4 model;
+    uint textureId;
+    uint pad0;
+    uint pad1;
+    uint pad2;
 };
 
 layout(set = 0, binding = 0) readonly buffer ObjectBuffer
@@ -34,11 +38,14 @@ layout(push_constant) uniform PushConstants
     uint objectIndex;
 } pc;
 
+
 void main()
 {
-    ObjectData obj = objects[nonuniformEXT(pc.objectIndex)];
-    
-    vs_out.uvCoord = vec2(uvCoord.x, uvCoord.y);
-    vec4 ndc = orthoProjection * obj.model * vec4(position.x - screenSize.x, position.y - screenSize.y, 0.0, 1.0);
-    gl_Position = ndc;
+    ObjectData obj = objects[pc.objectIndex];
+
+    vs_out.uvCoord = uvCoord;
+    vs_out.fragObjectIndex = pc.objectIndex;
+
+    vec4 world = obj.model * vec4(position, 0.0, 1.0);
+    gl_Position = orthoProjection * world;
 }

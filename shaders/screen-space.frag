@@ -9,6 +9,10 @@ layout (set = 0, binding = 3) uniform sampler2D textures[];
 struct ObjectData
 {
     mat4 model;
+    uint textureId;
+    uint pad0;
+    uint pad1;
+    uint pad2;
 };
 
 layout(set = 0, binding = 0) readonly buffer ObjectBuffer
@@ -32,10 +36,9 @@ layout (location = 0) out vec4 fragColor;
 
 void main()
 {
-    fragColor = texture(textures[nonuniformEXT(vs_out.fragObjectIndex)], vs_out.uvCoord);
+    ObjectData obj = objects[nonuniformEXT(vs_out.fragObjectIndex)];
+    fragColor = texture(textures[nonuniformEXT(obj.textureId)], vs_out.uvCoord);
 
     if(fragColor.a < 0.1)
       discard;
-
-    //fragColor = vec4(1.0);
 }

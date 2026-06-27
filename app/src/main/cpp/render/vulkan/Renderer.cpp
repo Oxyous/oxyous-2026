@@ -358,7 +358,31 @@ void Renderer::destroy() {
 }
 
 void Renderer::recreateSwapChain() {
+    VkDevice device = RENDER_DEVICE->getDevice();
+    vkDeviceWaitIdle(device);
 
+    m_width = ANativeWindow_getWidth(m_window);
+    m_height = ANativeWindow_getHeight(m_window);
+
+    SWAPCHAIN->resize(m_width, m_height);
+
+    initializeFramebuffers();
+
+    auto deferred = ENGINE->getPipeline<Deferred>("deferred");
+    if (deferred) {
+        deferred->resize(m_width, m_height);
+    }
+
+    auto postProcess = ENGINE->getPipeline<PostProcess>("post-process");
+    if (postProcess) {
+        postProcess->resize(m_width, m_height);
+        postProcess->updateDescriptors();
+    }
+
+    auto screenSpace = ENGINE->getPipeline<ScreenSpace>("screen-space");
+    if (screenSpace) {
+        screenSpace->resize(m_width, m_height);
+    }
 }
 
 void Renderer::render() {

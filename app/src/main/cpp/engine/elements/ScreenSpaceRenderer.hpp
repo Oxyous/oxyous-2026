@@ -31,6 +31,11 @@ public:
     /* */
     void updateElement(uint32_t index, GPUElementHandle element);
 
+
+    /* register object for bindless */
+    uint32_t registerObject(GPUElementHandle object);
+
+
 protected:
     /* */
     uint32_t allocateTextureSlot();

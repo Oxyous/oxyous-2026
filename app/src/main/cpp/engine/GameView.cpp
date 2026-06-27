@@ -27,6 +27,9 @@ void GameView::update(double deltaTime) {
     for (auto &entity: m_entities) {
         entity->update(deltaTime);
     }
+    for(auto &uiElement : UI->getElements()) {
+        uiElement->update(deltaTime);
+    }
 }
 
 bool GameView::initialize() {
@@ -72,7 +75,7 @@ bool GameView::initialize() {
 
     /* Prepare UI */
     auto rect = new OGRect();
-    rect->create(glm::vec2(0.0f, 0.0f), glm::vec2(100.0f, 100.0f));
+    rect->create(glm::vec2(64.0f, 97.0f), glm::vec2(128.0f, 128.0f));
     UI->addElement(rect);
 
     /* Prepare Game Logic*/

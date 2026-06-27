@@ -6,6 +6,7 @@
 #include "../Engine.hpp"
 #include "../GameView.hpp"
 #include "../../render/vulkan/Swapchain.hpp"
+#include "../ui/OGUi.hpp"
 
 void Input::handleInput() {
     // Handle input events here
@@ -22,8 +23,10 @@ void Input::handleInput() {
                 >> AMOTION_EVENT_ACTION_POINTER_INDEX_SHIFT;
 
         auto pointer = motionEvent.pointers[pointerIndex];
-        auto x = static_cast<float>(SWAPCHAIN->getExtent().width) - GameActivityPointerAxes_getX(&pointer) /2;
-        auto y = static_cast<float>(SWAPCHAIN->getExtent().height) - GameActivityPointerAxes_getY(&pointer) /2;
+        auto x = static_cast<float>(SWAPCHAIN->getExtent().width) -
+                 GameActivityPointerAxes_getX(&pointer);
+        auto y = static_cast<float>(SWAPCHAIN->getExtent().height) -
+                 GameActivityPointerAxes_getY(&pointer);
 
         //auto renderEntities = GAME_VIEW->getEntities()[0];
         //renderEntities->setTranslation(worldPosFar);
@@ -32,21 +35,31 @@ void Input::handleInput() {
             case AMOTION_EVENT_ACTION_DOWN:
             case AMOTION_EVENT_ACTION_POINTER_DOWN:
                 break;
-            case AMOTION_EVENT_ACTION_UP:{
+            case AMOTION_EVENT_ACTION_UP: {
                 glm::vec3 screenPos = glm::vec3(x, y, 1.0f);
                 glm::vec3 screenPosNear = glm::vec3(x, y, 0.0f);
-                glm::mat4 view = glm::lookAt(glm::vec3(8.0f, 8.0f, 8.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-                const float aspect = static_cast<float>(SWAPCHAIN->getExtent().width) / static_cast<float>(SWAPCHAIN->getExtent().height);
-                glm::mat4 projection = glm::perspective(glm::radians(45.0f), aspect, 0.01f, 1000.0f);
+                glm::mat4 view = glm::lookAt(glm::vec3(8.0f, 8.0f, 8.0f),
+                                             glm::vec3(0.0f, 0.0f, 0.0f),
+                                             glm::vec3(0.0f, 1.0f, 0.0f));
+                const float aspect = static_cast<float>(SWAPCHAIN->getExtent().width) /
+                                     static_cast<float>(SWAPCHAIN->getExtent().height);
+                glm::mat4 projection = glm::perspective(glm::radians(45.0f), aspect, 0.01f,
+                                                        1000.0f);
 
-                glm::vec3  worldPos = glm::unProject(screenPosNear, view, projection, glm::vec4(0.0f, 0.0f, SWAPCHAIN->getExtent().width, SWAPCHAIN->getExtent().height));
-                glm::vec3  worldPosFar = glm::unProject(screenPos, view, projection, glm::vec4(0.0f, 0.0f, SWAPCHAIN->getExtent().width, SWAPCHAIN->getExtent().height));
+                glm::vec3 worldPos = glm::unProject(screenPosNear, view, projection,
+                                                    glm::vec4(0.0f, 0.0f,
+                                                              SWAPCHAIN->getExtent().width,
+                                                              SWAPCHAIN->getExtent().height));
+                glm::vec3 worldPosFar = glm::unProject(screenPos, view, projection,
+                                                       glm::vec4(0.0f, 0.0f,
+                                                                 SWAPCHAIN->getExtent().width,
+                                                                 SWAPCHAIN->getExtent().height));
 
-                Ray ray(worldPos, glm::normalize(worldPosFar - worldPos ));
+                Ray ray(worldPos, glm::normalize(worldPosFar - worldPos));
 
-                for(auto &collider : GAME_VIEW->getColliders()) {
+                for (auto &collider: GAME_VIEW->getColliders()) {
                     RaycastHit hit;
-                    if(collider->intersect(ray, hit)) {
+                    if (collider->intersect(ray, hit)) {
                         GAME_VIEW->raycastCallback(ray, hit);
                     }
                 }
@@ -54,14 +67,38 @@ void Input::handleInput() {
             }
             case AMOTION_EVENT_ACTION_POINTER_UP:
                 break;
-            case AMOTION_EVENT_ACTION_MOVE:{
-                /*for (auto i = 0; i < motionEvent.pointerCount; i++) {
-                    pointer = motionEvent.pointers[i];
-                    x = GameActivityPointerAxes_getX(&pointer);
-                    y = GameActivityPointerAxes_getY(&pointer);
-                }*/
-            }
+
+            case AMOTION_EVENT_ACTION_MOVE: {
+                float w = (float) SWAPCHAIN->getExtent().width;
+                float h = (float) SWAPCHAIN->getExtent().height;
+
+                float designHeight = DESIGN_HEIGHT;
+                float designWidth = designHeight * (w / h);
+
+                float scaleX = designWidth / w;
+                float scaleY = designHeight / h;
+
+                for (uint32_t i = 0; i < motionEvent.pointerCount; i++) {
+
+                    float w = (float) SWAPCHAIN->getExtent().width;
+                    float h = (float) SWAPCHAIN->getExtent().height;
+
+                    float designHeight = DESIGN_HEIGHT;
+                    float designWidth = designHeight * (w / h);
+
+                    // Raw touch
+                    float px = GameActivityPointerAxes_getX(&pointer);
+                    float py = GameActivityPointerAxes_getY(&pointer);
+
+                    // Convert to design space
+                    float screenX = px * (designWidth / w);
+                    float screenY = py * (designHeight / h);
+
+                    auto &screenElements = UI->getElements()[0];
+                    screenElements->setTranslation(glm::vec3(h-py, w-px, 0.0f));
+                }
                 break;
+            }
         }
     }
 

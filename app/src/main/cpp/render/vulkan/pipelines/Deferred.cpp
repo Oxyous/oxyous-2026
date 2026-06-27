@@ -290,7 +290,25 @@ void Deferred::destroy() {
 void Deferred::resize(int width, int height) {
     m_width = width;
     m_height = height;
-    // Note: Framebuffers and textures should be recreated here
+
+    VkDevice device = RENDER_DEVICE->getDevice();
+    vkDeviceWaitIdle(device);
+
+    // Destroy old resources
+    if (m_frameBuffer != VK_NULL_HANDLE) {
+        vkDestroyFramebuffer(device, m_frameBuffer, nullptr);
+        m_frameBuffer = VK_NULL_HANDLE;
+    }
+
+    for (auto &pair: m_frameBufferImages) {
+        vkDestroyImageView(device, pair.second.image.imageView, nullptr);
+        vkDestroyImage(device, pair.second.image.image, nullptr);
+        vkFreeMemory(device, pair.second.image.memory, nullptr);
+    }
+    m_frameBufferImages.clear();
+
+    // Re-initialize
+    initializeFramebuffers();
 }
 
 void Deferred::bindPipeline(VkCommandBuffer const &commandBuffer) {

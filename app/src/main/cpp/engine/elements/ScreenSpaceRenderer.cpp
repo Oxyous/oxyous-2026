@@ -32,10 +32,7 @@ void ScreenSpaceRenderer::uploadFrameData(ScreenElements &frameData) {
                     sizeof(GPUElementHandle) * m_bindlessRenderer.elements.size());
     }
 
-    if (!m_bindlessRenderer.textures.empty()) {
-        std::memcpy(frameData.meshBuffer.mapped, m_bindlessRenderer.textures.data(),
-                    sizeof(GPUTextureHandle) * m_bindlessRenderer.textures.size());
-    }
+    std::memcpy(frameData.perFrameBuffer.mapped, &frameData.perFrame, sizeof(ScreenSpaceUBO));
 }
 
 uint32_t ScreenSpaceRenderer::registerTexture(GPUTexture texture) {
@@ -212,7 +209,7 @@ bool ScreenSpaceRenderer::initializeFrame(ScreenElements &frame) {
         return false;
     }
 
-    if (!RenderFramework::createBuffer(sizeof(PerFrameUBO),
+    if (!RenderFramework::createBuffer(sizeof(ScreenSpaceUBO),
                                   VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                                   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
@@ -287,4 +284,10 @@ uint32_t ScreenSpaceRenderer::allocateTextureSlot() {
 
 VkDescriptorSet &ScreenSpaceRenderer::getBindLessSet(uint32_t frame) {
     return m_bindlessRenderer.frameData[frame].bindlessSet;
+}
+
+uint32_t ScreenSpaceRenderer::registerObject(GPUElementHandle object) {
+    uint32_t index = m_bindlessRenderer.elements.size();
+    m_bindlessRenderer.elements.push_back(object);
+    return index;
 }

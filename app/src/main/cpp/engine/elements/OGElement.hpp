@@ -16,17 +16,23 @@ public:
 
     virtual void update(float delta) = 0;
 
-    virtual glm::mat4 &getTransform() {
-        return m_transform;
+    virtual glm::mat4 getTransform() {
+        return m_translation * m_size;
     }
 
     virtual bool isVisible() {
         return true;
     }
 
+    virtual void setTranslation(const glm::vec3 &translation) {
+        m_translation = glm::translate(glm::mat4(1.0f), translation);
+    }
+
 protected:
     GPUBuffer m_vertexBuffer;
     glm::mat4 m_transform;
+    glm::mat4 m_translation;
+    glm::mat4 m_size;
 };
 
 class OGRect : public OGElement {
@@ -40,6 +46,8 @@ public:
     void create(const glm::vec2 &origin, const glm::vec2 &size);
 
 protected:
+    uint32_t m_textureIndex;
+    uint32_t m_objectIndex;
 };
 
 
