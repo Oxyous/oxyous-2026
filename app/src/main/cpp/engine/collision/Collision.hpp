@@ -14,6 +14,10 @@ class OBBVolume;
 class Ray;
 class RaycastHit;
 
+typedef struct {
+    glm::vec3 a, b, c;
+}OGPolygon;
+
 class IVolume {
 public:
     virtual ~IVolume() = default;
@@ -48,6 +52,7 @@ public:
 
     /* Intersect OBB with Volume */
     bool intersect(const OBBVolume& obb) const override;
+
 protected:
     glm::vec3 m_normal;
     float m_distance;
@@ -81,6 +86,11 @@ class AABBVolume : public IVolume {
 public:
     AABBVolume(const glm::vec3& min, const glm::vec3& max) : m_min(min), m_max(max) {}
 
+    AABBVolume() {
+        m_min = glm::vec3(FLT_MAX);
+        m_max = glm::vec3(-FLT_MAX);
+    }
+
     ~AABBVolume() override = default;
 
     /* */
@@ -89,6 +99,17 @@ public:
     /* */
     glm::vec3 getMax() const { return m_max; }
 
+    /* Extend Volume by Point */
+    void addPoint(const glm::vec3& point) {
+        m_min = glm::min(m_min, point);
+        m_max = glm::max(m_max, point);
+    }
+
+    /* Extend Volume by Volume */
+    void addVolume(const AABBVolume& volume) {
+        m_min = glm::min(m_min, volume.getMin());
+        m_max = glm::max(m_max, volume.getMax());
+    }
 public:
     /* Intersect Ray with Volume */
     bool intersect(const Ray& ray, RaycastHit& hit) const override;

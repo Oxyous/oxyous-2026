@@ -15,23 +15,15 @@
 #include "GPUResources.hpp"
 #include "algorithms/AStar.hpp"
 #include "actors/OGActor.hpp"
+#include "../render/vulkan/pipelines/ScreenSpace.hpp"
+#include "elements/OGElement.hpp"
+#include "ui/OGUi.hpp"
 
 void GameView::render() {
 
 }
 
 void GameView::update(double deltaTime) {
-
-    auto &actor = m_entities[0];
-    static float t = 0.0f;
-    t += 0.01;
-    auto rot = glm::rotate(glm::mat4(1.0f), (float) t, glm::vec3(0.0f, 1.0f, 0.0f));
-    actor->setRotation(glm::vec3(0.0f, 0.0f, t));
-    actor->setTranslation(glm::vec3(0.0f, 2.0f, 0.0f));
-
-    //auto& actor2 = m_entities[1];
-    //actor2->setTranslation(glm::vec3(0.0f, 2.0f, 0.0f));
-
     for (auto &entity: m_entities) {
         entity->update(deltaTime);
     }
@@ -43,6 +35,8 @@ bool GameView::initialize() {
     const auto &deferred = ENGINE->createPipeline<Deferred>("deferred");
 
     const auto &postProcess = ENGINE->createPipeline<PostProcess>("post-process");
+
+    const auto &screenSpace = ENGINE->createPipeline<ScreenSpace>("screen-space");
 
     /* Set input textures for post-process from deferred G-Buffers */
     postProcess->setFrameBufferImage("gDiffuse", *deferred->getFrameBufferImage("gDiffuse"));
@@ -58,7 +52,7 @@ bool GameView::initialize() {
     auto texture3 = RESOURCE_MANAGER->get<GPUTextureResource>("grass-land-diffuse.jpg");
     auto normal = RESOURCE_MANAGER->get<GPUTextureResource>("grunge1_nm.png");
 
-    auto mesh = RESOURCE_MANAGER->get<GPUStaticMeshResource>("cube.osm");
+    auto mesh = RESOURCE_MANAGER->get<GPUStaticMeshResource>("tree.osm");
     auto mesh2 = RESOURCE_MANAGER->get<GPUStaticMeshResource>("blender.osm");
     auto tank = RESOURCE_MANAGER->get<GPUStaticMeshResource>("tank.osm");
     auto plane = RESOURCE_MANAGER->get<GPUStaticMeshResource>("plane.osm");
@@ -76,28 +70,18 @@ bool GameView::initialize() {
                                             2, 1, 1, 1, 1.0f, 1.0f, 1.0f, 1.0f
                                     });
 
+    /* Prepare UI */
+    auto rect = new OGRect();
+    rect->create(glm::vec2(0.0f, 0.0f), glm::vec2(100.0f, 100.0f));
+    UI->addElement(rect);
+
+    /* Prepare Game Logic*/
 
     auto &actor = m_entities.emplace_back(new OGEntity("actor"));
     auto meshComponent = actor->addComponent<OGStaticMeshComponent>();
     meshComponent->setMeshResource(mesh);
     meshComponent->setTextureResource(TEXTURE_SLOT_0, texture);
     meshComponent->setMaterialIndex(1);
-
-
-    auto actor2 = actor->addChild<OGEntity>("actor2");
-    //auto& actor2 = m_entities.emplace_back(new OGEntity("actor2"));
-    auto meshComponent2 = actor2->addComponent<OGStaticMeshComponent>();
-    meshComponent2->setMeshResource(mesh2);
-    meshComponent2->setTextureResource(TEXTURE_SLOT_0, texture);
-    actor2->setTranslation(glm::vec3(0.0f, 2.0f, 0.0f));
-    meshComponent2->setMaterialIndex(1);
-
-
-   /* auto &actor3 = m_entities.emplace_back(new OGEntity("tank"));
-    auto meshComponent3 = actor3->addComponent<OGStaticMeshComponent>();
-    meshComponent3->setMeshResource(tank);
-    meshComponent3->setTextureResource(TEXTURE_SLOT_0, texture);
-    actor3->setScale(glm::vec3(2.0f));*/
 
     auto &actor4 = m_entities.emplace_back(new OGEntity("plane"));
     auto meshComponent4 = actor4->addComponent<OGStaticMeshComponent>();

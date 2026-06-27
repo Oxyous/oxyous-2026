@@ -10,20 +10,21 @@
 #include "../../engine/Engine.hpp"
 #include "pipelines/PostProcess.hpp"
 #include "../../engine/GPUResources.hpp"
+#include "pipelines/ScreenSpace.hpp"
+#include "../../engine/elements/ScreenSpaceRenderer.hpp"
 #include <game-activity/native_app_glue/android_native_app_glue.h>
 
 VkBool32
-Renderer::vulkanCallback(VkDebugReportFlagsEXT msgFlags, VkDebugReportObjectTypeEXT objType,
-                         uint64_t srcObj, size_t location, int32_t msgCode, const char *layerPrefix,
-                         const char *msg, void *userData) {
-    if (msgFlags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {
-        aout << "ERROR: " << layerPrefix << " - " << msg << std::endl;
-    } else if (msgFlags & VK_DEBUG_REPORT_WARNING_BIT_EXT) {
-        aout << "WARNING: " << layerPrefix << " - " << msg << std::endl;
-    } else if (msgFlags & VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT) {
-        aout << "PERF: " << layerPrefix << " - " << msg << std::endl;
-    } else {
-        aout << "INFO: " << layerPrefix << " - " << msg << std::endl;
+Renderer::debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+                        VkDebugUtilsMessageTypeFlagsEXT messageType,
+                        const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
+                        void *pUserData) {
+    if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
+        aout << "VULKAN ERROR: " << pCallbackData->pMessage << std::endl;
+    } else if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
+        aout << "VULKAN WARNING: " << pCallbackData->pMessage << std::endl;
+    } else if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT) {
+        aout << "VULKAN INFO: " << pCallbackData->pMessage << std::endl;
     }
 
     return VK_FALSE;
@@ -45,17 +46,34 @@ bool Renderer::initialize(ANativeWindow *window) {
     appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 3);
     appInfo.apiVersion = VK_API_VERSION_1_3;
 
-    const char *extensions[] = {
+    std::vector<const char *> extensions = {
             VK_KHR_SURFACE_EXTENSION_NAME,
             VK_KHR_ANDROID_SURFACE_EXTENSION_NAME,
-            VK_EXT_DEBUG_REPORT_EXTENSION_NAME
+            VK_EXT_DEBUG_UTILS_EXTENSION_NAME
     };
+
+    std::vector<const char *> layers;
+
+    // Check if validation layers are available
+    uint32_t layerCount;
+    vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+    std::vector<VkLayerProperties> availableLayers(layerCount);
+    vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
+
+    for (const auto& layer : availableLayers) {
+        if (strcmp(layer.layerName, "VK_LAYER_KHRONOS_validation") == 0) {
+            layers.push_back("VK_LAYER_KHRONOS_validation");
+            break;
+        }
+    }
 
     VkInstanceCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     createInfo.pApplicationInfo = &appInfo;
-    createInfo.enabledExtensionCount = 3;
-    createInfo.ppEnabledExtensionNames = extensions;
+    createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
+    createInfo.ppEnabledExtensionNames = extensions.data();
+    createInfo.enabledLayerCount = static_cast<uint32_t>(layers.size());
+    createInfo.ppEnabledLayerNames = layers.data();
 
     result = vkCreateInstance(&createInfo, nullptr, &m_instance);
     if (result != VK_SUCCESS) {
@@ -63,18 +81,21 @@ bool Renderer::initialize(ANativeWindow *window) {
         return false;
     }
 
-    /* Create Debug Report Callback */
-    VkDebugReportCallbackCreateInfoEXT debugReportCallbackCreateInfo = {};
-    debugReportCallbackCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
-    debugReportCallbackCreateInfo.flags =
-            VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT;
-    debugReportCallbackCreateInfo.pfnCallback = vulkanCallback;
+    /* Create Debug Messenger */
+    VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = {};
+    debugCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+    debugCreateInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+                                       VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+                                       VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+    debugCreateInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+                                   VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                                   VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+    debugCreateInfo.pfnUserCallback = debugCallback;
 
-    auto vkCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT) vkGetInstanceProcAddr(
-            m_instance, "vkCreateDebugReportCallbackEXT");
-    if (vkCreateDebugReportCallbackEXT != nullptr) {
-        vkCreateDebugReportCallbackEXT(m_instance, &debugReportCallbackCreateInfo, nullptr,
-                                       &m_debugReportCallback);
+    auto vkCreateDebugUtilsMessengerEXT = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(
+            m_instance, "vkCreateDebugUtilsMessengerEXT");
+    if (vkCreateDebugUtilsMessengerEXT != nullptr) {
+        vkCreateDebugUtilsMessengerEXT(m_instance, &debugCreateInfo, nullptr, &m_debugMessenger);
     }
 
     /* Create Android Surface */
@@ -126,6 +147,11 @@ bool Renderer::initialize(ANativeWindow *window) {
 
     if (!GPU_RESOURCES->initialize()) {
         aout << "Error: Failed to initialize GPU resources" << std::endl;
+        return false;
+    }
+
+    if (!SCREEN_RENDER->initialize()) {
+        aout << "Error: Failed to initialize screen space renderer" << std::endl;
         return false;
     }
 
@@ -321,10 +347,10 @@ void Renderer::destroy() {
 
     vkDestroyRenderPass(device, m_renderPass, nullptr);
 
-    auto vkDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT) vkGetInstanceProcAddr(
-            m_instance, "vkDestroyDebugReportCallbackEXT");
-    if (vkDestroyDebugReportCallbackEXT != nullptr) {
-        vkDestroyDebugReportCallbackEXT(m_instance, m_debugReportCallback, nullptr);
+    auto vkDestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(
+            m_instance, "vkDestroyDebugUtilsMessengerEXT");
+    if (vkDestroyDebugUtilsMessengerEXT != nullptr) {
+        vkDestroyDebugUtilsMessengerEXT(m_instance, m_debugMessenger, nullptr);
     }
 
     vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
@@ -471,6 +497,7 @@ bool Renderer::prepareCommandBuffers() {
 void Renderer::prepareFrame(int index, VkCommandBuffer commandBuffer) {
     auto deferred = ENGINE->getPipeline<Deferred>("deferred");
     auto postProcess = ENGINE->getPipeline<PostProcess>("post-process");
+    auto screenSpace = ENGINE->getPipeline<ScreenSpace>("screen-space");
 
     if (deferred) {
         deferred->record(commandBuffer, m_currentFrame, m_framebuffers[index]);
@@ -489,6 +516,15 @@ void Renderer::prepareFrame(int index, VkCommandBuffer commandBuffer) {
 
     if (postProcess) {
         postProcess->record(commandBuffer, m_currentFrame, m_framebuffers[index]);
+    }
+
+    vkCmdPipelineBarrier(commandBuffer,
+                         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                         0, 1, &barrier, 0, nullptr, 0, nullptr);
+
+    if (screenSpace) {
+        screenSpace->record(commandBuffer, m_currentFrame, m_framebuffers[index]);
     }
 }
 

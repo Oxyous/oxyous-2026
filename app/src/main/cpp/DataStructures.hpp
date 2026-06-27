@@ -14,6 +14,7 @@ constexpr uint32_t MAX_OBJECTS = 65536;
 constexpr uint32_t MAX_MATERIALS = 4096;
 constexpr uint32_t MAX_LIGHTS = 256;
 constexpr uint32_t MAX_TEXTURES = 4096;
+constexpr uint32_t MAX_SCREEN_TEXTURES = 256;
 
 struct saveState {
 
@@ -96,6 +97,12 @@ typedef struct StaticMeshVertex {
     glm::vec2 uv;
 } StaticMeshVertex;
 
+/* 2d Vertex */
+typedef struct OGVertex2D{
+    glm::vec2 position;
+    glm::vec2 uv;
+} OGVertex2D;
+
 /* GPU Uniform Buffers Types */
 
 /* Per Frame UBO */
@@ -146,6 +153,12 @@ typedef struct GPUMeshHandle {
     uint32_t pad2;
 }GPUMeshHandle;
 
+/* Screen space handle */
+typedef struct GPUElementHandle {
+    glm::mat4 transform;
+    uint32_t textureId;
+}GPUElementHandle;
+
 /* Bindless Frame Data */
 typedef struct FrameData {
     VkCommandBuffer cmd = VK_NULL_HANDLE;
@@ -185,5 +198,41 @@ typedef struct BindlessPushConstants {
     uint32_t materialIndex;
     uint32_t objectIndex;
 } BindlessPushConstants;
+
+/* 2d element screen */
+typedef struct ScreenElements {
+    VkCommandBuffer cmd = VK_NULL_HANDLE;
+    VkSemaphore imageAvailable = VK_NULL_HANDLE;
+    VkSemaphore renderComplete = VK_NULL_HANDLE;
+    VkFence fence = VK_NULL_HANDLE;
+
+    VkDescriptorSet bindlessSet = VK_NULL_HANDLE;
+
+    GPUBuffer meshBuffer;
+    GPUBuffer perFrameBuffer;
+
+    PerFrameUBO perFrame;
+} ScreenElements;
+
+    /* Bindless Renderer 2D Elements*/
+typedef struct BindlessRenderer2D {
+    VkDescriptorPool bindlessPool = VK_NULL_HANDLE;
+    VkDescriptorSetLayout bindlessSetLayout = VK_NULL_HANDLE;
+
+    VkPipeline pipeline = VK_NULL_HANDLE;
+    VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+
+    std::array<ScreenElements, MAX_FRAMES_IN_FLIGHT> frameData { };
+    uint32_t currentFrame = 0;
+
+    std::vector<GPUElementHandle> elements;
+    std::vector<GPUTextureHandle> textures;
+    std::vector<bool> textureSlotUsed;
+} BindlessRenderer2D;
+
+typedef struct PCScreenElements{
+    uint32_t objectIndex;
+    uint32_t materialIndex;
+} PCScreenElements;
 
 #endif //OXYOUS_2026_DATASTRUCTURES_HPP

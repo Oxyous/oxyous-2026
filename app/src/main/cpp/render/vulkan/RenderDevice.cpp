@@ -6,8 +6,6 @@
 #include "RenderFramework.hpp"
 #include "DescriptorCache.hpp"
 
-PFN_vkCreateDebugReportCallbackEXT RenderDevice::fvkCreateDebugReportCallbackEXT;
-PFN_vkDestroyDebugReportCallbackEXT RenderDevice::fvkDestroyDebugReportCallbackEXT;
 VkPhysicalDeviceMemoryProperties RenderDevice::m_memoryProperties;
 
 bool RenderDevice::initialize(VkInstance &instance, VkSurfaceKHR &surface) {
@@ -267,15 +265,3 @@ void RenderDevice::getQueueFamilyIndices(VkPhysicalDevice physicalDevice, VkSurf
     }
 }
 
-bool RenderDevice::initializeDebug(VkInstance &instance) {
-    fvkCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT) vkGetInstanceProcAddr(
-            instance, "vkCreateDebugReportCallbackEXT");
-    fvkDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT) vkGetInstanceProcAddr(
-            instance, "vkDestroyDebugReportCallbackEXT");
-
-    if (fvkCreateDebugReportCallbackEXT == nullptr || fvkDestroyDebugReportCallbackEXT == nullptr) {
-        return false;
-    }
-
-    return true;
-}

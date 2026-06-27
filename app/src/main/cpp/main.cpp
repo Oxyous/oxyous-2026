@@ -30,24 +30,26 @@ void handle_cmd(android_app *pApp, int32_t cmd) {
                 return;
             }
 
-            ENGINE->initialize(pApp);
-
             int32_t width = ANativeWindow_getWidth(pApp->window);
             int32_t height = ANativeWindow_getHeight(pApp->window);
 
-            gameEngine->width = width;
-            gameEngine->height = height;
+            ANativeWindow_setBuffersGeometry(pApp->window, width/2, height/2, WINDOW_FORMAT_RGBA_8888);
+
+            ENGINE->initialize(pApp);
+
+            gameEngine->width = width / 2;
+            gameEngine->height = height / 2;
 
             if (!gameEngine->renderer) {
                 gameEngine->renderer = new Renderer();
-                gameEngine->renderer->setWidth(width);
-                gameEngine->renderer->setHeight(height);
+                gameEngine->renderer->setWidth(width / 2);
+                gameEngine->renderer->setHeight(height / 2);
                 if (!gameEngine->renderer->initialize(pApp->window)) {
                     aout << "Error: Failed to initialize renderer" << std::endl;
                 }
             }else {
-                gameEngine->renderer->setWidth(width);
-                gameEngine->renderer->setHeight(height);
+                gameEngine->renderer->setWidth(width / 2);
+                gameEngine->renderer->setHeight(height / 2);
                 gameEngine->renderer->destroy();
                 if (!gameEngine->renderer->initialize(pApp->window)) {
                     aout << "Error: Failed to initialize renderer" << std::endl;

@@ -59,7 +59,8 @@ bool Deferred::initialize() {
     samplerInfo.minLod = 0.0f;
     samplerInfo.maxLod = 1.0f;
 
-    if (vkCreateSampler(RENDER_DEVICE->getDevice(), &samplerInfo, nullptr, &m_sampler) != VK_SUCCESS) {
+    if (vkCreateSampler(RENDER_DEVICE->getDevice(), &samplerInfo, nullptr, &m_sampler) !=
+        VK_SUCCESS) {
         aout << "Failed to create sampler!" << std::endl;
         return false;
     }
@@ -240,7 +241,7 @@ bool Deferred::initialize() {
 
     if (vkCreateGraphicsPipelines(RENDER_DEVICE->getDevice(), VK_NULL_HANDLE, 1, &pipelineInfo,
                                   nullptr,
-                                 &m_pipeline) != VK_SUCCESS) {
+                                  &m_pipeline) != VK_SUCCESS) {
         aout << "Failed to create graphics pipeline!" << std::endl;
         return false;
     }
@@ -503,7 +504,8 @@ Deferred::record(VkCommandBuffer commandBuffer, uint64_t currentFrame, VkFramebu
     const float aspect = static_cast<float>(m_width) / static_cast<float>(m_height);
 
     frame.perFrame.projection = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 100.0f);
-    frame.perFrame.view = glm::lookAt(glm::vec3(8.0f, 8.0f, 8.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    frame.perFrame.view = glm::lookAt(glm::vec3(8.0f, 8.0f, 8.0f), glm::vec3(0.0f, 0.0f, 0.0f),
+                                      glm::vec3(0.0f, 1.0f, 0.0f));
 
     GPU_RESOURCES->uploadFrameData(frame);
 
@@ -554,10 +556,10 @@ Deferred::record(VkCommandBuffer commandBuffer, uint64_t currentFrame, VkFramebu
                             &GPU_RESOURCES->getBindlessSet(currentFrame), 0, nullptr);
 
     /* Render Objects */
-    auto& staticMeshes = GAME_VIEW->getEntities();
+    auto &staticMeshes = GAME_VIEW->getEntities();
     for (auto &mesh: staticMeshes) {
 
-        for(auto child : mesh->getChildren()){
+        for (auto child: mesh->getChildren()) {
             if (child->getComponent<OGStaticMeshComponent>()) {
                 auto *component = child->getComponent<OGStaticMeshComponent>();
                 if (component) {

@@ -3,9 +3,9 @@
 //
 
 #include "Input.hpp"
-#include "Engine.hpp"
-#include "GameView.hpp"
-#include "../render/vulkan/Swapchain.hpp"
+#include "../Engine.hpp"
+#include "../GameView.hpp"
+#include "../../render/vulkan/Swapchain.hpp"
 
 void Input::handleInput() {
     // Handle input events here
@@ -22,8 +22,8 @@ void Input::handleInput() {
                 >> AMOTION_EVENT_ACTION_POINTER_INDEX_SHIFT;
 
         auto pointer = motionEvent.pointers[pointerIndex];
-        auto x = static_cast<float>(SWAPCHAIN->getExtent().width) - GameActivityPointerAxes_getX(&pointer);
-        auto y = static_cast<float>(SWAPCHAIN->getExtent().height) - GameActivityPointerAxes_getY(&pointer);
+        auto x = static_cast<float>(SWAPCHAIN->getExtent().width) - GameActivityPointerAxes_getX(&pointer) /2;
+        auto y = static_cast<float>(SWAPCHAIN->getExtent().height) - GameActivityPointerAxes_getY(&pointer) /2;
 
         //auto renderEntities = GAME_VIEW->getEntities()[0];
         //renderEntities->setTranslation(worldPosFar);

@@ -110,14 +110,10 @@ bool PostProcess::initializeRenderPass() {
 }
 
 bool PostProcess::initialize() {
-    // Cleanup if already initialized
-    destroy();
-
     m_width = SWAPCHAIN->getExtent().width;
     m_height = SWAPCHAIN->getExtent().height;
 
-    // If m_renderPass is still null, we initialize our own,
-    // but typically the Renderer will set it to the swapchain render pass.
+    // If m_renderPass is still null, we initialize our own.
     if (m_renderPass == VK_NULL_HANDLE) {
         if (!initializeRenderPass()) {
             aout << "Failed to initialize render pass!" << std::endl;
@@ -429,10 +425,8 @@ void PostProcess::destroy() {
         m_descriptorPool = VK_NULL_HANDLE;
     }
 
-    if (m_renderPass != VK_NULL_HANDLE) {
-        vkDestroyRenderPass(device, m_renderPass, nullptr);
-        m_renderPass = VK_NULL_HANDLE;
-    }
+    // Do not destroy m_renderPass here as it might be owned by the Renderer
+    m_renderPass = VK_NULL_HANDLE;
 }
 
 void PostProcess::setFrameBufferImage(const std::string &name, const VkDescriptorImageInfo &image) {

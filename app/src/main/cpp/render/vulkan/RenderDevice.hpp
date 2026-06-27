@@ -15,9 +15,6 @@ public:
     /* Initialize Vulkan Render Device */
     virtual bool initialize(VkInstance& instance, VkSurfaceKHR& surface);
 
-    /* Initialize Vulkan Debug Extensions*/
-    virtual bool initializeDebug(VkInstance& instance);
-
     /*  */
     virtual void destroy();
 
@@ -40,11 +37,6 @@ public:
     virtual VkCommandPool getPrimaryCommandPool() { return m_primaryCommandPool; }
 
     /* */
-
-    /* Debugging */
-    static PFN_vkCreateDebugReportCallbackEXT fvkCreateDebugReportCallbackEXT;
-
-    static PFN_vkDestroyDebugReportCallbackEXT fvkDestroyDebugReportCallbackEXT;
 
 protected:
     VkPhysicalDevice m_physicalDevice{VK_NULL_HANDLE};

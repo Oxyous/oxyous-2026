@@ -32,9 +32,11 @@ public:
     virtual ~Renderer() = default;
 protected:
 
-    static VKAPI_ATTR VkBool32 VKAPI_CALL vulkanCallback(VkDebugReportFlagsEXT msgFlags, VkDebugReportObjectTypeEXT objType,
-                                                         uint64_t srcObj, size_t location, int32_t msgCode, const char *layerPrefix,
-                                                         const char *msg, void *userData);
+    static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+            VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+            VkDebugUtilsMessageTypeFlagsEXT messageType,
+            const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+            void* pUserData);
     /* Initialize Semaphores */
     bool initializeSemaphores();
 
@@ -59,7 +61,7 @@ protected:
     uint32_t m_height{};
 
     VkDebugReportCallbackCreateInfoEXT m_debugReportCallbackCreateInfo{};
-    VkDebugReportCallbackEXT m_debugReportCallback{};
+    VkDebugUtilsMessengerEXT m_debugMessenger{};
     VkRenderPass m_renderPass{};
     std::vector<VkFramebuffer> m_framebuffers;
     std::vector<VkSemaphore> m_presentCompleteSemaphores;

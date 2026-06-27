@@ -36,8 +36,8 @@ void main()
     }
     normal = normalize(normal);
 
-    float roughness = 0.95; // Default roughness
-    float metallic  = 0.5; // Default metallic
+    float roughness = 0.1; // Default roughness
+    float metallic  = 0.4; // Default metallic
 
 
     vec3 L = normalize(lightDir);
@@ -49,7 +49,7 @@ void main()
     float NdotH = max(dot(normal, H), 0.0);
 
     // --- Diffuse ---
-    vec3 diffuse = albedo / 3.14159;
+    vec3 diffuse = albedo;
 
     // --- Specular (simple GGX-lite approximation) ---
     float specPower = mix(2.0, 256.0, 1.0 - roughness);
@@ -59,10 +59,10 @@ void main()
     vec3 specular = F0 * spec;
 
     // --- Combine ---
-    vec3 color = (diffuse + specular) * lightColor * NdotL;
+    vec3 color = (diffuse * NdotL + specular) * lightColor;
 
     // --- Ambient ---
-    color += albedo * 0.45;
+    color += albedo * 0.05;
 
     outColor = vec4(color, 1.0);
 }
