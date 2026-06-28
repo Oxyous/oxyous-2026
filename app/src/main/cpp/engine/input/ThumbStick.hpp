@@ -8,7 +8,7 @@
 
 #include "../../includes.hpp"
 
-class OGShape;
+class OGElement;
 
 class ThumbStick {
 public:
@@ -48,8 +48,8 @@ private:
     /* */
     void setActuator(const glm::vec2& point);
 
-    OGShape* m_innerStick;
-    OGShape* m_outerStick;
+    OGElement* m_innerStick;
+    OGElement* m_outerStick;
     int m_pointerId = -1;
 protected:
     glm::vec2 m_outerCenter;

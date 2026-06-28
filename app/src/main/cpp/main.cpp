@@ -2,6 +2,7 @@
 
 #include <game-activity/native_app_glue/android_native_app_glue.h>
 #include <game-activity/GameActivity.h>
+#include <android/native_window.h>
 
 #include "AndroidOut.h"
 #include "render/vulkan/Renderer.hpp"

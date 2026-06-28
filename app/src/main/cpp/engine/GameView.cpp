@@ -34,6 +34,21 @@ void GameView::update(double deltaTime) {
 
 bool GameView::initialize() {
 
+    GPUTexture cubeMapTexture;
+
+    /* CubeMap */
+    if(!RenderFramework::createCubMap({
+                                              "cubemap/sky_right.png",
+                                              "cubemap/sky_left.png",
+                                              "cubemap/sky_up.png",
+                                              "cubemap/sky_down.png",
+                                              "cubemap/sky_forward.png",
+                                              "cubemap/sky_back.png"
+                                      }, 1024, &cubeMapTexture)) {
+        aout << "Error: Failed to create cubemap!" << std::endl;
+        return false;
+    }
+
     /* Prepare Render Pipelines */
     const auto &deferred = ENGINE->createPipeline<Deferred>("deferred");
 
@@ -47,8 +62,10 @@ bool GameView::initialize() {
     postProcess->setFrameBufferImage("gPBR", *deferred->getFrameBufferImage("gPBR"));
     postProcess->setFrameBufferImage("gWorldPosition",
                                      *deferred->getFrameBufferImage("gWorldPosition"));
+    postProcess->setFrameBufferImage("gDepth", *deferred->getFrameBufferImage("gDepth"));
+    postProcess->setFrameBufferImage("gEnvironment", cubeMapTexture.descriptor);
     postProcess->updateDescriptors();
-
+    
     /* Test loading assets*/
     auto texture = RESOURCE_MANAGER->get<GPUTextureResource>("debug-uv.png");
     auto texture2 = RESOURCE_MANAGER->get<GPUTextureResource>("android_robot.png");
@@ -72,11 +89,6 @@ bool GameView::initialize() {
     GPU_RESOURCES->registerMaterial({
                                             2, 1, 1, 1, 1.0f, 1.0f, 1.0f, 1.0f
                                     });
-
-    /* Prepare UI */
-    auto rect = new OGRect();
-    rect->create(glm::vec2(64.0f, 97.0f), glm::vec2(128.0f, 128.0f));
-    UI->addElement(rect);
 
     /* Prepare Game Logic*/
 

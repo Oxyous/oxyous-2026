@@ -33,6 +33,11 @@ public:
     /* */
     virtual void destroy() override;
 
+    /* */
+    virtual void setTexture(std::shared_ptr<GPUTexture> texture) {
+        m_texture = texture;
+    }
+
 private:
     std::shared_ptr<GPUTexture> m_texture;
 };

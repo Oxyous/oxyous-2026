@@ -70,7 +70,7 @@ int BHV::buildRecursive(int start, int end, int maxLeafSize) {
 
 /* Segment Intersects Polygon Volume*/
 bool BHV::segmentIntersectsPolygon(int nodeIndex, const glm::vec3 &a, const glm::vec3 &b,
-                                   double ignoreMin, double ignoreMax) {
+                                   double ignoreMin, double ignoreMax, OGPolygon& polyOut) {
     const BHVNode &node = nodes[nodeIndex];
 
     if (!CollisionHelper::segmentIntersectsAabb(a, b, node.aabb)) {
@@ -83,6 +83,7 @@ bool BHV::segmentIntersectsPolygon(int nodeIndex, const glm::vec3 &a, const glm:
             double t;
             if (CollisionHelper::segmentIntersectsPolygon(a, b, poly, t)) {
                 if (t >= ignoreMin && t <= ignoreMax) {
+                    polyOut = poly;
                     return true;
                 }
             }
@@ -90,11 +91,11 @@ bool BHV::segmentIntersectsPolygon(int nodeIndex, const glm::vec3 &a, const glm:
         return false;
     }
 
-    if (segmentIntersectsPolygon(node.left, a, b, ignoreMin, ignoreMax)) {
+    if (segmentIntersectsPolygon(node.left, a, b, ignoreMin, ignoreMax, polyOut)) {
         return true;
     }
 
-    if (segmentIntersectsPolygon(node.right, a, b, ignoreMin, ignoreMax)) {
+    if (segmentIntersectsPolygon(node.right, a, b, ignoreMin, ignoreMax,polyOut)) {
         return true;
     }
 

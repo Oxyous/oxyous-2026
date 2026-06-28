@@ -4,8 +4,10 @@ layout (set = 0, binding = 0) uniform sampler2D gAlbedo;
 layout (set = 0, binding = 1) uniform sampler2D gNormal;
 layout (set = 0, binding = 2) uniform sampler2D gPBR;
 layout (set = 0, binding = 3) uniform sampler2D gPosition;
+layout (set = 0, binding = 4) uniform sampler2D gDepth;
+layout (set = 0, binding = 5) uniform samplerCube gEnvironment;
 
-layout(set = 0, binding = 4) uniform PostProcessUBO {
+layout(set = 0, binding = 6) uniform PostProcessUBO {
     mat4 projection;
     mat4 view;
     mat4 invView;
@@ -64,5 +66,23 @@ void main()
     // --- Ambient ---
     color += albedo * 0.05;
 
-    outColor = vec4(color, 1.0);
+    /**/
+    
+   float depth = texture(gDepth, uvCoord).r;
+
+    // Reconstruct clip space position
+    vec4 clip = vec4(uvCoord * 2.0 - 1.0, 1.0, 1.0);
+
+    // Convert to view space
+    vec4 view = inverse(ubo.projection) * clip;
+    view /= view.w;
+
+    // Convert to world direction (ignore translation)
+    vec3 dir = normalize((ubo.invView * vec4(view.xyz, 0.0)).xyz);
+
+    if (texture(gDepth, uvCoord).r >= 1.0) {
+        outColor = texture(gEnvironment, dir);
+    }else {
+        outColor = vec4(color, 1.0);
+    }
 }

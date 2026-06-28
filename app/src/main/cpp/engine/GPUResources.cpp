@@ -38,20 +38,32 @@ void GPUResources::uploadFrameData(FrameData &frameData) {
 }
 
 uint32_t GPUResources::registerTexture(GPUTexture texture) {
+    if (texture.descriptor.imageView == VK_NULL_HANDLE || texture.descriptor.sampler == VK_NULL_HANDLE) {
+        aout << "Error: Attempted to register invalid texture in GPUResources!" << std::endl;
+        return 0;
+    }
+
     uint32_t slot = allocateTextureSlot();
 
     const auto& device = RENDER_DEVICE->getDevice();
+    VkDescriptorImageInfo imageInfo = texture.descriptor;
 
     // Update ALL per-frame descriptor sets with this texture
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+        VkDescriptorSet dstSet = m_bindlessRenderer.frameData[i].bindlessSet;
+        if (dstSet == VK_NULL_HANDLE) {
+            aout << "Error: Bindless set not initialized for frame " << i << " in GPUResources!" << std::endl;
+            continue;
+        }
+
         VkWriteDescriptorSet write = {};
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        write.dstSet = m_bindlessRenderer.frameData[i].bindlessSet;
+        write.dstSet = dstSet;
         write.dstBinding = 3;
         write.dstArrayElement = slot;
         write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         write.descriptorCount = 1;
-        write.pImageInfo = &texture.descriptor;
+        write.pImageInfo = &imageInfo;
 
         vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
     }

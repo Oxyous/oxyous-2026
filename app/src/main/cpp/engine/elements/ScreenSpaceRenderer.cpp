@@ -36,19 +36,31 @@ void ScreenSpaceRenderer::uploadFrameData(ScreenElements &frameData) {
 }
 
 uint32_t ScreenSpaceRenderer::registerTexture(GPUTexture texture) {
-    const auto& device = RENDER_DEVICE->getDevice();
+    if (texture.descriptor.imageView == VK_NULL_HANDLE || texture.descriptor.sampler == VK_NULL_HANDLE) {
+        aout << "Error: Attempted to register invalid texture in ScreenSpaceRenderer!" << std::endl;
+        return 0;
+    }
 
+    const auto& device = RENDER_DEVICE->getDevice();
     uint32_t slot = allocateTextureSlot();
 
+    VkDescriptorImageInfo imageInfo = texture.descriptor;
+
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+        VkDescriptorSet dstSet = m_bindlessRenderer.frameData[i].bindlessSet;
+        if (dstSet == VK_NULL_HANDLE) {
+            aout << "Error: Bindless set not initialized for frame " << i << " in ScreenSpaceRenderer!" << std::endl;
+            continue;
+        }
+
         VkWriteDescriptorSet write = {};
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        write.dstSet = m_bindlessRenderer.frameData[i].bindlessSet;
+        write.dstSet = dstSet;
         write.dstBinding = 3;
         write.dstArrayElement = slot;
         write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         write.descriptorCount = 1;
-        write.pImageInfo = &texture.descriptor;
+        write.pImageInfo = &imageInfo;
 
         vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
     }
@@ -272,7 +284,7 @@ bool ScreenSpaceRenderer::initializeFrame(ScreenElements &frame) {
 }
 
 uint32_t ScreenSpaceRenderer::allocateTextureSlot() {
-    for (uint32_t i = 0; i < MAX_TEXTURES; ++i) {
+    for (uint32_t i = 0; i < MAX_SCREEN_TEXTURES; ++i) {
         if (!m_bindlessRenderer.textureSlotUsed[i]) {
             m_bindlessRenderer.textureSlotUsed[i] = true;
             return i;

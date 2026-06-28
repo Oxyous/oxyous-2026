@@ -30,7 +30,7 @@ public:
 private:
     int buildRecursive(int start, int end, int maxLeafSize);
 
-    bool segmentIntersectsPolygon(int nodeIndex, const glm::vec3 &a, const glm::vec3 &b, double ignoreMin, double ignoreMax);
+    bool segmentIntersectsPolygon(int nodeIndex, const glm::vec3 &a, const glm::vec3 &b, double ignoreMin, double ignoreMax, OGPolygon& polyOut);
 };
 
 

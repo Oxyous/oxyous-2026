@@ -19,12 +19,18 @@ void PostProcess::resize(int width, int height) {
 }
 
 void PostProcess::update(double delta) {
-    /*m_uniformBuffer.update<PostProcessUBO>({
-            .projection = glm::ortho(0.0f, (float) m_width, (float) m_height, 0.0f, -1.0f, 1.0f),
-            .view = glm::mat4(1.0f),
-            .invView = glm::mat4(1.0f),
+    auto projection = glm::perspective(glm::radians(45.0f), (float) m_width / (float) m_height, 0.1f, 100.0f);
+    auto view = glm::lookAt(glm::vec3(8.0f, 8.0f, 8.0f), glm::vec3(0.0f, 0.0f, 0.0f),
+                             glm::vec3(0.0f, 1.0f, 0.0f));
+    auto invView = glm::inverse(view);
+
+    PostProcessUBO ubo{
+            .projection = projection,
+            .view = view,
+            .invView = invView,
             .cameraPosition = glm::vec4(8.0f, 8.0f, 8.0f, 1.0f)
-    });*/
+    };
+    m_uniformBuffer.update(&ubo);
 }
 
 void PostProcess::execute(const VkSemaphore &waitSemaphore, const VkSemaphore &signalSemaphore,
@@ -276,16 +282,16 @@ bool PostProcess::initialize() {
     }
 
     /* Create Descriptor pool*/
-    VkDescriptorPoolSize poolSize[2] = {};
-    poolSize[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSize[0].descriptorCount = 4;
-    poolSize[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSize[1].descriptorCount = 1;
+    std::array<VkDescriptorPoolSize, 2> poolSizes = {};
+    poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizes[0].descriptorCount = 6;
+    poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSizes[1].descriptorCount = 1;
 
     VkDescriptorPoolCreateInfo descriptorPoolInfo = {};
     descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    descriptorPoolInfo.poolSizeCount = 2;
-    descriptorPoolInfo.pPoolSizes = poolSize;
+    descriptorPoolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+    descriptorPoolInfo.pPoolSizes = poolSizes.data();
     descriptorPoolInfo.maxSets = 1;
 
     if (vkCreateDescriptorPool(RENDER_DEVICE->getDevice(), &descriptorPoolInfo, nullptr,
@@ -350,7 +356,7 @@ bool PostProcess::initialize() {
 
 bool PostProcess::initializeDescriptors() {
     const auto &device = RENDER_DEVICE->getDevice();
-    VkDescriptorSetLayoutBinding layoutBinding[5] = {};
+    VkDescriptorSetLayoutBinding layoutBinding[7] = {};
 
     /* Diffuse GBuffer */
     layoutBinding[0].binding = 0;
@@ -358,7 +364,7 @@ bool PostProcess::initializeDescriptors() {
     layoutBinding[0].descriptorCount = 1;
     layoutBinding[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    /* Normal Depth Buffer*/
+    /* Normal Buffer */
     layoutBinding[1].binding = 1;
     layoutBinding[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     layoutBinding[1].descriptorCount = 1;
@@ -376,15 +382,27 @@ bool PostProcess::initializeDescriptors() {
     layoutBinding[3].descriptorCount = 1;
     layoutBinding[3].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    /* Uniform Buffer */
+    /* Depth Buffer */
     layoutBinding[4].binding = 4;
-    layoutBinding[4].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    layoutBinding[4].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     layoutBinding[4].descriptorCount = 1;
     layoutBinding[4].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
+    /* Environment Cubemap */
+    layoutBinding[5].binding = 5;
+    layoutBinding[5].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    layoutBinding[5].descriptorCount = 1;
+    layoutBinding[5].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    /* Uniform Buffer */
+    layoutBinding[6].binding = 6;
+    layoutBinding[6].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    layoutBinding[6].descriptorCount = 1;
+    layoutBinding[6].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
     VkDescriptorSetLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = 5;
+    layoutInfo.bindingCount = 7;
     layoutInfo.pBindings = layoutBinding;
 
     if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &m_perFrameDSL) != VK_SUCCESS) {
@@ -435,7 +453,7 @@ void PostProcess::setFrameBufferImage(const std::string &name, const VkDescripto
 
 void PostProcess::updateDescriptors() {
     const auto &device = RENDER_DEVICE->getDevice();
-    VkWriteDescriptorSet descriptorWrites[5] = {};
+    VkWriteDescriptorSet descriptorWrites[7] = {};
 
     descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrites[0].dstSet = m_descriptorSet;
@@ -473,11 +491,27 @@ void PostProcess::updateDescriptors() {
     descriptorWrites[4].dstSet = m_descriptorSet;
     descriptorWrites[4].dstBinding = 4;
     descriptorWrites[4].dstArrayElement = 0;
-    descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     descriptorWrites[4].descriptorCount = 1;
-    descriptorWrites[4].pBufferInfo = m_uniformBuffer.getDescriptorInfo();
+    descriptorWrites[4].pImageInfo = &m_frameBufferImages["gDepth"];
 
-    vkUpdateDescriptorSets(device, 5, descriptorWrites, 0, nullptr);
+    descriptorWrites[5].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[5].dstSet = m_descriptorSet;
+    descriptorWrites[5].dstBinding = 5;
+    descriptorWrites[5].dstArrayElement = 0;
+    descriptorWrites[5].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrites[5].descriptorCount = 1;
+    descriptorWrites[5].pImageInfo = &m_frameBufferImages["gEnvironment"];
+
+    descriptorWrites[6].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[6].dstSet = m_descriptorSet;
+    descriptorWrites[6].dstBinding = 6;
+    descriptorWrites[6].dstArrayElement = 0;
+    descriptorWrites[6].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorWrites[6].descriptorCount = 1;
+    descriptorWrites[6].pBufferInfo = m_uniformBuffer.getDescriptorInfo();
+
+    vkUpdateDescriptorSets(device, 7, descriptorWrites, 0, nullptr);
 }
 
 void PostProcess::record(VkCommandBuffer commandBuffer, uint64_t currentFrame, VkFramebuffer framebuffer) {

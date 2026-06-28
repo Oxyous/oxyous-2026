@@ -12,6 +12,8 @@ add_library(oxyous_2026 SHARED
         engine/algorithms/AStar.cpp
         engine/actors/OGActor.cpp
         engine/collision/PlaneVolume.cpp
+        engine/collision/AABBVolume.cpp
+        engine/collision/BHV.cpp
         engine/input/Input.cpp
         engine/input/ThumbStick.cpp
         engine/elements/OGElement.cpp
@@ -39,6 +41,8 @@ find_package(game-activity REQUIRED CONFIG)
 # Forces the linker to keep the JNI entry point for GameActivity
 set(CMAKE_SHARED_LINKER_FLAGS
         "${CMAKE_SHARED_LINKER_FLAGS} -u Java_com_google_androidgamesdk_GameActivity_initializeNativeCode")
+
+set(CMAKE_ANDROID_API 30)
 
 # Configure libraries CMake uses to link your target library.
 target_link_libraries(oxyous_2026

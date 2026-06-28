@@ -7,6 +7,7 @@
 
 #include "../../includes.hpp"
 #include "../elements/OGElement.hpp"
+#include "../../system/OGSingleton.hpp"
 
 class OGUi {
 public:
@@ -15,8 +16,9 @@ public:
 public:
 
     template<typename T>
-    void addElement(T* element) {
+    T* addElement(T* element) {
         m_elements.emplace_back(element);
+        return element;
     }
 
     void update(float delta) {

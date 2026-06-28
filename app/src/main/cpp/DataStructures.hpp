@@ -21,6 +21,10 @@ struct saveState {
 
 };
 
+typedef struct {
+    glm::vec3 a, b, c;
+} OGPolygon;
+
 /* App Engine Struct */
 struct appEngine {
     int32_t width;
@@ -73,7 +77,7 @@ typedef struct GPUTexture {
     VkSampler sampler;
     uint32_t width;
     uint32_t height;
-    VkDescriptorImageInfo descriptor;
+    VkDescriptorImageInfo descriptor = { VK_NULL_HANDLE, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_UNDEFINED };
     VkImageLayout imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     VkDescriptorType type = VK_DESCRIPTOR_TYPE_MAX_ENUM;
 

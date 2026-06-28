@@ -8,6 +8,7 @@
 #include "../../includes.hpp"
 #include "../../DataStructures.hpp"
 #include "../vulkan/RenderDevice.hpp"
+#include "../../resources/ResourceManager.hpp"
 
 class RenderFramework {
 public:
@@ -825,6 +826,214 @@ public:
 
         frameBuffer->descriptor.imageView = frameBuffer->image.imageView;
         frameBuffer->descriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+        return true;
+    }
+
+    inline static bool
+    createCubMap(const std::vector<std::string> &cubeMapFaces, uint32_t size, GPUTexture *texture) {
+        VkDevice device = RENDER_DEVICE->getDevice();
+
+        if (cubeMapFaces.size() != 6) {
+            aout << "Cube map must have 6 faces!" << std::endl;
+            return false;
+        }
+
+        VkMemoryRequirements memRequirements{};
+
+        VkCommandBuffer commandBuffer;
+
+        if (!allocateCommandBuffer(RENDER_DEVICE->getPrimaryCommandPool(), commandBuffer)) {
+            aout << "Failed to allocate command buffer!" << std::endl;
+            return false;
+        }
+
+        VkImageCreateInfo imageInfo = {};
+        imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+        imageInfo.arrayLayers = 6;
+        imageInfo.imageType = VK_IMAGE_TYPE_2D;
+        imageInfo.extent.width = size;
+        imageInfo.extent.height = size;
+        imageInfo.extent.depth = 1;
+        imageInfo.mipLevels = 1;
+        imageInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+        imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+        imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        imageInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+        imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+
+        if (vkCreateImage(device, &imageInfo, nullptr, &texture->image.image) != VK_SUCCESS) {
+            aout << "Failed to create image!" << std::endl;
+            return false;
+        }
+
+        vkGetImageMemoryRequirements(device, texture->image.image, &memRequirements);
+
+        VkMemoryAllocateInfo allocInfo = {};
+        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        allocInfo.allocationSize = memRequirements.size;
+
+        uint32_t memoryTypeIndex = 0;
+        if (!findMemoryType(RENDER_DEVICE->getPhysicalDevice(), memRequirements.memoryTypeBits,
+                            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, memoryTypeIndex)) {
+            aout << "Failed to find suitable memory type!" << std::endl;
+            return false;
+        }
+
+        allocInfo.memoryTypeIndex = memoryTypeIndex;
+
+        if (vkAllocateMemory(device, &allocInfo, nullptr, &texture->image.memory) != VK_SUCCESS) {
+            aout << "Failed to allocate image memory!" << std::endl;
+            return false;
+        }
+
+        if (vkBindImageMemory(device, texture->image.image, texture->image.memory, 0) !=
+            VK_SUCCESS) {
+            aout << "Failed to bind image memory!" << std::endl;
+            return false;
+        }
+
+        std::vector<VkBufferImageCopy> bufferCopyRegions;
+
+        const VkDeviceSize cubeMapFacesSize = size * size * 4 * 6;
+        const VkDeviceSize layerSize = cubeMapFacesSize / 6;
+        std::vector<uint8_t> faceTextures[6];
+
+        uint32_t layerOffset = 0;
+
+        for (uint32_t face = 0; face < 6; ++face) {
+
+            uint32_t width = 0;
+            uint32_t height = 0;
+            uint32_t dataSize = 0;
+
+            if (!RESOURCE_MANAGER->loadTextureData(cubeMapFaces[face].c_str(),
+                                                   faceTextures[face], dataSize, width,
+                                                   height)) {
+                aout << "Failed to load texture data!" << std::endl;
+                return false;
+            }
+
+            VkBufferImageCopy region = {};
+            region.bufferOffset = face * size * size * 4; // Assuming 4 bytes
+            region.bufferRowLength = 0;
+            region.bufferImageHeight = 0;
+            region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            region.imageSubresource.mipLevel = 0;
+            region.imageSubresource.baseArrayLayer = face;
+            region.imageSubresource.layerCount = 1;
+            region.imageOffset = {0, 0, 0};
+            region.imageExtent = {width, height, 1};
+            bufferCopyRegions.push_back(region);
+        }
+
+        GPUBuffer stagingBuffer;
+        VkDeviceSize bufferSize;
+
+        if (!createBuffer(cubeMapFacesSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                          VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &bufferSize, &stagingBuffer)) {
+            aout << "Failed to create staging buffer!" << std::endl;
+            return false;
+        }
+
+        for (uint32_t face = 0; face < 6; ++face) {
+            void *pData;
+            vkMapMemory(device, stagingBuffer.memory, face * layerSize, layerSize, 0,
+                        &pData);
+            memcpy(pData, faceTextures[face].data(), layerSize);
+            vkUnmapMemory(device, stagingBuffer.memory);
+        }
+
+        VkImageSubresourceRange subresourceRange = {};
+        subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        subresourceRange.baseMipLevel = 0;
+        subresourceRange.levelCount = 1;
+        subresourceRange.layerCount = 6;
+
+        VkCommandBufferBeginInfo beginInfo = {};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+        if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+            aout << "Failed to begin recording command buffer!" << std::endl;
+            return false;
+        }
+
+        setImageLayout(commandBuffer, texture->image.image, VK_IMAGE_ASPECT_COLOR_BIT,
+                       VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                       subresourceRange);
+
+        vkCmdCopyBufferToImage(commandBuffer, stagingBuffer.buffer, texture->image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        6, bufferCopyRegions.data());
+
+        setImageLayout(commandBuffer, texture->image.image, VK_IMAGE_ASPECT_COLOR_BIT,
+                       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                       subresourceRange);
+
+        vkEndCommandBuffer(commandBuffer);
+
+        VkSubmitInfo submitInfo = {};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &commandBuffer;
+
+        if (vkQueueSubmit(RENDER_DEVICE->getGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
+            aout << "Failed to submit command buffer!" << std::endl;
+            return false;
+        }
+
+        vkQueueWaitIdle(RENDER_DEVICE->getGraphicsQueue());
+
+        vkFreeCommandBuffers(device, RENDER_DEVICE->getPrimaryCommandPool(), 1, &commandBuffer);
+
+        vkFreeMemory(device, stagingBuffer.memory, nullptr);
+        vkDestroyBuffer(device, stagingBuffer.buffer, nullptr);
+
+        VkImageViewCreateInfo viewInfo = {};
+        viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        viewInfo.image = texture->image.image;
+        viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+        viewInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+        viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        viewInfo.subresourceRange.baseMipLevel = 0;
+        viewInfo.subresourceRange.levelCount = 1;
+        viewInfo.subresourceRange.layerCount = 6;
+
+        if (vkCreateImageView(device, &viewInfo, nullptr, &texture->image.imageView) != VK_SUCCESS) {
+            aout << "Failed to create image view!" << std::endl;
+            return false;
+        }
+
+        texture->descriptor.imageView = texture->image.imageView;
+        texture->descriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+        VkSamplerCreateInfo samplerInfo = {};
+        samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        samplerInfo.magFilter = VK_FILTER_LINEAR;
+        samplerInfo.minFilter = VK_FILTER_LINEAR;
+        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        samplerInfo.mipLodBias = 0.0f;
+        samplerInfo.maxAnisotropy = 1.0f;
+        samplerInfo.minLod = 0.0f;
+        samplerInfo.maxLod = 0.0f;
+        samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+        samplerInfo.unnormalizedCoordinates = VK_FALSE;
+        samplerInfo.compareOp = VK_COMPARE_OP_NEVER;
+        samplerInfo.compareEnable = VK_FALSE;
+        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+
+        if (vkCreateSampler(device, &samplerInfo, nullptr, &texture->sampler) != VK_SUCCESS) {
+            aout << "Failed to create sampler!" << std::endl;
+            return false;
+        }
+
+        texture->descriptor.sampler = texture->sampler;
 
         return true;
     }

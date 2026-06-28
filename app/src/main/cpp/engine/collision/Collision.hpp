@@ -6,6 +6,7 @@
 #define OXYOUS_2026_COLLISION_HPP
 
 #include "../../includes.hpp"
+#include "../../DataStructures.hpp"
 
 class PlaneVolume;
 class SphereVolume;
@@ -13,10 +14,6 @@ class AABBVolume;
 class OBBVolume;
 class Ray;
 class RaycastHit;
-
-typedef struct {
-    glm::vec3 a, b, c;
-}OGPolygon;
 
 class IVolume {
 public:
