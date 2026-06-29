@@ -111,7 +111,7 @@ public:
     /* Grid to World Space */
     inline static glm::vec3
     gridToWorld(const Point &point, float scale, float height = 0.0f, float offset = 5.0f) {
-        return {(point.first * scale) - offset, height + 2.0, (point.second * scale) - offset};
+        return {(point.first * scale) - offset, height, (point.second * scale) - offset};
     }
 
     /* World to Grid Space */

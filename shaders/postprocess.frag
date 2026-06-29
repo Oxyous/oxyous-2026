@@ -62,7 +62,7 @@ float sampleShadow(vec3 worldPos, int cascadeIndex, vec3 normal)
 
     // Better than a fixed bias
     float bias = max(
-        0.0005 * (1.0 - dot(normal, normalize(vec3(0.5, 1.0, 0.5)))),
+        0.00005 * (1.0 - dot(normal, normalize(vec3(0.5, 1.0, 0.5)))),
         0.00005
     );
 
@@ -137,15 +137,20 @@ void main()
     // --- Combine ---
     vec3 color = (diffuse * NdotL + specular) * lightColor;
 
-    // --- Ambient ---
-    color +=  texture(gEnvironment, H).rgb * 0.1;
 
     /**/
-    
     float dist = length(ubo.cameraPosition.xyz - worldPos);
     int cascadeIndex = getCascadeIndex(dist);
 
-    float shadow = sampleShadow(worldPos, cascadeIndex, normal);
+    float shadowA = sampleShadow(worldPos, cascadeIndex, normal);
+    float shadowB = sampleShadow(worldPos, min(cascadeIndex+1,3), normal);
+    float shadow = shadowA;
+
+    if (cascadeIndex < 3) {
+        float blend = (dist - csm.cascadeSplits[cascadeIndex]) /
+                      (csm.cascadeSplits[cascadeIndex + 1] - csm.cascadeSplits[cascadeIndex]);
+        shadow = mix(shadowA, shadowB, blend);
+    }
 
     // Reconstruct world direction from UV for skybox
     vec4 clip = vec4(uvCoord * 2.0 - 1.0, 0.0, 1.0);
@@ -158,6 +163,6 @@ void main()
     if (depth >= 1.0) {
         outColor = texture(gEnvironment, worldDir);
     }else {
-        outColor = vec4(color * shadow, 1.0);
+        outColor = vec4(color * shadow, 1.0) + texture(gEnvironment, V).rgba * 0.1;
     }
 }

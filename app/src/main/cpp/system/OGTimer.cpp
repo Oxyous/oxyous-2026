@@ -81,3 +81,9 @@ float OGTimer::GetAppTime() {
 int OGTimer::getFPS() {
     return m_fps;
 }
+
+double OGTimer::getTime() {
+    double time;
+    QueryPerformanceTimer(&time);
+    return time / m_countPerSecond;
+}

@@ -76,6 +76,7 @@ bool GameView::initialize() {
     auto texture2 = RESOURCE_MANAGER->get<GPUTextureResource>("android_robot.png");
     auto texture3 = RESOURCE_MANAGER->get<GPUTextureResource>("grass-land-diffuse.jpg");
     auto normal = RESOURCE_MANAGER->get<GPUTextureResource>("grunge1_nm.png");
+    auto metalPanel = RESOURCE_MANAGER->get<GPUTextureResource>("metal-panel.jpg");
 
     auto mesh = RESOURCE_MANAGER->get<GPUStaticMeshResource>("tree.osm");
     auto mesh2 = RESOURCE_MANAGER->get<GPUStaticMeshResource>("blender.osm");
@@ -86,7 +87,7 @@ bool GameView::initialize() {
                                             0, 1, 1, 0, 1.0f, 1.0f, 1.0f, 1.0f
                                     });
 
-    GPU_RESOURCES->registerTexture(*texture->get());
+    GPU_RESOURCES->registerTexture(*metalPanel->get());
     GPU_RESOURCES->registerTexture(*normal->get());
 
     GPU_RESOURCES->registerTexture(*texture3->get());

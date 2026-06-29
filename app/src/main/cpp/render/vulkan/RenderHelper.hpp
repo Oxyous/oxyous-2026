@@ -201,7 +201,7 @@ public:
         );
 
         // Vulkan Y-flip
-        lightProj[1][1] *= -1;
+        //lightProj[1][1] *= -1;
 
         return lightProj * lightView;
     }
@@ -217,7 +217,7 @@ public:
             ) {
 
         CSMData data;
-        auto splits = computeCascadeSplits(nearPlane, farPlane, 0.95f);
+        auto splits = computeCascadeSplits(nearPlane, farPlane, 0.98f);
 
         float lastSplit = nearPlane;
 

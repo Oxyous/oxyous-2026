@@ -33,7 +33,7 @@ void PostProcess::update(double delta) {
     };
     m_uniformBuffer.update(&ubo);
 
-    CSMData gpuData = RenderHelper::computeCSMMatrices(ENGINE->getCameraProjection(), ENGINE->getCameraView(), 0.1f, 1000.0f, 1024, glm::vec3(0.5f, 1.0f, 0.5f));
+    CSMData gpuData = RenderHelper::computeCSMMatrices(ENGINE->getCameraProjection(), ENGINE->getCameraView(), 0.2f, 1000.0f, 1024, glm::vec3(0.5f, 1.0f, 0.5f));
 
     m_csmUniformBuffer.update(&gpuData);
 }

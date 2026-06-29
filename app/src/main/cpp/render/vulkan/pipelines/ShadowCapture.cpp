@@ -541,7 +541,7 @@ void ShadowCapture::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
                             m_pipelineLayout, 0, 2,
                             setsToBind, 0, nullptr);
 
-    CSMData gpuData = RenderHelper::computeCSMMatrices(ENGINE->getCameraProjection(), ENGINE->getCameraView(), 0.1f, 1000.0f, m_shadowMapSize, glm::vec3(0.5f, 1.0f, 0.5f));
+    CSMData gpuData = RenderHelper::computeCSMMatrices(ENGINE->getCameraProjection(), ENGINE->getCameraView(), 0.2f, 1000.0f, m_shadowMapSize, glm::vec3(0.5f, 1.0f, 0.5f));
     m_uniformBuffer.update(&gpuData);
 
     for (int i = 0; i < m_cascadeCount; ++i) {

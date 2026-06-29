@@ -34,6 +34,7 @@ typedef struct TouchEvent {
         uintptr_t identifier;
         glm::vec2 position;
         bool isChanged = false;
+        double time = 0.0;
     } touchPoints[4];
 } TouchEvent;
 
@@ -66,6 +67,8 @@ public:
         return nullptr;
     }
 
+    void processTap(TouchEvent& event, uint32_t i);
+
     /* Process Input events */
     void processEvents(TouchEvent& event);
 public:
@@ -75,6 +78,9 @@ protected:
 
     glm::vec2 m_position;
     glm::vec2 m_oldPosition;
+
+    glm::vec2 m_tapStartPosition;
+    double m_tapStartTime = 0.0;
 
     std::vector<std::shared_ptr<ThumbStick>> m_thumbSticks;
     std::map<int, std::shared_ptr<ThumbStick>> m_thumbStickMap;

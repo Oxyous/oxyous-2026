@@ -521,7 +521,7 @@ Deferred::record(VkCommandBuffer commandBuffer, uint64_t currentFrame, VkFramebu
 
     const float aspect = static_cast<float>(m_height) / static_cast<float>(m_width);
 
-    frame.perFrame.projection = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 100.0f);
+    frame.perFrame.projection = ENGINE->getCameraProjection();
     frame.perFrame.view = ENGINE->getCameraView();
 
 

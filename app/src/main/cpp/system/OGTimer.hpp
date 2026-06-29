@@ -20,6 +20,7 @@ public:
     void Reset();
     void Stop();
     double GetDelta();
+    double getTime();
     int GetTimeDifference();
     int GetMinutesDifference();
     float GetAppTime();
