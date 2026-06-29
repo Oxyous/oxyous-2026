@@ -21,11 +21,15 @@ public:
     }
 
     virtual bool isVisible() {
-        return true;
+        return m_visible;
     }
 
     virtual void setTranslation(const glm::vec3 &translation) {
         m_translation = glm::translate(glm::mat4(1.0f), translation);
+    }
+
+    virtual void setVisible(bool visible) {
+        m_visible = visible;
     }
 
 protected:
@@ -33,6 +37,7 @@ protected:
     glm::mat4 m_transform;
     glm::mat4 m_translation;
     glm::mat4 m_size;
+    bool m_visible = true;
 };
 
 class OGRect : public OGElement {

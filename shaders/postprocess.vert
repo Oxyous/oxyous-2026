@@ -19,7 +19,7 @@ void main()
 {
 
     vec2 uv = uvs[gl_VertexIndex];
-    uvCoord = vec2(1.0 - uv.y, uv.x);
+    uvCoord = vec2(1.0-uv.y, uv.x);
 
     gl_Position = vec4(positions[gl_VertexIndex], 0.0, 1.0);
 }

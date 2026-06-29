@@ -10,6 +10,8 @@
 #include "../system/OGSingleton.hpp"
 #include "../render/vulkan/pipelines/IRenderPipeline.hpp"
 #include "input/Input.hpp"
+#include "actors/OGActor.hpp"
+#include "actors/OGCamera.hpp"
 
 class Engine {
 public:
@@ -31,6 +33,10 @@ public:
     /* handle input */
     virtual void handleInput();
 
+    /* */
+    virtual void prepareInput();
+
+    virtual ThumbStick* getThumbStick(ThumbStickType type);
 public:
     template<typename T, typename... TArgs>
     T* createPipeline(const std::string& name, TArgs&&... args) {
@@ -61,9 +67,12 @@ public:
         return m_app;
     }
 
-
+    glm::mat4 getViewCamera(){
+        return m_camera.getViewMatrix();
+    }
 
 protected:
+    OGCamera m_camera;
     std::unordered_map<std::string, std::unique_ptr<IRenderPipeline>> m_pipelines;
     android_app *m_app;
     Input m_input;

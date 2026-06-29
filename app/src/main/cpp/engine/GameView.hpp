@@ -8,6 +8,7 @@
 #include "../includes.hpp"
 #include "entity/OGEntity.hpp"
 #include "collision/Collision.hpp"
+#include "input/ThumbStick.hpp"
 
 class IGameView {
 public:
@@ -45,7 +46,7 @@ public:
     void destroy() override;
 
     /* Get Entities */
-    std::vector<std::unique_ptr<OGEntity>>& getEntities() {
+    std::unordered_map<std::string, std::unique_ptr<OGEntity>>& getEntities() {
         return m_entities;
     }
 
@@ -63,21 +64,28 @@ public:
     std::function<void(const Ray&, RaycastHit&)> raycastCallback;
 
     template<typename T, typename... TArgs>
-    T* addActor(TArgs&&... args) {
+    T* addActor(std::string name, TArgs&&... args) {
         T* actor(new T(std::forward<TArgs>(args)...));
 
         std::unique_ptr<OGEntity> uPtr {actor};
 
-        m_entities.push_back(std::move(uPtr));
+        m_entities[name] = std::move(uPtr);
 
-        return (T*)m_entities[m_entities.size() - 1].get();
+        return (T*)m_entities[name].get();
     }
+
+    template<typename T>
+    T* getActor(const std::string& name)
+    {
+        return m_entities.find(name) != m_entities.end() ? (T*)m_entities[name].get() : nullptr;
+    }
+
 
 private:
     /* Temporary Collision */
     std::vector<std::shared_ptr<IVolume>> m_colliders;
 
-    std::vector<std::unique_ptr<OGEntity>> m_entities;
+    std::unordered_map<std::string, std::unique_ptr<OGEntity>> m_entities;
 };
 
 #define GAME_VIEW OGSingleton<GameView>::getInstance()

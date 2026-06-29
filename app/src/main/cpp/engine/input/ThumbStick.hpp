@@ -8,26 +8,31 @@
 
 #include "../../includes.hpp"
 
+enum ThumbStickType {
+    THUMBSTICK_LEFT,
+    THUMBSTICK_RIGHT
+};
+
 class OGElement;
 
 class ThumbStick {
 public:
-    ThumbStick(glm::vec2 outerCenter, glm::vec2 innerCenter, float outerRadius, float innerRadius);
+    ThumbStick(ThumbStickType type, float outerRadius, float innerRadius);
 public:
     /* */
-    virtual void update(float delta);
+    virtual void update(double delta);
 
     /* */
     virtual bool initialize();
 
     /* */
-    virtual bool isPressed(const glm::vec2& point);
+    virtual bool isPressed();
 
     /* */
     virtual void onTouchMove(const glm::vec2& point);
 
     /* */
-    virtual void onTouchUp(const glm::vec3 point);
+    virtual void onTouchUp(const glm::vec2& point);
 
     /* */
     virtual void onTouchDown(const glm::vec2& point);
@@ -44,6 +49,10 @@ public:
     /* */
     virtual void resetActuator();
 
+    ThumbStickType getType() {
+        return m_type;
+    }
+
 private:
     /* */
     void setActuator(const glm::vec2& point);
@@ -59,6 +68,7 @@ protected:
     glm::vec2 m_actuator;
     bool m_isPressed;
     glm::vec2 m_inputPosition;
+    ThumbStickType m_type;
 };
 
 

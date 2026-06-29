@@ -18,6 +18,7 @@
 #include "../render/vulkan/pipelines/ScreenSpace.hpp"
 #include "elements/OGElement.hpp"
 #include "ui/OGUi.hpp"
+#include "actors/OGCamera.hpp"
 
 void GameView::render() {
 
@@ -25,9 +26,9 @@ void GameView::render() {
 
 void GameView::update(double deltaTime) {
     for (auto &entity: m_entities) {
-        entity->update(deltaTime);
+        entity.second->update(deltaTime);
     }
-    for(auto &uiElement : UI->getElements()) {
+    for (auto &uiElement : UI->getElements()) {
         uiElement->update(deltaTime);
     }
 }
@@ -65,7 +66,7 @@ bool GameView::initialize() {
     postProcess->setFrameBufferImage("gDepth", *deferred->getFrameBufferImage("gDepth"));
     postProcess->setFrameBufferImage("gEnvironment", cubeMapTexture.descriptor);
     postProcess->updateDescriptors();
-    
+
     /* Test loading assets*/
     auto texture = RESOURCE_MANAGER->get<GPUTextureResource>("debug-uv.png");
     auto texture2 = RESOURCE_MANAGER->get<GPUTextureResource>("android_robot.png");
@@ -92,13 +93,13 @@ bool GameView::initialize() {
 
     /* Prepare Game Logic*/
 
-    auto &actor = m_entities.emplace_back(new OGEntity("actor"));
+    auto actor = addActor<OGActor>("actor");
     auto meshComponent = actor->addComponent<OGStaticMeshComponent>();
     meshComponent->setMeshResource(mesh);
     meshComponent->setTextureResource(TEXTURE_SLOT_0, texture);
     meshComponent->setMaterialIndex(1);
 
-    auto &actor4 = m_entities.emplace_back(new OGEntity("plane"));
+    auto actor4 = addActor<OGActor>("plane");
     auto meshComponent4 = actor4->addComponent<OGStaticMeshComponent>();
     meshComponent4->setMeshResource(plane);
     meshComponent4->setTextureResource(TEXTURE_SLOT_0, texture);
@@ -132,6 +133,7 @@ bool GameView::initialize() {
             playerActor->setPath(std::vector<glm::vec3>());
         }
     };
+
 
 
     return true;

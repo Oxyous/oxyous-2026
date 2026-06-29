@@ -167,6 +167,7 @@ bool Renderer::initialize(ANativeWindow *window) {
         postProcess->updateDescriptors();
     }
 
+    ENGINE->prepareInput();
 
     m_graphicsInitialized = true;
 

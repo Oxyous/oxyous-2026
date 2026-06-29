@@ -519,11 +519,10 @@ Deferred::record(VkCommandBuffer commandBuffer, uint64_t currentFrame, VkFramebu
     /* Upload Frame Data*/
     FrameData &frame = GPU_RESOURCES->getFrameData(currentFrame);
 
-    const float aspect = static_cast<float>(m_width) / static_cast<float>(m_height);
+    const float aspect = static_cast<float>(m_height) / static_cast<float>(m_width);
 
     frame.perFrame.projection = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 100.0f);
-    frame.perFrame.view = glm::lookAt(glm::vec3(8.0f, 8.0f, 8.0f), glm::vec3(0.0f, 0.0f, 0.0f),
-                                      glm::vec3(0.0f, 1.0f, 0.0f));
+    frame.perFrame.view = ENGINE->getViewCamera();
 
     GPU_RESOURCES->uploadFrameData(frame);
 
@@ -577,7 +576,7 @@ Deferred::record(VkCommandBuffer commandBuffer, uint64_t currentFrame, VkFramebu
     auto &staticMeshes = GAME_VIEW->getEntities();
     for (auto &mesh: staticMeshes) {
 
-        for (auto child: mesh->getChildren()) {
+        for (auto& child: mesh.second->getChildren()) {
             if (child->getComponent<OGStaticMeshComponent>()) {
                 auto *component = child->getComponent<OGStaticMeshComponent>();
                 if (component) {
@@ -586,8 +585,8 @@ Deferred::record(VkCommandBuffer commandBuffer, uint64_t currentFrame, VkFramebu
             }
         }
 
-        if (mesh->getComponent<OGStaticMeshComponent>()) {
-            auto *component = mesh->getComponent<OGStaticMeshComponent>();
+        if (mesh.second->getComponent<OGStaticMeshComponent>()) {
+            auto *component = mesh.second->getComponent<OGStaticMeshComponent>();
             if (component) {
                 component->render(commandBuffer, currentFrame);
             }

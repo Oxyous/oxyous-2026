@@ -83,6 +83,13 @@ bool Swapchain::initialize(VkSurfaceKHR surface, VkPhysicalDevice physicalDevice
 
     m_preTransform = m_surfaceCapabilities.currentTransform;
 
+    if (m_preTransform == VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR ||
+        m_preTransform == VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR) {
+        std::swap(m_width, m_height);
+        std::swap(m_extent.width, m_extent.height);
+    }
+
+
     /* Get Swapchain image formats */
     uint32_t formatCount = 0;
     err = vkGetPhysicalDeviceSurfaceFormatsKHR(m_physicalDevice, m_surface, &formatCount, nullptr);
@@ -113,7 +120,7 @@ bool Swapchain::initialize(VkSurfaceKHR surface, VkPhysicalDevice physicalDevice
     swapchainCreateInfo.minImageCount = m_imageCount;
     swapchainCreateInfo.imageFormat = m_imageFormat;
     swapchainCreateInfo.imageColorSpace = m_surfaceFormats[0].colorSpace;
-    swapchainCreateInfo.imageExtent = m_extent;
+    swapchainCreateInfo.imageExtent = {m_width, m_height};
     swapchainCreateInfo.imageArrayLayers = 1;
     swapchainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -183,7 +190,7 @@ void Swapchain::resize(const uint32_t &width, const uint32_t &height) {
 
     if (transform == VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR ||
         transform == VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR) {
-        std::swap(w, h);
+        std::swap(m_width, m_height);
     }
 
     VkSwapchainKHR oldSwapchain = m_swapChain;
@@ -194,7 +201,7 @@ void Swapchain::resize(const uint32_t &width, const uint32_t &height) {
     swapchainCreateInfo.minImageCount = m_imageCount;
     swapchainCreateInfo.imageFormat = m_imageFormat;
     swapchainCreateInfo.imageColorSpace = m_surfaceFormats[0].colorSpace;
-    swapchainCreateInfo.imageExtent = {w, h};
+    swapchainCreateInfo.imageExtent = {m_width, m_height};
     swapchainCreateInfo.imageArrayLayers = 1;
     swapchainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;

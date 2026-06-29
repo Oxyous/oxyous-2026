@@ -45,25 +45,14 @@ protected:
 /* Oxyous Game Entity */
 class OGEntity : public OGObject {
 public:
-    OGEntity(const std::string& name) : OGObject("OGEntity") {
+    OGEntity() : OGObject("OGEntity") {
         m_parent = nullptr;
         m_rotation = glm::quat(1.0f,0.0f,0.0f,0.0f);
         m_scale = glm::mat4(1.0f);
         m_translation = glm::mat4(1.0f);
         m_worldTransform = glm::mat4(1.0f);
-        m_name = name;
     }
 public:
-
-    /* Set Name of Entity */
-    void setName(const std::string& name) {
-        m_name = name;
-    }
-
-    /* Get Name of Entity */
-    [[nodiscard]] const std::string& getName() const {
-        return m_name;
-    }
 
     /* Get Parent of Entity */
     [[nodiscard]] OGEntity* getParent() const {

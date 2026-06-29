@@ -6,6 +6,7 @@
 #include "../RenderDevice.hpp"
 #include "../../../resources/ResourceManager.hpp"
 #include "../Swapchain.hpp"
+#include "../../../engine/Engine.hpp"
 
 PostProcess::PostProcess() = default;
 
@@ -19,9 +20,8 @@ void PostProcess::resize(int width, int height) {
 }
 
 void PostProcess::update(double delta) {
-    auto projection = glm::perspective(glm::radians(45.0f), (float) m_width / (float) m_height, 0.1f, 100.0f);
-    auto view = glm::lookAt(glm::vec3(8.0f, 8.0f, 8.0f), glm::vec3(0.0f, 0.0f, 0.0f),
-                             glm::vec3(0.0f, 1.0f, 0.0f));
+    auto projection = glm::perspective(glm::radians(45.0f), (float) m_height / (float) m_width, 0.1f, 100.0f);
+    auto view = ENGINE->getViewCamera();
     auto invView = glm::inverse(view);
 
     PostProcessUBO ubo{

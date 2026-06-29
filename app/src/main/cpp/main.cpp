@@ -151,6 +151,7 @@ void android_main(struct android_app *pApp) {
 
             if (gameEngine->renderer) {
                 ENGINE->handleInput();
+                ENGINE->update(SYS_TIMER->GetDelta());
                 SYS_TIMER->Tick();
                 // Render a frame
                 gameEngine->renderer->render();

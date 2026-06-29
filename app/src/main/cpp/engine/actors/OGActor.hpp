@@ -10,7 +10,7 @@
 
 class OGActor : public OGEntity {
 public:
-    OGActor(const std::string& name) : OGEntity(name) {}
+    OGActor() : OGEntity() {}
 public:
     void setPath(const std::vector<glm::vec3>& path) {
         m_path = path;

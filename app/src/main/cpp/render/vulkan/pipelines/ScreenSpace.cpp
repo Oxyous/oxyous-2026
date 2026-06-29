@@ -263,7 +263,7 @@ void ScreenSpace::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
     // GLM's ortho(left, right, bottom, top) maps [bottom, top] to NDC [-1, 1].
     // In Vulkan, NDC Y is -1 at top and 1 at bottom.
     // So we map 0 to -1 and DESIGN_HEIGHT to 1.
-    frame.perFrame.projection = glm::ortho(0.0f, height, width, 0.0f, -1.0f, 1.0f);
+    frame.perFrame.projection = glm::ortho(0.0f, width, height, 0.0f, -1.0f, 1.0f);
 
     frame.perFrame.screenSize = glm::vec2(designWidth, DESIGN_HEIGHT);
 
