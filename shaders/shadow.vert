@@ -21,6 +21,14 @@ struct ObjectData
     uint pad2;
 };
 
+
+layout(set = 1, binding = 0) uniform ShadowCaptureUBO
+{
+    mat4 lightViewProj[4];
+    vec4 cascadeSplits;
+} csm;
+
+
 layout(set = 0, binding = 0) readonly buffer ObjectBuffer
 {
     ObjectData objects[];
@@ -28,16 +36,15 @@ layout(set = 0, binding = 0) readonly buffer ObjectBuffer
 
 layout(push_constant) uniform PushConstants
 {
-    mat4 lightViewProj;
-    uint materialIndex;
     uint objectIndex;
+    uint cascadeIndex;
 } pc;
 
 void main()
 {
-    ObjectData obj = objects[nonuniformEXT(pc.objectIndex)];
+    ObjectData obj = objects[pc.objectIndex];
 
     mat4 worldMatrix = obj.model;
     
-    gl_Position = pc.lightViewProj * worldMatrix *  vec4(position, 1.0);
+    gl_Position = csm.lightViewProj[pc.cascadeIndex] * worldMatrix *  vec4(position, 1.0);
 }

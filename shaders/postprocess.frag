@@ -16,7 +16,7 @@ layout(set = 0, binding = 6) uniform PostProcessUBO {
 
 layout(set = 1, binding = 0) uniform sampler2DArray shadowMap;
 
-layout(set = 1, binding = 1) uniform ShadowUBO {
+layout(set = 1, binding = 1) uniform ShadowPostProcessUBO {
     mat4 lightViewProj[4];
     vec4 cascadeSplits;
 } csm;
@@ -24,17 +24,17 @@ layout(set = 1, binding = 1) uniform ShadowUBO {
 layout (location = 0) in vec2 uvCoord;
 layout (location = 0) out vec4 outColor;
 
-const vec3 lightDir = normalize(vec3(1.0, 1.0, 1.0));
+const vec3 lightDir = normalize(vec3(0.5, 1.0, 0.5));
 const vec3 lightColor = vec3(1.0);
 
 
-int getCascadeIndex(float viewDepth)
+int getCascadeIndex(float distance)
 {
     int index = 0;
 
     for (int i = 0; i < 3; i++)
     {
-        if (viewDepth > csm.cascadeSplits[i])
+        if (distance > csm.cascadeSplits[i])
             index = i + 1;
     }
 
@@ -49,23 +49,49 @@ float sampleShadow(vec3 worldPos, int cascadeIndex, vec3 normal)
 
     vec3 proj = lightSpace.xyz / lightSpace.w;
 
-    // NDC → texture space
-    proj.xy = proj.xy * 0.5 + 0.5;
+    vec2 shadowCoord = proj.xy * 0.5 + 0.5;
 
-    // Outside shadow map
-    if (proj.x < 0.0 || proj.x > 1.0 ||
-        proj.y < 0.0 || proj.y > 1.0)
+    if (shadowCoord.x < 0.0 || shadowCoord.x > 1.0 ||
+        shadowCoord.y < 0.0 || shadowCoord.y > 1.0 ||
+        proj.z < 0.0 || proj.z > 1.0)
+    {
         return 1.0;
+    }
 
     float currentDepth = proj.z;
 
-    // Bias (depends on slope)
-    float bias = max(0.001 * (1.0 - dot(normal, -lightDir)), 0.0005);
+    // Better than a fixed bias
+    float bias = max(
+        0.0005 * (1.0 - dot(normal, normalize(vec3(0.5, 1.0, 0.5)))),
+        0.00005
+    );
 
-    float shadowDepth =
-        texture(shadowMap, vec3(proj.xy, cascadeIndex)).r;
+    vec2 texelSize =
+        1.0 / vec2(textureSize(shadowMap, 0).xy);
 
-    return currentDepth - bias > shadowDepth ? 0.0 : 1.0;
+    float visibility = 0.0;
+
+    for (int x = -1; x <= 1; ++x)
+    {
+        for (int y = -1; y <= 1; ++y)
+        {
+            float shadowDepth =
+                texture(
+                    shadowMap,
+                    vec3(
+                        shadowCoord + vec2(x, y) * texelSize,
+                        cascadeIndex
+                    )
+                ).r;
+
+            visibility +=
+                (currentDepth - bias > shadowDepth)
+                ? 0.2
+                : 1.0;
+        }
+    }
+
+    return visibility / 9.0;
 }
 
 void main()
@@ -86,7 +112,7 @@ void main()
     }
     normal = normalize(normal);
 
-    float roughness = 0.9; // Default roughness
+    float roughness = 0.3; // Default roughness
     float metallic  = 0.9; // Default metallic
 
 
@@ -116,25 +142,22 @@ void main()
 
     /**/
     
-   float depth = texture(gDepth, uvCoord).r;
-
-    int cascadeIndex = getCascadeIndex(abs(depth));
+    float dist = length(ubo.cameraPosition.xyz - worldPos);
+    int cascadeIndex = getCascadeIndex(dist);
 
     float shadow = sampleShadow(worldPos, cascadeIndex, normal);
 
-    // Reconstruct clip space position
-    vec4 clip = vec4(uvCoord * 2.0 - 1.0, 1.0, 1.0);
+    // Reconstruct world direction from UV for skybox
+    vec4 clip = vec4(uvCoord * 2.0 - 1.0, 0.0, 1.0);
+    vec4 viewPt = inverse(ubo.projection) * clip;
+    viewPt /= viewPt.w;
+    vec3 worldDir = normalize((ubo.invView * vec4(viewPt.xyz, 0.0)).xyz);
 
-    // Convert to view space
-    vec4 view = inverse(ubo.projection) * clip;
-    view /= view.w;
+    float depth = texture(gDepth, uvCoord).r;
 
-    // Convert to world direction (ignore translation)
-    vec3 dir = normalize((ubo.invView * vec4(view.xyz, 0.0)).xyz);
-
-    if (texture(gDepth, uvCoord).r >= 1.0) {
-        outColor = texture(gEnvironment, dir);
+    if (depth >= 1.0) {
+        outColor = texture(gEnvironment, worldDir);
     }else {
-        outColor = vec4(color, 1.0) * shadow;
+        outColor = vec4(color * shadow, 1.0);
     }
 }

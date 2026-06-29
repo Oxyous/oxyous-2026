@@ -27,11 +27,6 @@ bool ShadowCapture::initialize() {
         return false;
     }
 
-    if (!initializeFrameBuffer()) {
-        aout << "Failed to initialize frame buffer!" << std::endl;
-        return false;
-    }
-
     /* Create Sampler */
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -50,6 +45,11 @@ bool ShadowCapture::initialize() {
 
     if (vkCreateSampler(RENDER_DEVICE->getDevice(), &samplerInfo, nullptr, &m_sampler) != VK_SUCCESS) {
         aout << "Failed to create shadow sampler!" << std::endl;
+        return false;
+    }
+
+    if (!initializeFrameBuffer()) {
+        aout << "Failed to initialize frame buffer!" << std::endl;
         return false;
     }
 
@@ -73,15 +73,31 @@ bool ShadowCapture::initialize() {
         return false;
     }
 
-    // 1. Set the shader entry point name
     VkPipelineShaderStageCreateInfo vertexShaderStageCreateInfo{};
     vertexShaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     vertexShaderStageCreateInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
     vertexShaderStageCreateInfo.module = vertexShaderModule;
-    vertexShaderStageCreateInfo.pName = "main"; // Add this line
+    vertexShaderStageCreateInfo.pName = "main";
 
 
     VkPipelineShaderStageCreateInfo shaderStages[] = {vertexShaderStageCreateInfo};
+
+    /* Initialize Descriptors */
+    VkDescriptorSetLayoutBinding layoutBinding = {};
+    layoutBinding.binding = 0;
+    layoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    layoutBinding.descriptorCount = 1;
+    layoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = 1;
+    layoutInfo.pBindings = &layoutBinding;
+
+    if (vkCreateDescriptorSetLayout(RENDER_DEVICE->getDevice(), &layoutInfo, nullptr, &m_shadowDSL) != VK_SUCCESS) {
+        aout << "Failed to create shadow descriptor set layout!" << std::endl;
+        return false;
+    }
 
     /* Create Pipeline Layout */
     VkPushConstantRange pushConstantRange = {};
@@ -89,17 +105,47 @@ bool ShadowCapture::initialize() {
     pushConstantRange.offset = 0;
     pushConstantRange.size = sizeof(ShadowMapPushConstants);
 
+    VkDescriptorSetLayout setLayouts[] = { GPU_RESOURCES->getBindlessSetLayout(), m_shadowDSL };
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = 1;
-    VkDescriptorSetLayout setLayout = GPU_RESOURCES->getBindlessSetLayout();
-    pipelineLayoutInfo.pSetLayouts = &setLayout;
+    pipelineLayoutInfo.setLayoutCount = 2;
+    pipelineLayoutInfo.pSetLayouts = setLayouts;
     pipelineLayoutInfo.pushConstantRangeCount = 1;
     pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
 
     if (vkCreatePipelineLayout(RENDER_DEVICE->getDevice(), &pipelineLayoutInfo, nullptr,
                                &m_pipelineLayout) != VK_SUCCESS) {
         aout << "Failed to create shadow pipeline layout!" << std::endl;
+        return false;
+    }
+
+    /* Create Descriptor pool*/
+    VkDescriptorPoolSize poolSize = {};
+    poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSize.descriptorCount = 1;
+
+    VkDescriptorPoolCreateInfo descriptorPoolInfo = {};
+    descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    descriptorPoolInfo.poolSizeCount = 1;
+    descriptorPoolInfo.pPoolSizes = &poolSize;
+    descriptorPoolInfo.maxSets = 1;
+
+    if (vkCreateDescriptorPool(RENDER_DEVICE->getDevice(), &descriptorPoolInfo, nullptr,
+                               &m_descriptorPool) != VK_SUCCESS) {
+        aout << "Failed to create shadow descriptor pool!" << std::endl;
+        return false;
+    }
+
+    /* Allocate Descriptor sets*/
+    VkDescriptorSetAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = m_descriptorPool;
+    allocInfo.descriptorSetCount = 1;
+    allocInfo.pSetLayouts = &m_shadowDSL;
+
+    if (vkAllocateDescriptorSets(RENDER_DEVICE->getDevice(), &allocInfo, &m_shadowSet) !=
+        VK_SUCCESS) {
+        aout << "Failed to allocate shadow descriptor sets!" << std::endl;
         return false;
     }
 
@@ -234,6 +280,31 @@ bool ShadowCapture::initialize() {
     /* Step 6 Destroy Shader Modules */
     vkDestroyShaderModule(RENDER_DEVICE->getDevice(), vertexShaderModule, nullptr);
 
+    m_uniformBuffer.initialize<CSMUBO>({
+                                       .lightProjection = {
+                                               glm::mat4(1.0f),
+                                               glm::mat4(1.0f),
+                                               glm::mat4(1.0f),
+                                               glm::mat4(1.0f)
+                                       },
+                                       .cascadeSplits = {
+                                               1.0f,
+                                               1.0f,
+                                               1.0f,
+                                               1.0f
+                                       }});
+
+    VkWriteDescriptorSet descriptorWrite = {};
+    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrite.dstSet = m_shadowSet;
+    descriptorWrite.dstBinding = 0;
+    descriptorWrite.dstArrayElement = 0;
+    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorWrite.descriptorCount = 1;
+    descriptorWrite.pBufferInfo = m_uniformBuffer.getDescriptorInfo();
+
+    vkUpdateDescriptorSets(RENDER_DEVICE->getDevice(), 1, &descriptorWrite, 0, nullptr);
+
     return true;
 }
 
@@ -287,7 +358,7 @@ void ShadowCapture::destroy() {
 }
 
 void ShadowCapture::update(double delta) {
-    computeShadowMatrices();
+
 }
 
 void ShadowCapture::render(VkCommandBuffer cmd, uint32_t currentFrame) {
@@ -461,33 +532,40 @@ void ShadowCapture::bindPipeline(VkCommandBuffer const &commandBuffer) {
 
 void ShadowCapture::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
                            VkFramebuffer framebuffer) {
-    VkClearValue clearValues[1];
-    clearValues[0].depthStencil.depth = 1.0f;
-    clearValues[0].depthStencil.stencil = 0;
-
-    VkViewport viewport{};
-
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = (float) m_shadowMapSize;
-    viewport.height = (float) m_shadowMapSize;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
 
-    /* Bind the bindless descriptor set Once*/
+    /* Bind Descriptor Sets */
+    VkDescriptorSet setsToBind[] = { GPU_RESOURCES->getBindlessSet(currentFrame), m_shadowSet };
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            m_pipelineLayout, 0, 1,
-                            &GPU_RESOURCES->getBindlessSet(currentFrame), 0, nullptr);
+                            m_pipelineLayout, 0, 2,
+                            setsToBind, 0, nullptr);
 
-    CSMData gpuData = RenderHelper::computeCSMMatrices(ENGINE->getCameraProjection(), ENGINE->getCameraView(), 0.1f, 1000.0f, m_shadowMapSize, glm::vec3(1.0f,1.0f,1.0f));
+    CSMData gpuData = RenderHelper::computeCSMMatrices(ENGINE->getCameraProjection(), ENGINE->getCameraView(), 0.1f, 1000.0f, m_shadowMapSize, glm::vec3(0.5f, 1.0f, 0.5f));
+    m_uniformBuffer.update(&gpuData);
 
     for (int i = 0; i < m_cascadeCount; ++i) {
         VkRenderPassBeginInfo renderPassInfo{};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
         renderPassInfo.renderPass = m_renderPass;
         renderPassInfo.framebuffer = frameBuffers[i];
+        renderPassInfo.renderArea.offset = {0, 0};
+        renderPassInfo.renderArea.extent = {m_shadowMapSize, m_shadowMapSize};
+
+        VkClearValue clearValues[1];
+        clearValues[0].depthStencil.depth = 1.0f;
+        clearValues[0].depthStencil.stencil = 0;
+
+        VkViewport viewport{};
+
+        viewport.x = 0.0f;
+        viewport.y = 0.0f;
+        viewport.width = (float) m_shadowMapSize;
+        viewport.height = (float) m_shadowMapSize;
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
 
         renderPassInfo.clearValueCount = 1;
         renderPassInfo.pClearValues = clearValues;
@@ -527,9 +605,6 @@ void ShadowCapture::execute(const VkSemaphore &waitSemaphore, const VkSemaphore 
 
 void ShadowCapture::resize(int width, int height) {
 
-}
-
-void ShadowCapture::computeShadowMatrices() {
 }
 
 VkDescriptorImageInfo ShadowCapture::getFrameBufferImage(const std::string &name) {

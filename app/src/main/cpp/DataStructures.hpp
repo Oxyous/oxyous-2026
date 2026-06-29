@@ -228,9 +228,8 @@ typedef struct BindlessPushConstants {
 
 /*  */
 typedef struct ShadowMapPushConstants {
-    glm::mat4 lightProjection;
     uint32_t objectIndex;
-    glm::vec4 cascadeSplits;
+    uint32_t cascadeIndex;
  } ShadowMapPushConstants;
 
 /* 2d element screen */

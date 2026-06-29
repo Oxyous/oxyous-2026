@@ -38,7 +38,7 @@ glm::vec3 OGCamera::getPosition(){
 }
 
 glm::mat4 OGCamera::getProjectionMatrix() {
-    return glm::mat4();
+    return m_projection;
 }
 
 void OGCamera::setProjectionMatrix(glm::mat4 projection) {

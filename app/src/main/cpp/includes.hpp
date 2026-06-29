@@ -35,11 +35,14 @@
 #include <array>
 #include <queue>
 #include <future>
-#include "external/glm/glm.hpp"
+
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include "external/glm/glm.hpp"
 #include "external/glm/common.hpp"
 #include "external/glm/vec4.hpp"
 #include "external/glm/gtc/quaternion.hpp"
+#include "external/glm/gtc/matrix_transform.hpp"
 
 #include "AndroidOut.h"
 

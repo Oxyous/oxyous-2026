@@ -17,20 +17,62 @@ public:
             float nearPlane,
             float farPlane
     ) {
-        glm::mat4 inverseProjeView = glm::inverse(projectionMatrix * viewMatrix);
-        std::array<glm::vec4, 8> corners;
-        uint32_t index = 0;
+        glm::mat4 invViewProj = glm::inverse(projectionMatrix * viewMatrix);
 
-        for (float x: {-1.0f, 1.0f}) {
-            for (float y: {-1.0f, 1.0f}) {
-                for (float z: {nearPlane, farPlane}) {
-                    glm::vec4 point = inverseProjeView * glm::vec4(x, y, z, 1.0f);
-                    corners[index++] = point / point.w;
-                }
-            }
+        // We need the corners of the full frustum in world space first
+        std::array<glm::vec4, 8> corners;
+        for (unsigned int i = 0; i < 8; ++i) {
+            glm::vec4 corner = invViewProj * glm::vec4(
+                (i & 1) ? 1.0f : -1.0f,
+                (i & 2) ? 1.0f : -1.0f,
+                (i & 4) ? 1.0f : 0.0f, // NDC Z: 0 is near, 1 is far for Vulkan
+                1.0f
+            );
+            corners[i] = corner / corner.w;
         }
 
-        return corners;
+        // Now interpolate between near and far corners to get the sub-frustum
+        // Note: linear interpolation in world space isn't perfectly accurate for perspective,
+        // but for CSM splits it's usually acceptable if lambda is high.
+        // A better way is to do it in view space.
+
+        glm::mat4 invProj = glm::inverse(projectionMatrix);
+        std::array<glm::vec4, 8> viewCorners;
+        for (unsigned int i = 0; i < 8; ++i) {
+            glm::vec4 pt = invProj * glm::vec4(
+                (i & 1) ? 1.0f : -1.0f,
+                (i & 2) ? 1.0f : -1.0f,
+                (i & 4) ? 1.0f : 0.0f,
+                1.0f
+            );
+            viewCorners[i] = pt / pt.w;
+        }
+
+        // Find full frustum depth range in view space
+        float fullNear = viewCorners[0].z; // usually negative in GLM
+        float fullFar = viewCorners[4].z;
+
+        // Cascade planes are distances from camera (positive)
+        // In view space, Z is usually negative (pointing away)
+        float zNear = -nearPlane;
+        float zFar = -farPlane;
+
+        std::array<glm::vec4, 8> subCorners;
+        glm::mat4 invView = glm::inverse(viewMatrix);
+
+        for (unsigned int i = 0; i < 4; ++i) {
+            // Interpolate near corners
+            float lerpNear = (zNear - fullNear) / (fullFar - fullNear);
+            glm::vec4 vNear = glm::mix(viewCorners[i], viewCorners[i+4], lerpNear);
+            subCorners[i] = invView * vNear;
+
+            // Interpolate far corners
+            float lerpFar = (zFar - fullNear) / (fullFar - fullNear);
+            glm::vec4 vFar = glm::mix(viewCorners[i], viewCorners[i+4], lerpFar);
+            subCorners[i+4] = invView * vFar;
+        }
+
+        return subCorners;
     }
 
     /* Compute Cascade Splits */
@@ -93,6 +135,7 @@ public:
             up = glm::vec3(0.0f, 0.0f, 1.0f);
         }
 
+        // lightDirection is direction TO the light
         glm::vec3 lightPos = center - lightDir * radius * 2.0f;
 
         glm::mat4 lightView = glm::lookAt(lightPos, center, up);
@@ -101,9 +144,9 @@ public:
         float minY = std::numeric_limits<float>::max();
         float minZ = std::numeric_limits<float>::max();
 
-        float maxX = -std::numeric_limits<float>::min();
-        float maxY = -std::numeric_limits<float>::min();
-        float maxZ = -std::numeric_limits<float>::min();
+        float maxX = -std::numeric_limits<float>::max();
+        float maxY = -std::numeric_limits<float>::max();
+        float maxZ = -std::numeric_limits<float>::max();
 
         for (const auto &corner: frustumCorners) {
             glm::vec4 lightSpaceCorner = lightView * corner;
@@ -138,20 +181,27 @@ public:
             maxY = minY + extent;
         }
 
-        // Expand Z range a bit to avoid clipping shadow casters.
-        // Tune these for your scene scale.
-        const float zPadding = 100.0f;
+        // Expand Z range to avoid clipping objects between light and frustum
+        const float zPadding = 200.0f;
         minZ -= zPadding;
         maxZ += zPadding;
 
+        // Vulkan Ortho for Depth [0, 1]
+        // near maps to 0, far maps to 1.
+        // In view space, negative Z is forward.
+        // So maxZ (least negative) is closer to camera (near),
+        // and minZ (most negative) is farther from camera (far).
         glm::mat4 lightProj = glm::ortho(
                 minX,
                 maxX,
                 minY,
                 maxY,
-                minZ,
-                maxZ
+                maxZ,
+                minZ
         );
+
+        // Vulkan Y-flip
+        lightProj[1][1] *= -1;
 
         return lightProj * lightView;
     }

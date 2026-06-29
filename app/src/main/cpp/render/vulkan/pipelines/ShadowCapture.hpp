@@ -8,6 +8,7 @@
 
 #include "IRenderPipeline.hpp"
 #include "../../../includes.hpp"
+#include "../uniform/UniformBuffer.hpp"
 
 class ShadowCapture : public IRenderPipeline {
 public:
@@ -39,12 +40,9 @@ protected:
 
     virtual bool initializeFrameBuffer();
 
-    virtual void computeShadowMatrices();
-
 private:
     uint32_t m_shadowMapSize = 1024;
     VkSampler m_sampler;
-    VkFramebuffer m_frameBuffer;
     VkRenderPass m_renderPass;
     uint32_t m_cascadeCount = 4;
     VkImage m_shadowMapImage;
@@ -53,12 +51,12 @@ private:
 
     std::vector<VkImageView> imageViews;
     std::vector<VkFramebuffer> frameBuffers;
-    std::array<glm::mat4, 4> m_shadowMatrices;
-
-    VkSampler m_shadowMapSampler;
     VkDescriptorImageInfo m_shadowMapDescriptor;
     VkShaderModule vertexShaderModule;
-
+    UniformBuffer m_uniformBuffer;
+    VkDescriptorSetLayout m_shadowDSL;
+    VkDescriptorSet m_shadowSet;
+    VkDescriptorPool m_descriptorPool;
 };
 
 

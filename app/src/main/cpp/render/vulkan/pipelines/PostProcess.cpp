@@ -33,7 +33,7 @@ void PostProcess::update(double delta) {
     };
     m_uniformBuffer.update(&ubo);
 
-    CSMData gpuData = RenderHelper::computeCSMMatrices(ENGINE->getCameraProjection(), ENGINE->getCameraView(), 0.1f, 1000.0f, 1024, glm::vec3(1.0f,1.0f,1.0f));
+    CSMData gpuData = RenderHelper::computeCSMMatrices(ENGINE->getCameraProjection(), ENGINE->getCameraView(), 0.1f, 1000.0f, 1024, glm::vec3(0.5f, 1.0f, 0.5f));
 
     m_csmUniformBuffer.update(&gpuData);
 }
@@ -290,15 +290,15 @@ bool PostProcess::initialize() {
     /* Create Descriptor pool*/
     std::array<VkDescriptorPoolSize, 2> poolSizes = {};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[0].descriptorCount = 10; // 6 in set0, 1 in set1, plus some safety
+    poolSizes[0].descriptorCount = 7;
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[1].descriptorCount = 4; // 1 in set0, 1 in set1
+    poolSizes[1].descriptorCount = 2;
 
     VkDescriptorPoolCreateInfo descriptorPoolInfo = {};
     descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    descriptorPoolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+    descriptorPoolInfo.poolSizeCount = 2;
     descriptorPoolInfo.pPoolSizes = poolSizes.data();
-    descriptorPoolInfo.maxSets = 4; // perFrame and shadow sets for multiple pipelines maybe? 2 should be enough for this one.
+    descriptorPoolInfo.maxSets = 2;
 
     if (vkCreateDescriptorPool(RENDER_DEVICE->getDevice(), &descriptorPoolInfo, nullptr,
                                &m_descriptorPool) != VK_SUCCESS) {
@@ -327,7 +327,7 @@ bool PostProcess::initialize() {
 
     if (vkAllocateDescriptorSets(RENDER_DEVICE->getDevice(), &allocInfo1, &m_descriptorSet1) !=
         VK_SUCCESS) {
-        aout << "Failed to allocate descriptor sets!" << std::endl;
+        aout << "Failed to allocate shadow descriptor sets!" << std::endl;
         return false;
     }
 
@@ -444,25 +444,25 @@ bool PostProcess::initializeDescriptors() {
         return false;
     }
 
-    /* Descriptor Set 1*/
-    VkDescriptorSetLayoutBinding layoutBinding1[2] = {};
-    layoutBinding1[0].binding = 0;
-    layoutBinding1[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    layoutBinding1[0].descriptorCount = 1;
-    layoutBinding1[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    /* CSM Set Layout (Set 1) */
+    VkDescriptorSetLayoutBinding shadowBinding[2] = {};
+    shadowBinding[0].binding = 0;
+    shadowBinding[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    shadowBinding[0].descriptorCount = 1;
+    shadowBinding[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    layoutBinding1[1].binding = 1;
-    layoutBinding1[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    layoutBinding1[1].descriptorCount = 1;
-    layoutBinding1[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    shadowBinding[1].binding = 1;
+    shadowBinding[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    shadowBinding[1].descriptorCount = 1;
+    shadowBinding[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    VkDescriptorSetLayoutCreateInfo layoutInfo1 = {};
-    layoutInfo1.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo1.bindingCount = 2;
-    layoutInfo1.pBindings = layoutBinding1;
+    VkDescriptorSetLayoutCreateInfo shadowLayoutInfo = {};
+    shadowLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    shadowLayoutInfo.bindingCount = 2;
+    shadowLayoutInfo.pBindings = shadowBinding;
 
-    if (vkCreateDescriptorSetLayout(device, &layoutInfo1, nullptr, &m_csmDSL) != VK_SUCCESS) {
-        aout << "Failed to create descriptor set layout!" << std::endl;
+    if (vkCreateDescriptorSetLayout(device, &shadowLayoutInfo, nullptr, &m_csmDSL) != VK_SUCCESS) {
+        aout << "Failed to create shadow descriptor set layout!" << std::endl;
         return false;
     }
 

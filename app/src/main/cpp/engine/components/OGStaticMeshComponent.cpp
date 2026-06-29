@@ -61,9 +61,7 @@ void OGStaticMeshComponent::renderShadow(VkCommandBuffer &commandBuffer, uint64_
 
     ShadowMapPushConstants pc = {};
     pc.objectIndex = m_objectIndex;
-    pc.lightProjection = data.lightProjection[cascade];
-    pc.cascadeSplits = glm::vec4(data.cascadeSplits[0], data.cascadeSplits[1], data.cascadeSplits[2], data.cascadeSplits[3]);
-
+    pc.cascadeIndex = cascade;
     vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ShadowMapPushConstants), &pc);
 
     m_mesh->get()->render(commandBuffer);
