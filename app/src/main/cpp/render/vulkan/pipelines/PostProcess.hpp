@@ -55,11 +55,14 @@ protected:
     VkShaderModule m_vertShaderModule{};
     VkShaderModule m_fragShaderModule{};
     VkDescriptorSetLayout m_perFrameDSL{};
+    VkDescriptorSetLayout m_csmDSL{};
     VkDescriptorPool m_descriptorPool{};
     VkDescriptorSet m_descriptorSet{};
+    VkDescriptorSet m_descriptorSet1{};
     uint32_t m_width{};
     uint32_t m_height{};
     UniformBuffer m_uniformBuffer{};
+    UniformBuffer m_csmUniformBuffer{};
 };
 
 

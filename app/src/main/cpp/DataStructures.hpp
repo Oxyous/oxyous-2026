@@ -34,6 +34,13 @@ struct appEngine {
     Renderer *renderer;
 };
 
+/* */
+typedef struct CSMData
+{
+    glm::mat4 lightProjection[4];
+    float cascadeSplits[4];
+}CSMData;
+
 /* GPUBuffer*/
 typedef struct GPUBuffer {
     uint32_t binding = 0;
@@ -135,6 +142,12 @@ typedef struct PostProcessUBO {
     glm::vec4 cameraPosition;
 } PostProcessUBO;
 
+/* Post process CSM UBO */
+typedef struct CSMUBO {
+    glm::mat4 lightProjection[4];
+    float cascadeSplits[4];
+} CSMUBO;
+
 /* Texture bindless handle */
 typedef struct GPUTextureHandle {
     uint32_t index;         /* Index of the texture in the texture array */
@@ -212,6 +225,13 @@ typedef struct BindlessPushConstants {
     uint32_t materialIndex;
     uint32_t objectIndex;
 } BindlessPushConstants;
+
+/*  */
+typedef struct ShadowMapPushConstants {
+    glm::mat4 lightProjection;
+    uint32_t objectIndex;
+    glm::vec4 cascadeSplits;
+ } ShadowMapPushConstants;
 
 /* 2d element screen */
 typedef struct ScreenElements {

@@ -7,6 +7,7 @@
 #include "../../../resources/ResourceManager.hpp"
 #include "../Swapchain.hpp"
 #include "../../../engine/Engine.hpp"
+#include "../RenderHelper.hpp"
 
 PostProcess::PostProcess() = default;
 
@@ -20,17 +21,21 @@ void PostProcess::resize(int width, int height) {
 }
 
 void PostProcess::update(double delta) {
-    auto projection = glm::perspective(glm::radians(45.0f), (float) m_height / (float) m_width, 0.1f, 100.0f);
-    auto view = ENGINE->getViewCamera();
+    auto projection = ENGINE->getCameraProjection();
+    auto view = ENGINE->getCameraView();
     auto invView = glm::inverse(view);
 
     PostProcessUBO ubo{
             .projection = projection,
             .view = view,
             .invView = invView,
-            .cameraPosition = glm::vec4(8.0f, 8.0f, 8.0f, 1.0f)
+            .cameraPosition = glm::vec4(ENGINE->getCameraPosition(), 0.0f)
     };
     m_uniformBuffer.update(&ubo);
+
+    CSMData gpuData = RenderHelper::computeCSMMatrices(ENGINE->getCameraProjection(), ENGINE->getCameraView(), 0.1f, 1000.0f, 1024, glm::vec3(1.0f,1.0f,1.0f));
+
+    m_csmUniformBuffer.update(&gpuData);
 }
 
 void PostProcess::execute(const VkSemaphore &waitSemaphore, const VkSemaphore &signalSemaphore,
@@ -269,10 +274,11 @@ bool PostProcess::initialize() {
     }
 
     /* Pipeline Descriptor Layout */
+    VkDescriptorSetLayout setLayouts[] = {m_perFrameDSL, m_csmDSL};
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = 1;
-    pipelineLayoutInfo.pSetLayouts = &m_perFrameDSL;
+    pipelineLayoutInfo.setLayoutCount = 2;
+    pipelineLayoutInfo.pSetLayouts = setLayouts;
     pipelineLayoutInfo.pushConstantRangeCount = 0;
 
     if (vkCreatePipelineLayout(RENDER_DEVICE->getDevice(), &pipelineLayoutInfo, nullptr,
@@ -284,15 +290,15 @@ bool PostProcess::initialize() {
     /* Create Descriptor pool*/
     std::array<VkDescriptorPoolSize, 2> poolSizes = {};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[0].descriptorCount = 6;
+    poolSizes[0].descriptorCount = 10; // 6 in set0, 1 in set1, plus some safety
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[1].descriptorCount = 1;
+    poolSizes[1].descriptorCount = 4; // 1 in set0, 1 in set1
 
     VkDescriptorPoolCreateInfo descriptorPoolInfo = {};
     descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     descriptorPoolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
     descriptorPoolInfo.pPoolSizes = poolSizes.data();
-    descriptorPoolInfo.maxSets = 1;
+    descriptorPoolInfo.maxSets = 4; // perFrame and shadow sets for multiple pipelines maybe? 2 should be enough for this one.
 
     if (vkCreateDescriptorPool(RENDER_DEVICE->getDevice(), &descriptorPoolInfo, nullptr,
                                &m_descriptorPool) != VK_SUCCESS) {
@@ -308,6 +314,18 @@ bool PostProcess::initialize() {
     allocInfo.pSetLayouts = &m_perFrameDSL;
 
     if (vkAllocateDescriptorSets(RENDER_DEVICE->getDevice(), &allocInfo, &m_descriptorSet) !=
+        VK_SUCCESS) {
+        aout << "Failed to allocate descriptor sets!" << std::endl;
+        return false;
+    }
+
+    VkDescriptorSetAllocateInfo allocInfo1 = {};
+    allocInfo1.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo1.descriptorPool = m_descriptorPool;
+    allocInfo1.descriptorSetCount = 1;
+    allocInfo1.pSetLayouts = &m_csmDSL;
+
+    if (vkAllocateDescriptorSets(RENDER_DEVICE->getDevice(), &allocInfo1, &m_descriptorSet1) !=
         VK_SUCCESS) {
         aout << "Failed to allocate descriptor sets!" << std::endl;
         return false;
@@ -349,6 +367,22 @@ bool PostProcess::initialize() {
     })){
         aout << "Failed to create uniform buffer!" << std::endl;
         return false;
+    }
+
+    if (!m_csmUniformBuffer.initialize<CSMUBO>({
+        .lightProjection = {
+            glm::mat4(1.0f),
+            glm::mat4(1.0f),
+            glm::mat4(1.0f),
+            glm::mat4(1.0f)
+        },
+        .cascadeSplits = {
+            1.0f,
+            1.0f,
+            1.0f,
+            1.0f
+    }})) {
+                return false;
     }
 
     return true;
@@ -410,13 +444,38 @@ bool PostProcess::initializeDescriptors() {
         return false;
     }
 
+    /* Descriptor Set 1*/
+    VkDescriptorSetLayoutBinding layoutBinding1[2] = {};
+    layoutBinding1[0].binding = 0;
+    layoutBinding1[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    layoutBinding1[0].descriptorCount = 1;
+    layoutBinding1[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    layoutBinding1[1].binding = 1;
+    layoutBinding1[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    layoutBinding1[1].descriptorCount = 1;
+    layoutBinding1[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo1 = {};
+    layoutInfo1.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo1.bindingCount = 2;
+    layoutInfo1.pBindings = layoutBinding1;
+
+    if (vkCreateDescriptorSetLayout(device, &layoutInfo1, nullptr, &m_csmDSL) != VK_SUCCESS) {
+        aout << "Failed to create descriptor set layout!" << std::endl;
+        return false;
+    }
+
     return true;
 }
 
 void PostProcess::bindPipeline(VkCommandBuffer const &commandBuffer) {
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1,
-                            &m_descriptorSet, 0, nullptr);
+
+    VkDescriptorSet descriptorSets[] = {m_descriptorSet, m_descriptorSet1};
+
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 2,
+                            descriptorSets, 0, nullptr);
 }
 
 
@@ -512,6 +571,25 @@ void PostProcess::updateDescriptors() {
     descriptorWrites[6].pBufferInfo = m_uniformBuffer.getDescriptorInfo();
 
     vkUpdateDescriptorSets(device, 7, descriptorWrites, 0, nullptr);
+
+    VkWriteDescriptorSet descriptorWrites1[2] = {};
+    descriptorWrites1[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites1[0].dstSet = m_descriptorSet1;
+    descriptorWrites1[0].dstBinding = 0;
+    descriptorWrites1[0].dstArrayElement = 0;
+    descriptorWrites1[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrites1[0].descriptorCount = 1;
+    descriptorWrites1[0].pImageInfo = &m_frameBufferImages["gShadow"];
+
+    descriptorWrites1[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites1[1].dstSet = m_descriptorSet1;
+    descriptorWrites1[1].dstBinding = 1;
+    descriptorWrites1[1].dstArrayElement = 0;
+    descriptorWrites1[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorWrites1[1].descriptorCount = 1;
+    descriptorWrites1[1].pBufferInfo = m_csmUniformBuffer.getDescriptorInfo();
+
+    vkUpdateDescriptorSets(device, 2, descriptorWrites1, 0, nullptr);
 }
 
 void PostProcess::record(VkCommandBuffer commandBuffer, uint64_t currentFrame, VkFramebuffer framebuffer) {
@@ -553,8 +631,9 @@ void PostProcess::record(VkCommandBuffer commandBuffer, uint64_t currentFrame, V
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
 
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1,
-                            &m_descriptorSet, 0, nullptr);
+    VkDescriptorSet sets[] = { m_descriptorSet, m_descriptorSet1 };
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 2,
+                            sets, 0, nullptr);
 
     vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 

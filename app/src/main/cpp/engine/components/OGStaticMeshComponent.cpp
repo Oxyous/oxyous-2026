@@ -54,3 +54,17 @@ void OGStaticMeshComponent::render(VkCommandBuffer &commandBuffer, uint64_t curr
 void OGStaticMeshComponent::setMaterialIndex(uint32_t index) {
     m_materialIndex = index;
 }
+
+void OGStaticMeshComponent::renderShadow(VkCommandBuffer &commandBuffer, uint64_t currentFrame, VkPipelineLayout layout, CSMData data, uint32_t cascade) {
+    if (!m_mesh || !m_mesh->get())
+        return;
+
+    ShadowMapPushConstants pc = {};
+    pc.objectIndex = m_objectIndex;
+    pc.lightProjection = data.lightProjection[cascade];
+    pc.cascadeSplits = glm::vec4(data.cascadeSplits[0], data.cascadeSplits[1], data.cascadeSplits[2], data.cascadeSplits[3]);
+
+    vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ShadowMapPushConstants), &pc);
+
+    m_mesh->get()->render(commandBuffer);
+}

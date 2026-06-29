@@ -19,6 +19,7 @@
 #include "elements/OGElement.hpp"
 #include "ui/OGUi.hpp"
 #include "actors/OGCamera.hpp"
+#include "../render/vulkan/pipelines/ShadowCapture.hpp"
 
 void GameView::render() {
 
@@ -57,6 +58,8 @@ bool GameView::initialize() {
 
     const auto &screenSpace = ENGINE->createPipeline<ScreenSpace>("screen-space");
 
+    const auto &shadowPass = ENGINE->createPipeline<ShadowCapture>("shadow-capture");
+
     /* Set input textures for post-process from deferred G-Buffers */
     postProcess->setFrameBufferImage("gDiffuse", *deferred->getFrameBufferImage("gDiffuse"));
     postProcess->setFrameBufferImage("gNormal", *deferred->getFrameBufferImage("gNormal"));
@@ -65,6 +68,7 @@ bool GameView::initialize() {
                                      *deferred->getFrameBufferImage("gWorldPosition"));
     postProcess->setFrameBufferImage("gDepth", *deferred->getFrameBufferImage("gDepth"));
     postProcess->setFrameBufferImage("gEnvironment", cubeMapTexture.descriptor);
+    postProcess->setFrameBufferImage("gShadow", shadowPass->getFrameBufferImage("gShadow"));
     postProcess->updateDescriptors();
 
     /* Test loading assets*/
@@ -110,7 +114,7 @@ bool GameView::initialize() {
     playerMesh->setMeshResource(tank);
     playerMesh->setTextureResource(TEXTURE_SLOT_0, texture2);
     playerMesh->setMaterialIndex(0);
-    playerActor->setTranslation(glm::vec3(0.0f, 2.0f, 0.0f));
+    playerActor->setTranslation(glm::vec3(0.0f, 0.0f, 0.0f));
 
 
     /* Testing Colliders */

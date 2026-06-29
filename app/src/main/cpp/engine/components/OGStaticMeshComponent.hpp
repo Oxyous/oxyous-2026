@@ -31,6 +31,8 @@ public:
     /* render static mesh component*/
     void render(VkCommandBuffer &commandBuffer, uint64_t currentFrame) override;
 
+    /* */
+    void renderShadow(VkCommandBuffer &commandBuffer, uint64_t currentFrame, VkPipelineLayout layout, CSMData data, uint32_t cascade);
 public:
     /* set mesh resource */
     void setMeshResource(std::shared_ptr<GPUStaticMeshResource> mesh);

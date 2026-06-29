@@ -33,3 +33,14 @@ void OGCamera::update(double delta) {
 glm::mat4 OGCamera::getViewMatrix() {
     return m_viewMatrix;
 }
+glm::vec3 OGCamera::getPosition(){
+    return m_position;
+}
+
+glm::mat4 OGCamera::getProjectionMatrix() {
+    return glm::mat4();
+}
+
+void OGCamera::setProjectionMatrix(glm::mat4 projection) {
+    m_projection = projection;
+}

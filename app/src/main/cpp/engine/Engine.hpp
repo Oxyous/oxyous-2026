@@ -67,9 +67,23 @@ public:
         return m_app;
     }
 
-    glm::mat4 getViewCamera(){
+    glm::mat4 getCameraView(){
         return m_camera.getViewMatrix();
     }
+
+    glm::mat4 getCameraProjection(){
+        return m_camera.getProjectionMatrix();
+    }
+
+    glm::vec3 getCameraPosition(){
+        return m_camera.getPosition();
+    }
+
+    void setCameraProjection(glm::mat4 projection){
+        m_camera.setProjectionMatrix(projection);
+    }
+
+
 
 protected:
     OGCamera m_camera;

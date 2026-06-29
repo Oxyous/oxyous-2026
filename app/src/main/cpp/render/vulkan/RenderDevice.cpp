@@ -151,6 +151,11 @@ bool RenderDevice::initialize(VkInstance &instance, VkSurfaceKHR &surface) {
     VkPhysicalDeviceDescriptorIndexingFeatures features{};
     features.sType =
             VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+    features.runtimeDescriptorArray = VK_TRUE;
+    features.descriptorBindingVariableDescriptorCount = VK_TRUE;
+    features.descriptorBindingPartiallyBound = VK_TRUE;
+    features.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
+
 
     VkPhysicalDeviceFeatures2 features2{};
     features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;

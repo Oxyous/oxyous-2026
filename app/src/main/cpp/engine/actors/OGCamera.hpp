@@ -18,6 +18,8 @@ public:
         m_pitch = 0.0f;
         m_speed = 8.0f;
         m_sensitivity = 0.33f;
+        m_viewMatrix = glm::mat4(1.0f);
+        m_projection = glm::mat4(1.0f);
     }
 
     ~OGCamera();
@@ -28,6 +30,12 @@ public:
 
     virtual glm::mat4 getViewMatrix();
 
+    virtual glm::vec3 getPosition();
+
+    virtual glm::mat4 getProjectionMatrix();
+
+    virtual void setProjectionMatrix(glm::mat4 projection);
+
 protected:
     glm::vec3 m_position{};
     glm::vec3 m_up{};
@@ -37,6 +45,7 @@ protected:
     float m_speed;
     float m_sensitivity;
     glm::mat4 m_viewMatrix{};
+    glm::mat4 m_projection{};
 };
 
 

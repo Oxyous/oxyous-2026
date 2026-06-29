@@ -24,6 +24,7 @@ add_library(oxyous_2026 SHARED
         system/OGTimer.cpp
         engine/actors/OGCamera.cpp
         render/vulkan/pipelines/ScreenSpace.cpp
+        render/vulkan/pipelines/ShadowCapture.cpp
         render/meshes/GPUStaticMesh.cpp
         render/vulkan/pipelines/PostProcess.cpp
         render/vulkan/pipelines/Deferred.cpp

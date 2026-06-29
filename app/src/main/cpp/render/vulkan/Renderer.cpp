@@ -12,6 +12,7 @@
 #include "../../engine/GPUResources.hpp"
 #include "pipelines/ScreenSpace.hpp"
 #include "../../engine/elements/ScreenSpaceRenderer.hpp"
+#include "pipelines/ShadowCapture.hpp"
 #include <game-activity/native_app_glue/android_native_app_glue.h>
 
 VkBool32
@@ -167,7 +168,9 @@ bool Renderer::initialize(ANativeWindow *window) {
         postProcess->updateDescriptors();
     }
 
+    const auto projection = glm::perspective(glm::radians(70.0f), (float) m_height / (float) m_width, 0.1f, 1000.0f);
     ENGINE->prepareInput();
+    ENGINE->setCameraProjection(projection);
 
     m_graphicsInitialized = true;
 
@@ -520,19 +523,29 @@ bool Renderer::prepareCommandBuffers() {
 
 /*  */
 void Renderer::prepareFrame(int index, VkCommandBuffer commandBuffer) {
+    auto shadow = ENGINE->getPipeline<ShadowCapture>("shadow-capture");
     auto deferred = ENGINE->getPipeline<Deferred>("deferred");
     auto postProcess = ENGINE->getPipeline<PostProcess>("post-process");
     auto screenSpace = ENGINE->getPipeline<ScreenSpace>("screen-space");
-
-    if (deferred) {
-        deferred->record(commandBuffer, m_currentFrame, m_framebuffers[index]);
-    }
 
     // Add barrier to ensure G-Buffer writes are finished before PostProcess reads
     VkMemoryBarrier barrier = {};
     barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
     barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
     barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    if (shadow) {
+        shadow->record(commandBuffer, m_currentFrame);
+    }
+
+    vkCmdPipelineBarrier(commandBuffer,
+                         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                         0, 1, &barrier, 0, nullptr, 0, nullptr);
+
+    if (deferred) {
+        deferred->record(commandBuffer, m_currentFrame, m_framebuffers[index]);
+    }
 
     vkCmdPipelineBarrier(commandBuffer,
                          VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -560,5 +573,10 @@ void Renderer::update(double delta) {
     auto postProcess = ENGINE->getPipeline<PostProcess>("post-process");
     if (postProcess) {
         postProcess->update(delta);
+    }
+
+    auto shadow = ENGINE->getPipeline<ShadowCapture>("shadow-capture");
+    if (shadow) {
+        shadow->update(delta);
     }
 }
