@@ -20,6 +20,7 @@
 #include "ui/OGUi.hpp"
 #include "actors/OGCamera.hpp"
 #include "../render/vulkan/pipelines/ShadowCapture.hpp"
+#include "../system/OGXml.hpp"
 
 void GameView::render() {
 
@@ -79,7 +80,7 @@ bool GameView::initialize() {
     auto metalPanel = RESOURCE_MANAGER->get<GPUTextureResource>("metal-panel.jpg");
 
     auto mesh = RESOURCE_MANAGER->get<GPUStaticMeshResource>("tree.osm");
-    auto mesh2 = RESOURCE_MANAGER->get<GPUStaticMeshResource>("blender.osm");
+    auto mesh2 = RESOURCE_MANAGER->get<GPUStaticMeshResource>("scene/brick-walls.osm");
     auto tank = RESOURCE_MANAGER->get<GPUStaticMeshResource>("tank.osm");
     auto plane = RESOURCE_MANAGER->get<GPUStaticMeshResource>("plane.osm");
 
@@ -117,6 +118,13 @@ bool GameView::initialize() {
     playerMesh->setMaterialIndex(0);
     playerActor->setTranslation(glm::vec3(0.0f, 0.0f, 0.0f));
 
+    auto child = playerActor->addChild<OGActor>();
+    auto testSecondComp = child->addComponent<OGStaticMeshComponent>();
+    testSecondComp->setMeshResource(mesh2);
+    testSecondComp->setTextureResource(TEXTURE_SLOT_0, texture2);
+    testSecondComp->setMaterialIndex(1);
+    child->setTranslation(glm::vec3(0.0,2.0,0.0));
+
 
     /* Testing Colliders */
     m_colliders.emplace_back(new PlaneVolume(glm::vec3(0.0f, 1.0f, 0.0f), 0.0f));
@@ -139,7 +147,119 @@ bool GameView::initialize() {
         }
     };
 
+    std::vector<std::unique_ptr<OGXmlNode>> sceneGraph;
+    if (!OGXml::loadGXml("demo/scene_graph.xml", sceneGraph)) {
+        return false;
+    }
+    std::map<std::string, GPUMaterialHandle> materials;
+    std::map<std::string, uint32_t> materialSlots;
+    std::shared_ptr<OGXmlNode> sceneRoot;
 
+    for (const auto &node : sceneGraph) {
+        if (node->getName() == "Scene") {
+            sceneRoot = std::shared_ptr<OGXmlNode>(node.get(), [](OGXmlNode *) {});
+            break;
+        }
+    }
+
+    if (!sceneRoot) {
+        return false;
+    }
+
+    for (const auto &node : sceneRoot->getChildren()) {
+        if (node->getName() == "Material") {
+            const auto &attrs = node->getAttributes();
+            auto nameAttr = attrs.find("name");
+            if (nameAttr == attrs.end()) {
+                continue;
+            }
+
+            std::string materialName = nameAttr->second;
+            GPUMaterialHandle material = {0, 0, 0, 0, 1.0f, 1.0f, 1.0f, 1.0f};
+
+            auto albedoAttr = attrs.find("albedo");
+            if (albedoAttr != attrs.end()) {
+                auto texture = RESOURCE_MANAGER->get<GPUTextureResource>("demo/textures/" + albedoAttr->second);
+                material.albedoIndex = GPU_RESOURCES->registerTexture(*texture->get());
+            }
+
+            auto normalAttr = attrs.find("normal");
+            if (normalAttr != attrs.end()) {
+                auto texture = RESOURCE_MANAGER->get<GPUTextureResource>("demo/textures/" + normalAttr->second);
+                material.normalIndex = GPU_RESOURCES->registerTexture(*texture->get());
+            }
+
+            auto pbrAttr = attrs.find("pbr");
+            if (pbrAttr != attrs.end()) {
+                auto texture = RESOURCE_MANAGER->get<GPUTextureResource>("demo/textures/" + pbrAttr->second);
+                material.ormIndex = GPU_RESOURCES->registerTexture(*texture->get());
+            }
+
+            materials[materialName] = material;
+            materialSlots[materialName] = GPU_RESOURCES->registerMaterial(material);
+        }
+
+        if (node->getName() == "Object") {
+            const auto &objectAttrs = node->getAttributes();
+            std::string name;
+            auto nameAttr = objectAttrs.find("name");
+            if (nameAttr != objectAttrs.end()) {
+                name = nameAttr->second;
+            }
+
+            auto actorScene = addActor<OGActor>(name);
+            auto meshComp = actorScene->addComponent<OGStaticMeshComponent>();
+            actorScene->setName(name);
+
+            for (const auto &childElem: node->getChildren()) {
+                if (childElem->getName() == "Location") {
+                    glm::vec3 position(0.0f);
+                    for (const auto &attr : childElem->getAttributes()) {
+                        if (attr.first == "x") {
+                            position.x = std::stof(attr.second);
+                        } else if (attr.first == "y") {
+                            position.y = std::stof(attr.second);
+                        } else if (attr.first == "z") {
+                            position.z = std::stof(attr.second);
+                        }
+                    }
+                    actorScene->setTranslation(position);
+                }
+
+                if (childElem->getName() == "Rotation") {
+                    glm::vec3 q(0.0f);
+                    for (const auto &attr : childElem->getAttributes()) {
+                        if (attr.first == "x") {
+                            q.x = std::stof(attr.second);
+                        } else if (attr.first == "y") {
+                            q.y = std::stof(attr.second);
+                        } else if (attr.first == "z") {
+                            q.z = std::stof(attr.second);
+                        }
+                    }
+                    actorScene->setRotation(q);
+                }
+
+                if (childElem->getName() == "MeshResource") {
+                    auto valueAttr = childElem->getAttributes().find("value");
+                    if (valueAttr != childElem->getAttributes().end()) {
+                        auto mesh = RESOURCE_MANAGER->get<GPUStaticMeshResource>("demo/" + valueAttr->second + ".osm");
+                        meshComp->setMeshResource(mesh);
+                    }
+                }
+
+                if (childElem->getName() == "Material") {
+                    auto materialAttr = childElem->getAttributes().find("name");
+                    if (materialAttr != childElem->getAttributes().end()) {
+                        auto slotIt = materialSlots.find(materialAttr->second);
+                        if (slotIt != materialSlots.end()) {
+                            meshComp->setMaterialIndex(slotIt->second);
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     return true;
 }

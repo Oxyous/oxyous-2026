@@ -233,13 +233,9 @@ def export_scene_meshes(self, context, filepath):
                 resource_key = f"{value}.osm"
                 
                 # Mesh not exported yet, export it now
-                if not mesh_cache.get(resource_key) and obj.type == 'MESH':
+                if resource_key not in mesh_cache and obj.type == 'MESH':
                     export_mesh(self, context, filepath, resource_key, obj)
-                    mesh_cache[resource_key] = value
-                else:
-                    mesh_cache[resource_key] = value
-
-
+                    mesh_cache[resource_key] = 1
 
 #------------------------------------------------------------
 # export materials  
@@ -326,7 +322,7 @@ def export_scene_graph(self, context, filepath):
 
     for material in material_cache:
         mat_elem = ET.SubElement(root, "Material")
-        ET.SubElement(mat_elem, "Name").text = material
+        mat_elem.set("name", material)
 
         albedo_texture = material_cache[material].get('albedo_texture')
         normal_texture = material_cache[material].get('normal_texture')
@@ -336,11 +332,15 @@ def export_scene_graph(self, context, filepath):
         self.report({'INFO'}, f"Normal Texture: {normal_texture}")
 
         if albedo_texture:
-            ET.SubElement(mat_elem, "AlbedoTexture").text = albedo_texture
+            mat_elem.set('albedo', albedo_texture)
         if normal_texture:
-            ET.SubElement(mat_elem, "NormalTexture").text = normal_texture
+            mat_elem.set('normal', normal_texture)
     
     for obj in bpy.data.objects:
+
+        if obj.type != 'MESH':
+            continue
+
         obj_elem = ET.SubElement(root, "Object")
 
         obj_elem.set("name", obj.name)
@@ -348,9 +348,12 @@ def export_scene_graph(self, context, filepath):
 
         # Location
         loc_elem = ET.SubElement(obj_elem, "Location")
-        loc_elem.set("x", str(obj.location.x))
-        loc_elem.set("y", str(obj.location.y))
-        loc_elem.set("z", str(obj.location.z))
+        rot_correction = mathutils.Matrix.Rotation(math.radians(-90.0), 3, 'X')
+        corrected_location = rot_correction @ obj.location
+
+        loc_elem.set("x", str(corrected_location.x))
+        loc_elem.set("y", str(corrected_location.y))
+        loc_elem.set("z", str(corrected_location.z))
 
         # Rotation (Euler)
         rot_elem = ET.SubElement(obj_elem, "Rotation")

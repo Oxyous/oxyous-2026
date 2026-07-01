@@ -33,6 +33,7 @@ typedef struct TouchEvent {
     struct TouchPoint {
         uintptr_t identifier;
         glm::vec2 position;
+        glm::vec2 rawPosition;
         bool isChanged = false;
         double time = 0.0;
     } touchPoints[4];

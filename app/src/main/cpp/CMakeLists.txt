@@ -22,6 +22,7 @@ add_library(oxyous_2026 SHARED
         engine/Engine.cpp
         engine/GPUResources.cpp
         system/OGTimer.cpp
+        system/OGXml.cpp
         engine/actors/OGCamera.cpp
         render/vulkan/pipelines/ScreenSpace.cpp
         render/vulkan/pipelines/ShadowCapture.cpp

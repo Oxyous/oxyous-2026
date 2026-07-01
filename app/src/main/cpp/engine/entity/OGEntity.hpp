@@ -64,6 +64,10 @@ public:
         m_parent = parent;
     }
 
+    void setName(const std::string& name) {
+        m_name = name;
+    }
+
     /* Add Component to Entity */
     template<typename T, typename... TArgs>
     T* addComponent(TArgs&&... args) {

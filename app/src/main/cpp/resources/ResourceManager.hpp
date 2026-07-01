@@ -62,6 +62,21 @@ public:
         return true;
     }
 
+    /* Read file as string */
+    static bool readFileFromAssets(const std::string &assetPath, std::string& data) {
+        auto resourceAsset = AAssetManager_open(m_assetManager, assetPath.c_str(), AASSET_MODE_BUFFER);
+
+        if (resourceAsset == nullptr) {
+            aout << "Failed to open asset:" << assetPath << std::endl;
+            return false;
+        }
+
+        data.resize(AAsset_getLength(resourceAsset));
+        AAsset_read(resourceAsset, data.data(), data.size());
+        AAsset_close(resourceAsset);
+        return true;
+    }
+
     /* Load Texture From Assets */
     bool loadTextureData(const std::string &assetPath, std::vector<uint8_t>& data, uint32_t& size, uint32_t& width, uint32_t& height) {
         auto resourceAsset = AAssetManager_open(m_assetManager, assetPath.c_str(),
