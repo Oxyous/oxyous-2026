@@ -38,7 +38,7 @@ struct appEngine {
 typedef struct CSMData
 {
     glm::mat4 lightProjection[4];
-    float cascadeSplits[4];
+    glm::vec4 cascadeSplits;
 }CSMData;
 
 /* GPUBuffer*/
@@ -145,7 +145,7 @@ typedef struct PostProcessUBO {
 /* Post process CSM UBO */
 typedef struct CSMUBO {
     glm::mat4 lightProjection[4];
-    float cascadeSplits[4];
+    glm::vec4 cascadeSplits;
 } CSMUBO;
 
 /* Texture bindless handle */

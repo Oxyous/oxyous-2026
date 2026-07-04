@@ -13,6 +13,7 @@
 #include "pipelines/ScreenSpace.hpp"
 #include "../../engine/elements/ScreenSpaceRenderer.hpp"
 #include "pipelines/ShadowCapture.hpp"
+#include "RenderHelper.hpp"
 #include <game-activity/native_app_glue/android_native_app_glue.h>
 
 VkBool32
@@ -369,6 +370,12 @@ void Renderer::recreateSwapChain() {
     m_height = ANativeWindow_getHeight(m_window);
 
     SWAPCHAIN->resize(m_width, m_height);
+    const auto projection = glm::perspective(
+            glm::radians(60.0f),
+            (float) m_width / (float) m_height,
+            0.1f,
+            10000.0f);
+    ENGINE->setCameraProjection(projection);
 
     initializeFramebuffers();
 
@@ -528,10 +535,10 @@ void Renderer::prepareFrame(int index, VkCommandBuffer commandBuffer) {
     auto postProcess = ENGINE->getPipeline<PostProcess>("post-process");
     auto screenSpace = ENGINE->getPipeline<ScreenSpace>("screen-space");
 
-    // Add barrier to ensure G-Buffer writes are finished before PostProcess reads
+    // Ensure shadow/deferred attachment writes are visible before shader sampling.
     VkMemoryBarrier barrier = {};
     barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-    barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
     barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
     if (shadow) {
@@ -539,7 +546,9 @@ void Renderer::prepareFrame(int index, VkCommandBuffer commandBuffer) {
     }
 
     vkCmdPipelineBarrier(commandBuffer,
-                         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
+                         VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+                         VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
                          0, 1, &barrier, 0, nullptr, 0, nullptr);
 
@@ -548,7 +557,9 @@ void Renderer::prepareFrame(int index, VkCommandBuffer commandBuffer) {
     }
 
     vkCmdPipelineBarrier(commandBuffer,
-                         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
+                         VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+                         VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
                          0, 1, &barrier, 0, nullptr, 0, nullptr);
 
@@ -557,7 +568,9 @@ void Renderer::prepareFrame(int index, VkCommandBuffer commandBuffer) {
     }
 
     vkCmdPipelineBarrier(commandBuffer,
-                         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
+                         VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+                         VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
                          0, 1, &barrier, 0, nullptr, 0, nullptr);
 
@@ -569,6 +582,19 @@ void Renderer::prepareFrame(int index, VkCommandBuffer commandBuffer) {
 void Renderer::update(double delta) {
     if (!m_graphicsInitialized) return;
     GAME_VIEW->update(delta);
+
+    ENGINE->setCurrentFrame(m_currentFrame);
+
+    // Consolidated CSM Matrix Computation
+    m_sharedCSMData = RenderHelper::computeCSMMatrices(
+            ENGINE->getCameraProjection(),
+            ENGINE->getCameraView(),
+            0.1f,
+            1000.0f,
+            1024, // Consistent resolution for stable computation
+            glm::vec3(0.5f, 1.0f, 0.5f));
+
+    ENGINE->setSharedCSMData(m_sharedCSMData);
 
     auto postProcess = ENGINE->getPipeline<PostProcess>("post-process");
     if (postProcess) {

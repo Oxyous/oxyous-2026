@@ -23,6 +23,10 @@ public:
 
     virtual void update(double delta);
 
+    virtual CSMData getSharedCSMData() const { return m_sharedCSMData; }
+
+    virtual uint32_t getCurrentFrame() const { return m_currentFrame; }
+
     virtual void setWidth(uint32_t width) { m_width = width; }
 
     virtual void setHeight(uint32_t height) { m_height = height; }
@@ -78,6 +82,8 @@ protected:
     bool m_graphicsInitialized{false};
     uint32_t m_currentFrame{0};
     const int MAX_FRAMES_IN_FLIGHT = 2;
+
+    CSMData m_sharedCSMData;
 };
 
 

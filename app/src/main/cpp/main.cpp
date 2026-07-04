@@ -153,9 +153,10 @@ void android_main(struct android_app *pApp) {
                 ENGINE->handleInput();
                 ENGINE->update(SYS_TIMER->GetDelta());
                 SYS_TIMER->Tick();
-                // Render a frame
-                gameEngine->renderer->render();
+
+                // Update then Render
                 gameEngine->renderer->update(SYS_TIMER->GetDelta());
+                gameEngine->renderer->render();
             }
         }
     } while (!pApp->destroyRequested);

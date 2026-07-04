@@ -24,6 +24,7 @@ void PostProcess::update(double delta) {
     auto projection = ENGINE->getCameraProjection();
     auto view = ENGINE->getCameraView();
     auto invView = glm::inverse(view);
+    uint32_t currentFrame = ENGINE->getCurrentFrame();
 
     PostProcessUBO ubo{
             .projection = projection,
@@ -31,11 +32,10 @@ void PostProcess::update(double delta) {
             .invView = invView,
             .cameraPosition = glm::vec4(ENGINE->getCameraPosition(), 0.0f)
     };
-    m_uniformBuffer.update(&ubo);
+    m_uniformBuffer.update(&ubo, currentFrame);
 
-    CSMData gpuData = RenderHelper::computeCSMMatrices(ENGINE->getCameraProjection(), ENGINE->getCameraView(), 0.2f, 1000.0f, 1024, glm::vec3(0.5f, 1.0f, 0.5f));
-
-    m_csmUniformBuffer.update(&gpuData);
+    CSMData gpuData = ENGINE->getSharedCSMData();
+    m_csmUniformBuffer.update(&gpuData, currentFrame);
 }
 
 void PostProcess::execute(const VkSemaphore &waitSemaphore, const VkSemaphore &signalSemaphore,
@@ -290,15 +290,15 @@ bool PostProcess::initialize() {
     /* Create Descriptor pool*/
     std::array<VkDescriptorPoolSize, 2> poolSizes = {};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[0].descriptorCount = 7;
+    poolSizes[0].descriptorCount = 14; // 7 * 2
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[1].descriptorCount = 2;
+    poolSizes[1].descriptorCount = 4; // 2 * 2
 
     VkDescriptorPoolCreateInfo descriptorPoolInfo = {};
     descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     descriptorPoolInfo.poolSizeCount = 2;
     descriptorPoolInfo.pPoolSizes = poolSizes.data();
-    descriptorPoolInfo.maxSets = 2;
+    descriptorPoolInfo.maxSets = 4; // 2 * 2
 
     if (vkCreateDescriptorPool(RENDER_DEVICE->getDevice(), &descriptorPoolInfo, nullptr,
                                &m_descriptorPool) != VK_SUCCESS) {
@@ -306,29 +306,31 @@ bool PostProcess::initialize() {
         return false;
     }
 
-    /* Allocate Descriptor sets*/
-    VkDescriptorSetAllocateInfo allocInfo = {};
-    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool = m_descriptorPool;
-    allocInfo.descriptorSetCount = 1;
-    allocInfo.pSetLayouts = &m_perFrameDSL;
+    for (int i = 0; i < 2; i++) {
+        /* Allocate Descriptor sets*/
+        VkDescriptorSetAllocateInfo allocInfo = {};
+        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        allocInfo.descriptorPool = m_descriptorPool;
+        allocInfo.descriptorSetCount = 1;
+        allocInfo.pSetLayouts = &m_perFrameDSL;
 
-    if (vkAllocateDescriptorSets(RENDER_DEVICE->getDevice(), &allocInfo, &m_descriptorSet) !=
-        VK_SUCCESS) {
-        aout << "Failed to allocate descriptor sets!" << std::endl;
-        return false;
-    }
+        if (vkAllocateDescriptorSets(RENDER_DEVICE->getDevice(), &allocInfo, &m_descriptorSets[i]) !=
+            VK_SUCCESS) {
+            aout << "Failed to allocate descriptor sets!" << std::endl;
+            return false;
+        }
 
-    VkDescriptorSetAllocateInfo allocInfo1 = {};
-    allocInfo1.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo1.descriptorPool = m_descriptorPool;
-    allocInfo1.descriptorSetCount = 1;
-    allocInfo1.pSetLayouts = &m_csmDSL;
+        VkDescriptorSetAllocateInfo allocInfo1 = {};
+        allocInfo1.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        allocInfo1.descriptorPool = m_descriptorPool;
+        allocInfo1.descriptorSetCount = 1;
+        allocInfo1.pSetLayouts = &m_csmDSL;
 
-    if (vkAllocateDescriptorSets(RENDER_DEVICE->getDevice(), &allocInfo1, &m_descriptorSet1) !=
-        VK_SUCCESS) {
-        aout << "Failed to allocate shadow descriptor sets!" << std::endl;
-        return false;
+        if (vkAllocateDescriptorSets(RENDER_DEVICE->getDevice(), &allocInfo1, &m_descriptorSets1[i]) !=
+            VK_SUCCESS) {
+            aout << "Failed to allocate shadow descriptor sets!" << std::endl;
+            return false;
+        }
     }
 
     /* Create Graphics Pipeline */
@@ -471,11 +473,11 @@ bool PostProcess::initializeDescriptors() {
 
 void PostProcess::bindPipeline(VkCommandBuffer const &commandBuffer) {
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
-
-    VkDescriptorSet descriptorSets[] = {m_descriptorSet, m_descriptorSet1};
+    uint32_t currentFrame = ENGINE->getCurrentFrame();
+    VkDescriptorSet sets[] = { m_descriptorSets[currentFrame % 2], m_descriptorSets1[currentFrame % 2] };
 
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 2,
-                            descriptorSets, 0, nullptr);
+                            sets, 0, nullptr);
 }
 
 
@@ -512,84 +514,87 @@ void PostProcess::setFrameBufferImage(const std::string &name, const VkDescripto
 
 void PostProcess::updateDescriptors() {
     const auto &device = RENDER_DEVICE->getDevice();
-    VkWriteDescriptorSet descriptorWrites[7] = {};
 
-    descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrites[0].dstSet = m_descriptorSet;
-    descriptorWrites[0].dstBinding = 0;
-    descriptorWrites[0].dstArrayElement = 0;
-    descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    descriptorWrites[0].descriptorCount = 1;
-    descriptorWrites[0].pImageInfo = &m_frameBufferImages["gDiffuse"];
+    for (int i = 0; i < 2; i++) {
+        VkWriteDescriptorSet descriptorWrites[7] = {};
 
-    descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrites[1].dstSet = m_descriptorSet;
-    descriptorWrites[1].dstBinding = 1;
-    descriptorWrites[1].dstArrayElement = 0;
-    descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    descriptorWrites[1].descriptorCount = 1;
-    descriptorWrites[1].pImageInfo = &m_frameBufferImages["gNormal"];
+        descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[0].dstSet = m_descriptorSets[i];
+        descriptorWrites[0].dstBinding = 0;
+        descriptorWrites[0].dstArrayElement = 0;
+        descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        descriptorWrites[0].descriptorCount = 1;
+        descriptorWrites[0].pImageInfo = &m_frameBufferImages["gDiffuse"];
 
-    descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrites[2].dstSet = m_descriptorSet;
-    descriptorWrites[2].dstBinding = 2;
-    descriptorWrites[2].dstArrayElement = 0;
-    descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    descriptorWrites[2].descriptorCount = 1;
-    descriptorWrites[2].pImageInfo = &m_frameBufferImages["gPBR"];
+        descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[1].dstSet = m_descriptorSets[i];
+        descriptorWrites[1].dstBinding = 1;
+        descriptorWrites[1].dstArrayElement = 0;
+        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        descriptorWrites[1].descriptorCount = 1;
+        descriptorWrites[1].pImageInfo = &m_frameBufferImages["gNormal"];
 
-    descriptorWrites[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrites[3].dstSet = m_descriptorSet;
-    descriptorWrites[3].dstBinding = 3;
-    descriptorWrites[3].dstArrayElement = 0;
-    descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    descriptorWrites[3].descriptorCount = 1;
-    descriptorWrites[3].pImageInfo = &m_frameBufferImages["gWorldPosition"];
+        descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[2].dstSet = m_descriptorSets[i];
+        descriptorWrites[2].dstBinding = 2;
+        descriptorWrites[2].dstArrayElement = 0;
+        descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        descriptorWrites[2].descriptorCount = 1;
+        descriptorWrites[2].pImageInfo = &m_frameBufferImages["gPBR"];
 
-    descriptorWrites[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrites[4].dstSet = m_descriptorSet;
-    descriptorWrites[4].dstBinding = 4;
-    descriptorWrites[4].dstArrayElement = 0;
-    descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    descriptorWrites[4].descriptorCount = 1;
-    descriptorWrites[4].pImageInfo = &m_frameBufferImages["gDepth"];
+        descriptorWrites[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[3].dstSet = m_descriptorSets[i];
+        descriptorWrites[3].dstBinding = 3;
+        descriptorWrites[3].dstArrayElement = 0;
+        descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        descriptorWrites[3].descriptorCount = 1;
+        descriptorWrites[3].pImageInfo = &m_frameBufferImages["gWorldPosition"];
 
-    descriptorWrites[5].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrites[5].dstSet = m_descriptorSet;
-    descriptorWrites[5].dstBinding = 5;
-    descriptorWrites[5].dstArrayElement = 0;
-    descriptorWrites[5].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    descriptorWrites[5].descriptorCount = 1;
-    descriptorWrites[5].pImageInfo = &m_frameBufferImages["gEnvironment"];
+        descriptorWrites[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[4].dstSet = m_descriptorSets[i];
+        descriptorWrites[4].dstBinding = 4;
+        descriptorWrites[4].dstArrayElement = 0;
+        descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        descriptorWrites[4].descriptorCount = 1;
+        descriptorWrites[4].pImageInfo = &m_frameBufferImages["gDepth"];
 
-    descriptorWrites[6].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrites[6].dstSet = m_descriptorSet;
-    descriptorWrites[6].dstBinding = 6;
-    descriptorWrites[6].dstArrayElement = 0;
-    descriptorWrites[6].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    descriptorWrites[6].descriptorCount = 1;
-    descriptorWrites[6].pBufferInfo = m_uniformBuffer.getDescriptorInfo();
+        descriptorWrites[5].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[5].dstSet = m_descriptorSets[i];
+        descriptorWrites[5].dstBinding = 5;
+        descriptorWrites[5].dstArrayElement = 0;
+        descriptorWrites[5].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        descriptorWrites[5].descriptorCount = 1;
+        descriptorWrites[5].pImageInfo = &m_frameBufferImages["gEnvironment"];
 
-    vkUpdateDescriptorSets(device, 7, descriptorWrites, 0, nullptr);
+        descriptorWrites[6].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[6].dstSet = m_descriptorSets[i];
+        descriptorWrites[6].dstBinding = 6;
+        descriptorWrites[6].dstArrayElement = 0;
+        descriptorWrites[6].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrites[6].descriptorCount = 1;
+        descriptorWrites[6].pBufferInfo = m_uniformBuffer.getDescriptorInfo(i);
 
-    VkWriteDescriptorSet descriptorWrites1[2] = {};
-    descriptorWrites1[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrites1[0].dstSet = m_descriptorSet1;
-    descriptorWrites1[0].dstBinding = 0;
-    descriptorWrites1[0].dstArrayElement = 0;
-    descriptorWrites1[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    descriptorWrites1[0].descriptorCount = 1;
-    descriptorWrites1[0].pImageInfo = &m_frameBufferImages["gShadow"];
+        vkUpdateDescriptorSets(device, 7, descriptorWrites, 0, nullptr);
 
-    descriptorWrites1[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrites1[1].dstSet = m_descriptorSet1;
-    descriptorWrites1[1].dstBinding = 1;
-    descriptorWrites1[1].dstArrayElement = 0;
-    descriptorWrites1[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    descriptorWrites1[1].descriptorCount = 1;
-    descriptorWrites1[1].pBufferInfo = m_csmUniformBuffer.getDescriptorInfo();
+        VkWriteDescriptorSet descriptorWrites1[2] = {};
+        descriptorWrites1[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites1[0].dstSet = m_descriptorSets1[i];
+        descriptorWrites1[0].dstBinding = 0;
+        descriptorWrites1[0].dstArrayElement = 0;
+        descriptorWrites1[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        descriptorWrites1[0].descriptorCount = 1;
+        descriptorWrites1[0].pImageInfo = &m_frameBufferImages["gShadow"];
 
-    vkUpdateDescriptorSets(device, 2, descriptorWrites1, 0, nullptr);
+        descriptorWrites1[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites1[1].dstSet = m_descriptorSets1[i];
+        descriptorWrites1[1].dstBinding = 1;
+        descriptorWrites1[1].dstArrayElement = 0;
+        descriptorWrites1[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrites1[1].descriptorCount = 1;
+        descriptorWrites1[1].pBufferInfo = m_csmUniformBuffer.getDescriptorInfo(i);
+
+        vkUpdateDescriptorSets(device, 2, descriptorWrites1, 0, nullptr);
+    }
 }
 
 void PostProcess::record(VkCommandBuffer commandBuffer, uint64_t currentFrame, VkFramebuffer framebuffer) {
@@ -631,7 +636,7 @@ void PostProcess::record(VkCommandBuffer commandBuffer, uint64_t currentFrame, V
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
 
-    VkDescriptorSet sets[] = { m_descriptorSet, m_descriptorSet1 };
+    VkDescriptorSet sets[] = { m_descriptorSets[currentFrame % 2], m_descriptorSets1[currentFrame % 2] };
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 2,
                             sets, 0, nullptr);
 

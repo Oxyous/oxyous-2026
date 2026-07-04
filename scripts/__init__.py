@@ -100,6 +100,15 @@ def triangulate_mesh_copy(mesh):
 
     mesh.update()
 
+def compute_bounding_box(obj):
+    """
+    Computes the axis-aligned bounding box of the object in world space.
+    """
+    bbox = [obj.matrix_world @ mathutils.Vector(corner) for corner in obj.bound_box]
+    min_corner = mathutils.Vector((min(v.x for v in bbox), min(v.y for v in bbox), min(v.z for v in bbox)))
+    max_corner = mathutils.Vector((max(v.x for v in bbox), max(v.y for v in bbox), max(v.z for v in bbox)))
+    return min_corner, max_corner
+
 # ------------------------------------------------------------
 # Mesh Export
 # ------------------------------------------------------------
@@ -379,6 +388,15 @@ def export_scene_graph(self, context, filepath):
         if materal:
             mat_elem = ET.SubElement(obj_elem, "Material")
             mat_elem.set("name", materal.name)
+        
+        bbox_elem = ET.SubElement(obj_elem, "BoundingBox")
+        min_corner, max_corner = compute_bounding_box(obj)
+        bbox_elem.set("min_x", str(min_corner.x))
+        bbox_elem.set("min_y", str(min_corner.y))
+        bbox_elem.set("min_z", str(min_corner.z))
+        bbox_elem.set("max_x", str(max_corner.x))
+        bbox_elem.set("max_y", str(max_corner.y))
+        bbox_elem.set("max_z", str(max_corner.z))
         
     # Pretty print XML
     def prettify(elem):

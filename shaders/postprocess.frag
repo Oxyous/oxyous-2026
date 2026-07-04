@@ -30,12 +30,15 @@ const vec3 lightColor = vec3(1.0);
 
 int getCascadeIndex(float distance)
 {
-    int index = 0;
+    int index = 3;
 
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < 4; i++)
     {
-        if (distance > csm.cascadeSplits[i])
-            index = i + 1;
+        if (distance < csm.cascadeSplits[i])
+        {
+            index = i;
+            break;
+        }
     }
 
     return index;
@@ -49,8 +52,12 @@ float sampleShadow(vec3 worldPos, int cascadeIndex, vec3 normal)
 
     vec3 proj = lightSpace.xyz / lightSpace.w;
 
+    // Convert from Vulkan NDC [-1, 1] to Texture Space [0, 1]
+    // Vulkan NDC: (-1, -1) is top-left.
+    // Texture: (0, 0) is top-left.
     vec2 shadowCoord = proj.xy * 0.5 + 0.5;
 
+    // Return fully lit if outside the cascade bounds
     if (shadowCoord.x < 0.0 || shadowCoord.x > 1.0 ||
         shadowCoord.y < 0.0 || shadowCoord.y > 1.0 ||
         proj.z < 0.0 || proj.z > 1.0)
@@ -60,10 +67,10 @@ float sampleShadow(vec3 worldPos, int cascadeIndex, vec3 normal)
 
     float currentDepth = proj.z;
 
-    // Better than a fixed bias
+    // View-dependent bias: increase for grazing angles
     float bias = max(
-        0.00005 * (1.0 - dot(normal, normalize(vec3(0.5, 1.0, 0.5)))),
-        0.00005
+        0.001 * (1.0 - abs(dot(normal, normalize(vec3(0.5, 1.0, 0.5))))),
+        0.0001
     );
 
     vec2 texelSize =
@@ -84,10 +91,9 @@ float sampleShadow(vec3 worldPos, int cascadeIndex, vec3 normal)
                     )
                 ).r;
 
-            visibility +=
-                (currentDepth - bias > shadowDepth)
-                ? 0.2
-                : 1.0;
+            // Vulkan Depth: smaller is closer.
+            // If currentDepth (fragment) is farther than shadowDepth (stored occluder), in shadow.
+            visibility += (currentDepth - bias > shadowDepth) ? 0.2 : 1.0;
         }
     }
 
@@ -112,13 +118,14 @@ void main()
     }
     normal = normalize(normal);
 
-    float roughness = 0.3; // Default roughness
-    float metallic  = 0.9; // Default metallic
+    float roughness = 0.01; // Default roughness
+    float metallic  = 0.5; // Default metallic
 
 
     vec3 L = normalize(lightDir);
     vec3 V = normalize(ubo.cameraPosition.xyz - worldPos);
     vec3 H = normalize(L + V);
+    vec3 reflectDir = reflect(-V, normal);
 
     float NdotL = max(dot(normal, L), 0.0);
     float NdotV = max(dot(normal, V), 0.0);
@@ -139,17 +146,21 @@ void main()
 
 
     /**/
-    float dist = length(ubo.cameraPosition.xyz - worldPos);
-    int cascadeIndex = getCascadeIndex(dist);
+    float viewDepth = -(ubo.view * vec4(worldPos, 1.0)).z;
+    int cascadeIndex = getCascadeIndex(viewDepth);
 
-    float shadowA = sampleShadow(worldPos, cascadeIndex, normal);
-    float shadowB = sampleShadow(worldPos, min(cascadeIndex+1,3), normal);
-    float shadow = shadowA;
+    float shadow = sampleShadow(worldPos, cascadeIndex, normal);
 
+    // Blending between cascades
     if (cascadeIndex < 3) {
-        float blend = (dist - csm.cascadeSplits[cascadeIndex]) /
-                      (csm.cascadeSplits[cascadeIndex + 1] - csm.cascadeSplits[cascadeIndex]);
-        shadow = mix(shadowA, shadowB, blend);
+        float cascadeEnd = csm.cascadeSplits[cascadeIndex];
+        float blendRange = 2.0; // 2 meters blend range
+
+        if (viewDepth > cascadeEnd - blendRange) {
+            float shadowNext = sampleShadow(worldPos, cascadeIndex + 1, normal);
+            float blend = clamp((viewDepth - (cascadeEnd - blendRange)) / blendRange, 0.0, 1.0);
+            shadow = mix(shadow, shadowNext, blend);
+        }
     }
 
     // Reconstruct world direction from UV for skybox
@@ -163,6 +174,6 @@ void main()
     if (depth >= 1.0) {
         outColor = texture(gEnvironment, worldDir);
     }else {
-        outColor = vec4(color * shadow, 1.0) + texture(gEnvironment, V).rgba * 0.1;
+        outColor = vec4(color * shadow, 1.0) + texture(gEnvironment, reflectDir).rgba * metallic * 0.5;
     }
 }

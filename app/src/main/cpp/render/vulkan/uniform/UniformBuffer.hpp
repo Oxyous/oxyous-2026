@@ -10,97 +10,96 @@
 
 class UniformBuffer {
 public:
-    /* Initialize Uniform Buffer */
+    /* Initialize Uniform Buffer - always creates 2 for double buffering */
     template<typename T>
     bool initialize(const T &data) {
         const auto &device = RENDER_DEVICE->getDevice();
+        m_size = sizeof(T);
 
-        VkBufferCreateInfo bufferInfo = {};
-        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        bufferInfo.size = sizeof(T);
-        bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-        bufferInfo.flags = 0;
-        bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        bufferInfo.queueFamilyIndexCount = 0;
-        bufferInfo.pQueueFamilyIndices = nullptr;
+        for (int i = 0; i < 2; i++) {
+            VkBufferCreateInfo bufferInfo = {};
+            bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+            bufferInfo.size = m_size;
+            bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+            bufferInfo.flags = 0;
+            bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-        if (vkCreateBuffer(device, &bufferInfo, nullptr, &m_buffer) != VK_SUCCESS) {
-            return false;
+            if (vkCreateBuffer(device, &bufferInfo, nullptr, &m_buffers[i]) != VK_SUCCESS) {
+                return false;
+            }
+
+            vkGetBufferMemoryRequirements(device, m_buffers[i], &m_memRequirements);
+
+            VkMemoryAllocateInfo allocInfo = {};
+            allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+            allocInfo.allocationSize = m_memRequirements.size;
+
+            if (!RenderFramework::findMemoryType(RENDER_DEVICE->getPhysicalDevice(),
+                                                 m_memRequirements.memoryTypeBits,
+                                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                                 VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                                 allocInfo.memoryTypeIndex)) {
+                return false;
+            }
+
+            if (vkAllocateMemory(device, &allocInfo, nullptr, &m_memories[i]) != VK_SUCCESS) {
+                return false;
+            }
+
+            if (vkMapMemory(device, m_memories[i], 0, m_memRequirements.size, 0,
+                             (void **) &m_mappedMemories[i]) != VK_SUCCESS) {
+                return false;
+            }
+
+            memcpy(m_mappedMemories[i], &data, m_size);
+
+            if (vkBindBufferMemory(device, m_buffers[i], m_memories[i], 0) != VK_SUCCESS) {
+                return false;
+            }
+
+            m_descriptorInfos[i].buffer = m_buffers[i];
+            m_descriptorInfos[i].offset = 0;
+            m_descriptorInfos[i].range = m_size;
         }
-
-        vkGetBufferMemoryRequirements(device, m_buffer, &m_memRequirements);
-
-        /* Allocate Buffer memory*/
-        VkMemoryAllocateInfo allocInfo = {};
-        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        allocInfo.allocationSize = m_memRequirements.size;
-        allocInfo.memoryTypeIndex = 0;
-
-        if (!RenderFramework::findMemoryType(RENDER_DEVICE->getPhysicalDevice(),
-                                             m_memRequirements.memoryTypeBits,
-                                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                             allocInfo.memoryTypeIndex)) {
-            return false;
-        }
-
-        if (vkAllocateMemory(device, &allocInfo, nullptr, &m_memory) != VK_SUCCESS) {
-            aout << "Failed to allocate memory!" << std::endl;
-            return false;
-        }
-
-        if (vkMapMemory(device, m_memory, 0, m_memRequirements.size, 0,
-                         (void **) &m_mappedMemory) != VK_SUCCESS) {
-            aout << "Failed to map memory!" << std::endl;
-            return false;
-        }
-
-        memcpy(m_mappedMemory, &data, sizeof(T));
-
-        vkUnmapMemory(device, m_memory);
-
-        if (vkBindBufferMemory(device, m_buffer, m_memory, 0) != VK_SUCCESS) {
-            aout << "Failed to bind buffer memory!" << std::endl;
-            return false;
-        }
-
-        m_descriptorInfo.buffer = m_buffer;
-        m_descriptorInfo.offset = 0;
-        m_descriptorInfo.range = sizeof(T);
 
         return true;
     }
 
-    /* Update Uniform Buffer */
-    virtual void update(const void *data) {
-        const auto &device = RENDER_DEVICE->getDevice();
-
-        vkMapMemory(device, m_memory, 0, m_memRequirements.size, 0, (void **) &m_mappedMemory);
-        memcpy(m_mappedMemory, data, m_memRequirements.size);
-        vkUnmapMemory(device, m_memory);
+    /* Update Uniform Buffer for a specific frame index */
+    virtual void update(const void *data, uint32_t frameIndex) {
+        if (frameIndex >= 2) return;
+        memcpy(m_mappedMemories[frameIndex], data, m_size);
     }
 
     /* Free GPU resources */
     virtual void destroy() {
         const auto &device = RENDER_DEVICE->getDevice();
 
-        vkDestroyBuffer(device, m_buffer, nullptr);
-        vkFreeMemory(device, m_memory, nullptr);
+        for (int i = 0; i < 2; i++) {
+            if (m_buffers[i] != VK_NULL_HANDLE) {
+                vkDestroyBuffer(device, m_buffers[i], nullptr);
+                m_buffers[i] = VK_NULL_HANDLE;
+            }
+            if (m_memories[i] != VK_NULL_HANDLE) {
+                vkUnmapMemory(device, m_memories[i]);
+                vkFreeMemory(device, m_memories[i], nullptr);
+                m_memories[i] = VK_NULL_HANDLE;
+            }
+        }
     }
 
-    /* Get Buffer Descriptor info */
-    virtual VkDescriptorBufferInfo *getDescriptorInfo() {
-        return &m_descriptorInfo;
+    /* Get Buffer Descriptor info for a specific frame index */
+    virtual VkDescriptorBufferInfo *getDescriptorInfo(uint32_t frameIndex) {
+        return &m_descriptorInfos[frameIndex % 2];
     }
 
 private:
-    VkBuffer m_buffer;
-    VkDeviceMemory m_memory;
-    VkDeviceSize m_size;
-    VkBufferUsageFlags m_usage;
-    VkMemoryRequirements m_memRequirements;
-    VkDescriptorBufferInfo m_descriptorInfo;
-    uint8_t *m_mappedMemory;
+    VkBuffer m_buffers[2]{VK_NULL_HANDLE, VK_NULL_HANDLE};
+    VkDeviceMemory m_memories[2]{VK_NULL_HANDLE, VK_NULL_HANDLE};
+    VkDeviceSize m_size{0};
+    VkMemoryRequirements m_memRequirements{};
+    VkDescriptorBufferInfo m_descriptorInfos[2]{};
+    uint8_t *m_mappedMemories[2]{nullptr, nullptr};
 };
 
 #endif //OXYOUS_2026_UNIFORMBUFFER_HPP

@@ -12,6 +12,7 @@
 #include "input/Input.hpp"
 #include "actors/OGActor.hpp"
 #include "actors/OGCamera.hpp"
+#include "../DataStructures.hpp"
 
 class Engine {
 public:
@@ -83,13 +84,19 @@ public:
         m_camera.setProjectionMatrix(projection);
     }
 
+    void setSharedCSMData(const CSMData& data) { m_sharedCSMData = data; }
+    CSMData getSharedCSMData() const { return m_sharedCSMData; }
 
+    void setCurrentFrame(uint32_t frame) { m_currentFrame = frame; }
+    uint32_t getCurrentFrame() const { return m_currentFrame; }
 
 protected:
     OGCamera m_camera;
     std::unordered_map<std::string, std::unique_ptr<IRenderPipeline>> m_pipelines;
     android_app *m_app;
     Input m_input;
+    CSMData m_sharedCSMData;
+    uint32_t m_currentFrame = 0;
 };
 
 #define ENGINE OGSingleton<Engine>::getInstance()

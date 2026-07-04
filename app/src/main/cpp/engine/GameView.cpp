@@ -105,11 +105,11 @@ bool GameView::initialize() {
     meshComponent->setTextureResource(TEXTURE_SLOT_0, texture);
     meshComponent->setMaterialIndex(1);
 
-    auto actor4 = addActor<OGActor>("plane");
+    /*auto actor4 = addActor<OGActor>("plane");
     auto meshComponent4 = actor4->addComponent<OGStaticMeshComponent>();
     meshComponent4->setMeshResource(plane);
     meshComponent4->setTextureResource(TEXTURE_SLOT_0, texture);
-    meshComponent4->setMaterialIndex(1);
+    meshComponent4->setMaterialIndex(1);*/
 
     auto playerActor = addActor<OGActor>("player-actor");
     auto playerMesh = playerActor->addComponent<OGStaticMeshComponent>();

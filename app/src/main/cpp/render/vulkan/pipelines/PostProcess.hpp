@@ -57,8 +57,8 @@ protected:
     VkDescriptorSetLayout m_perFrameDSL{};
     VkDescriptorSetLayout m_csmDSL{};
     VkDescriptorPool m_descriptorPool{};
-    VkDescriptorSet m_descriptorSet{};
-    VkDescriptorSet m_descriptorSet1{};
+    VkDescriptorSet m_descriptorSets[2]{};
+    VkDescriptorSet m_descriptorSets1[2]{};
     uint32_t m_width{};
     uint32_t m_height{};
     UniformBuffer m_uniformBuffer{};

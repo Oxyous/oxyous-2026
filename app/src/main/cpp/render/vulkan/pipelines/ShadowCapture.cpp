@@ -39,7 +39,7 @@ bool ShadowCapture::initialize() {
     samplerInfo.maxAnisotropy = 1.0f;
     samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
     samplerInfo.unnormalizedCoordinates = VK_FALSE;
-    samplerInfo.compareEnable = VK_TRUE;
+    samplerInfo.compareEnable = VK_FALSE;
     samplerInfo.compareOp = VK_COMPARE_OP_LESS;
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 
@@ -122,13 +122,13 @@ bool ShadowCapture::initialize() {
     /* Create Descriptor pool*/
     VkDescriptorPoolSize poolSize = {};
     poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSize.descriptorCount = 1;
+    poolSize.descriptorCount = 2; // 1 * 2
 
     VkDescriptorPoolCreateInfo descriptorPoolInfo = {};
     descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     descriptorPoolInfo.poolSizeCount = 1;
     descriptorPoolInfo.pPoolSizes = &poolSize;
-    descriptorPoolInfo.maxSets = 1;
+    descriptorPoolInfo.maxSets = 2; // 1 * 2
 
     if (vkCreateDescriptorPool(RENDER_DEVICE->getDevice(), &descriptorPoolInfo, nullptr,
                                &m_descriptorPool) != VK_SUCCESS) {
@@ -136,17 +136,19 @@ bool ShadowCapture::initialize() {
         return false;
     }
 
-    /* Allocate Descriptor sets*/
-    VkDescriptorSetAllocateInfo allocInfo = {};
-    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool = m_descriptorPool;
-    allocInfo.descriptorSetCount = 1;
-    allocInfo.pSetLayouts = &m_shadowDSL;
+    for (int i = 0; i < 2; i++) {
+        /* Allocate Descriptor sets*/
+        VkDescriptorSetAllocateInfo allocInfo = {};
+        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        allocInfo.descriptorPool = m_descriptorPool;
+        allocInfo.descriptorSetCount = 1;
+        allocInfo.pSetLayouts = &m_shadowDSL;
 
-    if (vkAllocateDescriptorSets(RENDER_DEVICE->getDevice(), &allocInfo, &m_shadowSet) !=
-        VK_SUCCESS) {
-        aout << "Failed to allocate shadow descriptor sets!" << std::endl;
-        return false;
+        if (vkAllocateDescriptorSets(RENDER_DEVICE->getDevice(), &allocInfo, &m_shadowSets[i]) !=
+            VK_SUCCESS) {
+            aout << "Failed to allocate shadow descriptor sets!" << std::endl;
+            return false;
+        }
     }
 
     /* Step 3 Fixed Function states */
@@ -215,7 +217,7 @@ bool ShadowCapture::initialize() {
     rasterizer.rasterizerDiscardEnable = VK_FALSE;
     rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizer.lineWidth = 1.0f;
-    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+    rasterizer.cullMode = VK_CULL_MODE_NONE;
     rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
     rasterizer.depthBiasEnable = VK_FALSE;
 
@@ -287,23 +289,21 @@ bool ShadowCapture::initialize() {
                                                glm::mat4(1.0f),
                                                glm::mat4(1.0f)
                                        },
-                                       .cascadeSplits = {
-                                               1.0f,
-                                               1.0f,
-                                               1.0f,
-                                               1.0f
-                                       }});
+                                       .cascadeSplits = glm::vec4(1.0f)
+                                       });
 
-    VkWriteDescriptorSet descriptorWrite = {};
-    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrite.dstSet = m_shadowSet;
-    descriptorWrite.dstBinding = 0;
-    descriptorWrite.dstArrayElement = 0;
-    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    descriptorWrite.descriptorCount = 1;
-    descriptorWrite.pBufferInfo = m_uniformBuffer.getDescriptorInfo();
+    for (int i = 0; i < 2; i++) {
+        VkWriteDescriptorSet descriptorWrite = {};
+        descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrite.dstSet = m_shadowSets[i];
+        descriptorWrite.dstBinding = 0;
+        descriptorWrite.dstArrayElement = 0;
+        descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrite.descriptorCount = 1;
+        descriptorWrite.pBufferInfo = m_uniformBuffer.getDescriptorInfo(i);
 
-    vkUpdateDescriptorSets(RENDER_DEVICE->getDevice(), 1, &descriptorWrite, 0, nullptr);
+        vkUpdateDescriptorSets(RENDER_DEVICE->getDevice(), 1, &descriptorWrite, 0, nullptr);
+    }
 
     return true;
 }
@@ -358,7 +358,8 @@ void ShadowCapture::destroy() {
 }
 
 void ShadowCapture::update(double delta) {
-
+    CSMData gpuData = ENGINE->getSharedCSMData();
+    m_uniformBuffer.update(&gpuData, ENGINE->getCurrentFrame());
 }
 
 void ShadowCapture::render(VkCommandBuffer cmd, uint32_t currentFrame) {
@@ -385,13 +386,22 @@ bool ShadowCapture::initializeRenderPass() {
     subpass.colorAttachmentCount = 0;
     subpass.pDepthStencilAttachment = &depthAttachmentRef;
 
-    VkSubpassDependency dependency{};
-    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-    dependency.dstSubpass = 0;
-    dependency.srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    dependency.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    dependency.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    dependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    std::array<VkSubpassDependency, 2> dependencies{};
+    dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependencies[0].dstSubpass = 0;
+    dependencies[0].srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    dependencies[0].dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dependencies[0].srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    dependencies[0].dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+    dependencies[1].srcSubpass = 0;
+    dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+    dependencies[1].srcStageMask = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    dependencies[1].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    dependencies[1].srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    dependencies[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
     VkRenderPassCreateInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -399,8 +409,8 @@ bool ShadowCapture::initializeRenderPass() {
     renderPassInfo.pAttachments = attachments.data();
     renderPassInfo.subpassCount = 1;
     renderPassInfo.pSubpasses = &subpass;
-    renderPassInfo.dependencyCount = 1;
-    renderPassInfo.pDependencies = &dependency;
+    renderPassInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
+    renderPassInfo.pDependencies = dependencies.data();
 
     if (vkCreateRenderPass(RENDER_DEVICE->getDevice(), &renderPassInfo, nullptr, &m_renderPass) !=
         VK_SUCCESS) {
@@ -491,6 +501,7 @@ bool ShadowCapture::initializeFrameBuffer() {
         imageViewInfo.image = m_shadowMapImage;
         imageViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
         imageViewInfo.format = VK_FORMAT_D32_SFLOAT;
+        imageViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
         imageViewInfo.subresourceRange.baseMipLevel = 0;
         imageViewInfo.subresourceRange.levelCount = 1;
         imageViewInfo.subresourceRange.baseArrayLayer = i;
@@ -526,6 +537,12 @@ bool ShadowCapture::initializeFrameBuffer() {
 
 void ShadowCapture::bindPipeline(VkCommandBuffer const &commandBuffer) {
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+    uint32_t currentFrame = ENGINE->getCurrentFrame();
+
+    VkDescriptorSet setsToBind[] = { GPU_RESOURCES->getBindlessSet(currentFrame), m_shadowSets[currentFrame % 2] };
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            m_pipelineLayout, 0, 2,
+                            setsToBind, 0, nullptr);
 }
 
 
@@ -536,13 +553,13 @@ void ShadowCapture::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
 
     /* Bind Descriptor Sets */
-    VkDescriptorSet setsToBind[] = { GPU_RESOURCES->getBindlessSet(currentFrame), m_shadowSet };
+    VkDescriptorSet setsToBind[] = { GPU_RESOURCES->getBindlessSet(currentFrame), m_shadowSets[currentFrame % 2] };
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                             m_pipelineLayout, 0, 2,
                             setsToBind, 0, nullptr);
 
-    CSMData gpuData = RenderHelper::computeCSMMatrices(ENGINE->getCameraProjection(), ENGINE->getCameraView(), 0.2f, 1000.0f, m_shadowMapSize, glm::vec3(0.5f, 1.0f, 0.5f));
-    m_uniformBuffer.update(&gpuData);
+    // Fetch consolidated data
+    CSMData gpuData = ENGINE->getSharedCSMData();
 
     for (int i = 0; i < m_cascadeCount; ++i) {
         VkRenderPassBeginInfo renderPassInfo{};
@@ -557,7 +574,6 @@ void ShadowCapture::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
         clearValues[0].depthStencil.stencil = 0;
 
         VkViewport viewport{};
-
         viewport.x = 0.0f;
         viewport.y = 0.0f;
         viewport.width = (float) m_shadowMapSize;
@@ -565,19 +581,22 @@ void ShadowCapture::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
         viewport.minDepth = 0.0f;
         viewport.maxDepth = 1.0f;
 
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+        VkRect2D scissor{};
+        scissor.offset = {0, 0};
+        scissor.extent = {m_shadowMapSize, m_shadowMapSize};
 
         renderPassInfo.clearValueCount = 1;
         renderPassInfo.pClearValues = clearValues;
 
         vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
         vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+        vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
         /* Render Objects */
         auto &staticMeshes = GAME_VIEW->getEntities();
         for (auto &mesh: staticMeshes) {
 
-            for (auto &child: mesh.second->getChildren()) {
+            for (auto child: mesh.second->getChildren()) {
                 if (child->getComponent<OGStaticMeshComponent>()) {
                     auto *component = child->getComponent<OGStaticMeshComponent>();
                     if (component) {
@@ -613,5 +632,3 @@ VkDescriptorImageInfo ShadowCapture::getFrameBufferImage(const std::string &name
     }
     return VkDescriptorImageInfo();
 }
-
-

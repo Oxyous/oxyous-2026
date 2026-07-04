@@ -54,9 +54,9 @@ private:
     VkDescriptorImageInfo m_shadowMapDescriptor;
     VkShaderModule vertexShaderModule;
     UniformBuffer m_uniformBuffer;
-    VkDescriptorSetLayout m_shadowDSL;
-    VkDescriptorSet m_shadowSet;
-    VkDescriptorPool m_descriptorPool;
+    VkDescriptorSetLayout m_shadowDSL{};
+    VkDescriptorSet m_shadowSets[2]{};
+    VkDescriptorPool m_descriptorPool{};
 };
 
 
