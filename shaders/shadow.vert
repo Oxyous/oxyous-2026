@@ -6,6 +6,12 @@ layout (location = 1) in vec3 normal;
 layout (location = 2) in vec4 tangent;
 layout (location = 3) in vec2 uvCoord;
 
+out VS_OUTPUT
+{
+    layout (location = 0) vec2 uvCoord;
+    layout (location = 1) flat uint fragObjectIndex;
+} vs_out;
+
 layout(set = 0, binding = 2) uniform PerFrame
 {
     mat4 view;
@@ -46,5 +52,8 @@ void main()
 
     mat4 worldMatrix = obj.model;
     
+    vs_out.uvCoord = uvCoord;
+    vs_out.fragObjectIndex = pc.objectIndex;
+
     gl_Position = csm.lightViewProj[pc.cascadeIndex] * worldMatrix *  vec4(position, 1.0);
 }

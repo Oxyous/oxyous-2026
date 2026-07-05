@@ -19,6 +19,7 @@ public:
     OGComponent() : OGObject("OGComponent") {
         m_owner = nullptr;
     }
+    GET_UNIQUE_TYPE(OGComponent)
 public:
     friend class OGEntity;
 
@@ -169,8 +170,10 @@ public:
         m_rotation = glm::rotate(glm::mat4(1.0f), rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
         m_rotation = glm::rotate(m_rotation, rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
         m_rotation = glm::rotate(m_rotation, rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
+    }
 
-
+    virtual glm::vec3 getTranslation(){
+        return glm::vec3(m_translation[3]);
     }
 
     /* Set Local Scale */

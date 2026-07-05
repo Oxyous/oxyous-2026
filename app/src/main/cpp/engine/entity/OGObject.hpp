@@ -19,6 +19,18 @@ inline std::size_t UUID() noexcept {
     return uid++;
 }
 
+template<typename T>
+inline ComponentType GetTypeId() {
+    static ComponentID typeId = UUID();
+    return reinterpret_cast<ComponentType>(&typeId);
+}
+
+#define GET_UNIQUE_TYPE(Class) \
+    public: \
+    static ComponentType GetType() { \
+        return GetTypeId<Class>(); \
+    }
+
 class OGObjectType {
 public:
     OGObjectType(std::string typeName, ComponentID uid, const OGObjectType *baseType) :
@@ -51,9 +63,9 @@ public:
 
     }
 protected:
-    static const ComponentType GetType() {
-        static ComponentID uniqueVariable = 0;
-        return reinterpret_cast<ComponentType>(&uniqueVariable);
+    template<typename T>
+    static ComponentType GetType() {
+        return GetTypeId<T>();
     }
 };
 

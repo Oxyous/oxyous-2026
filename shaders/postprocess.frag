@@ -174,6 +174,6 @@ void main()
     if (depth >= 1.0) {
         outColor = texture(gEnvironment, worldDir);
     }else {
-        outColor = vec4(color * shadow, 1.0) + texture(gEnvironment, reflectDir).rgba * metallic * 0.5;
+        outColor = vec4(color * shadow, 1.0) + vec4(color.rgb,1.0) * 0.333;
     }
 }

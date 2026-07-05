@@ -7,11 +7,12 @@
 
 #include "../../includes.hpp"
 #include "OGActor.hpp"
+#include "../collision/Collision.hpp"
 
 class OGCamera : public OGActor {
 public:
-    OGCamera() : OGActor() {
-        m_position = glm::vec3(0.0f);
+    OGCamera(glm::vec3 position = glm::vec3(0.0f)) : OGActor(), m_position(position), m_bounds(position, 1.0f) {
+        m_position = position;
         m_up = glm::vec3(0.0f, 1.0f, 0.0f);
         m_forward = glm::vec3(0.0f);
         m_yaw = 0.0f;
@@ -36,6 +37,8 @@ public:
 
     virtual void setProjectionMatrix(glm::mat4 projection);
 
+    virtual SphereVolume& getBounds() { return m_bounds; }
+
 protected:
     glm::vec3 m_position{};
     glm::vec3 m_up{};
@@ -46,6 +49,7 @@ protected:
     float m_sensitivity;
     glm::mat4 m_viewMatrix{};
     glm::mat4 m_projection{};
+    SphereVolume m_bounds;
 };
 
 

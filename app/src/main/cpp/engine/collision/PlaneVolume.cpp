@@ -59,3 +59,9 @@ bool PlaneVolume::intersect(const OBBVolume &obb) const {
 
     return false;
 }
+
+bool PlaneVolume::intersect(const PlaneVolume &plane) const{
+    // Two planes intersect if they are not parallel
+    float dot = glm::dot(m_normal, plane.m_normal);
+    return std::abs(dot) < 1.0f - 1e-6f; // Allow for some numerical error
+}

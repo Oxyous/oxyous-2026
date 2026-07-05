@@ -44,7 +44,7 @@ from bpy.types import Operator, Panel, PropertyGroup
 mesh_cache = {}
 texture_cache = {}
 material_cache = {}
-
+collision_cache = {}
 
 # ------------------------------------------------------------
 # Helpers
@@ -157,6 +157,7 @@ def export_mesh(self, context, filepath, resource_key, obj):
                 tangent = loop.tangent.copy()
 
                 uv = uv_layer.data[loop_index].uv.copy()
+                uv.y = 1.0 - uv.y  # Flip V coordinate
                 tangent_w = loop.bitangent_sign
 
                 key = make_vertex_key(pos, normal, tangent, uv, tangent_w)
@@ -222,6 +223,45 @@ def export_mesh(self, context, filepath, resource_key, obj):
             pass
 
         bpy.data.meshes.remove(mesh)
+
+def export_collision_mesh(self, context, filepath, obj):
+    """
+    Export collision mesh to a custom binary format.
+    
+    This function is similar to export_mesh but may have different requirements for collision meshes.
+    """
+    rotation_x_minus_90 = mathutils.Matrix.Rotation(math.radians(-90.0), 3, 'X')
+
+    vertices = []
+    indices = []
+    normals = []
+
+    for obj in bpy.data.objects:
+        if obj.type != 'MESH':
+            continue
+        if obj is not None and obj.get("collision_resource") != None:
+            mesh = obj.data.copy()
+            mesh.transform(obj.matrix_world)
+            
+            mesh.calc_loop_triangles()
+
+            for tri in mesh.loop_triangles:
+                for loop_index in tri.loops:
+                    loop = mesh.loops[loop_index]
+                    vertex = mesh.vertices[loop.vertex_index]
+                    pos = vertex.co.copy()
+                    vertex = rotation_x_minus_90 @ pos
+
+                    vertices.append(vertex)
+                    normals.append((loop.normal).normalized())
+                    indices.append(len(vertices) - 1)
+    return {
+        "vertices": vertices,
+        "indices": indices,
+        "normals": normals,
+    }
+
+
 
 def export_scene_meshes(self, context, filepath):
     """
@@ -360,10 +400,10 @@ def export_scene_graph(self, context, filepath):
         rot_correction = mathutils.Matrix.Rotation(math.radians(-90.0), 3, 'X')
         corrected_location = rot_correction @ obj.location
 
-        loc_elem.set("x", str(corrected_location.x))
-        loc_elem.set("y", str(corrected_location.y))
-        loc_elem.set("z", str(corrected_location.z))
-
+        loc_elem.set("x", str(round(corrected_location.x,3)))
+        loc_elem.set("y", str(round(corrected_location.y,3)))
+        loc_elem.set("z", str(round(corrected_location.z,3)))
+        
         # Rotation (Euler)
         rot_elem = ET.SubElement(obj_elem, "Rotation")
         rot_elem.set("x", str(obj.rotation_euler.x))
@@ -391,12 +431,8 @@ def export_scene_graph(self, context, filepath):
         
         bbox_elem = ET.SubElement(obj_elem, "BoundingBox")
         min_corner, max_corner = compute_bounding_box(obj)
-        bbox_elem.set("min_x", str(min_corner.x))
-        bbox_elem.set("min_y", str(min_corner.y))
-        bbox_elem.set("min_z", str(min_corner.z))
-        bbox_elem.set("max_x", str(max_corner.x))
-        bbox_elem.set("max_y", str(max_corner.y))
-        bbox_elem.set("max_z", str(max_corner.z))
+        bbox_elem.set("min", f"{round(min_corner.x,3)},{round(min_corner.y,3)},{round(min_corner.z,3)}")
+        bbox_elem.set("max", f"{round(max_corner.x,3)},{round(max_corner.y,3)},{round(max_corner.z,3)}")
         
     # Pretty print XML
     def prettify(elem):
@@ -414,9 +450,38 @@ def export_scene_graph(self, context, filepath):
 
     print(f"Exported XML to: {output_path}")    
 
-        
+def export_collision(self, context, filepath):
+    """
+    Exports collision data for the scene.
+    """
+    polygons = export_collision_mesh(self, context, filepath, None)
+    vertices = polygons["vertices"]
+    normals = polygons["normals"]
+    indices = polygons["indices"]
 
+    with open(filepath + '/world.osc', 'wb') as f:
+        # Write header
+        f.write(struct.pack("iii", len(vertices), len(normals), len(indices)))
+        f.write(struct.pack("iii", 0, 0, 0))  # Placeholder for offsets
 
+        print(f"Exporting {len(indices) // 3} collision polygons to {filepath}")
+        vertexOffset = 0
+        normalsOffset = 0
+        indicesOffset = 0
+        vertexOffset = f.tell()
+        for vertex in vertices:
+            f.write(struct.pack("fff", vertex.x, vertex.y, vertex.z))
+
+        normalsOffset = f.tell()
+        for normal in normals:
+            f.write(struct.pack("fff", normal.x, normal.y, normal.z))
+
+        indicesOffset = f.tell()
+        for index in indices:
+            f.write(struct.pack("i", index))
+
+        f.seek(0 + 12)  # Move to the offset position in the header
+        f.write(struct.pack("iii", vertexOffset, normalsOffset, indicesOffset))
 
 #------------------------------------------------------------
 # Operator
@@ -451,18 +516,44 @@ class ObjectExport(Operator, ExportHelper):
     def invoke(self, context, event):
         wm = context.window_manager
         return wm.invoke_props_dialog(self)
+
+class OxyousSceneCollisionExport(Operator, ExportHelper):
+    """
+    Export collision meshes for the scene.
+    """
+    bl_idname = "export_scene.oxyous_collision"
+    bl_label = "Export Oxyous Collision Meshes"
+    bl_options = {'PRESET'}
+
+    filename_ext = ".osc"
+    filter_glob: str = StringProperty(
+        default="*.osc",
+        options={'HIDDEN'},
+        maxlen=255
+    )
+
+    def execute(self, context):
+        export_collision(self, context, self.filepath)
+        return {'FINISHED'}
     
+    def invoke(self, context, event):
+        wm = context.window_manager
+        return wm.invoke_props_dialog(self)    
+
 #------------------------------------------------------------
 # Menu  
 #------------------------------------------------------------
 
 def menu_func_export(self, context):
     self.layout.operator(ObjectExport.bl_idname, text="Oxyous Scene Export (.oss)")
+    self.layout.operator(OxyousSceneCollisionExport.bl_idname, text="Oxyous Collision Export (.osc)")
 
 def register():
     bpy.utils.register_class(ObjectExport)
+    bpy.utils.register_class(OxyousSceneCollisionExport)
     bpy.types.TOPBAR_MT_file_export.append(menu_func_export)
 
 def unregister():
     bpy.utils.unregister_class(ObjectExport)
+    bpy.utils.unregister_class(OxyousSceneCollisionExport)
     bpy.types.TOPBAR_MT_file_export.remove(menu_func_export)

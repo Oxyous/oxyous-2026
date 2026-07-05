@@ -21,6 +21,7 @@
 #include "actors/OGCamera.hpp"
 #include "../render/vulkan/pipelines/ShadowCapture.hpp"
 #include "../system/OGXml.hpp"
+#include "components/OGCollisionComponent.hpp"
 
 void GameView::render() {
 
@@ -32,6 +33,11 @@ void GameView::update(double deltaTime) {
     }
     for (auto &uiElement : UI->getElements()) {
         uiElement->update(deltaTime);
+    }
+
+    auto colliders = getActorsWithComponent<OGCollisionComponent>();
+    for (auto& c : colliders) {
+        c->update(deltaTime);
     }
 }
 
@@ -99,56 +105,23 @@ bool GameView::initialize() {
 
     /* Prepare Game Logic*/
 
-    auto actor = addActor<OGActor>("actor");
-    auto meshComponent = actor->addComponent<OGStaticMeshComponent>();
-    meshComponent->setMeshResource(mesh);
-    meshComponent->setTextureResource(TEXTURE_SLOT_0, texture);
-    meshComponent->setMaterialIndex(1);
+    if(!loadSceneFile("demo/scene_graph.xml")) {
+        aout << "Error: Failed to load scene graph!" << std::endl;
+        return false;
+    }
 
-    /*auto actor4 = addActor<OGActor>("plane");
-    auto meshComponent4 = actor4->addComponent<OGStaticMeshComponent>();
-    meshComponent4->setMeshResource(plane);
-    meshComponent4->setTextureResource(TEXTURE_SLOT_0, texture);
-    meshComponent4->setMaterialIndex(1);*/
+    if (!RESOURCE_MANAGER->loadSceneCollision("world.osc",m_worldPolygons)) {
+        aout << "Error: Failed to load scene collision!" << std::endl;
+        return false;
+    }
 
-    auto playerActor = addActor<OGActor>("player-actor");
-    auto playerMesh = playerActor->addComponent<OGStaticMeshComponent>();
-    playerMesh->setMeshResource(tank);
-    playerMesh->setTextureResource(TEXTURE_SLOT_0, texture2);
-    playerMesh->setMaterialIndex(0);
-    playerActor->setTranslation(glm::vec3(0.0f, 0.0f, 0.0f));
+    return true;
+}
 
-    auto child = playerActor->addChild<OGActor>();
-    auto testSecondComp = child->addComponent<OGStaticMeshComponent>();
-    testSecondComp->setMeshResource(mesh2);
-    testSecondComp->setTextureResource(TEXTURE_SLOT_0, texture2);
-    testSecondComp->setMaterialIndex(1);
-    child->setTranslation(glm::vec3(0.0,2.0,0.0));
-
-
-    /* Testing Colliders */
-    m_colliders.emplace_back(new PlaneVolume(glm::vec3(0.0f, 1.0f, 0.0f), 0.0f));
-
-    Grid path2D(100, std::vector<int>(100, 0));
-
-    raycastCallback = [playerActor, path2D](const Ray &ray, RaycastHit &hit) {
-
-        Path path;
-        auto endPoint = AStar::worldToGrid(hit.m_position, 1.5f);
-        std::vector<glm::vec3> pathPoints;
-        if (AStar::execute(path2D, AStar::worldToGrid(playerActor->getTranslation(), 1.5f),
-                           endPoint, path)) {
-            for (auto &point: path) {
-                pathPoints.push_back(AStar::gridToWorld(point, 1.5f));
-            }
-            playerActor->setPath(pathPoints);
-        } else {
-            playerActor->setPath(std::vector<glm::vec3>());
-        }
-    };
+bool GameView::loadSceneFile(const std::string& sceneFile) {
 
     std::vector<std::unique_ptr<OGXmlNode>> sceneGraph;
-    if (!OGXml::loadGXml("demo/scene_graph.xml", sceneGraph)) {
+    if (!OGXml::loadGXml(sceneFile, sceneGraph)) {
         return false;
     }
     std::map<std::string, GPUMaterialHandle> materials;
@@ -257,10 +230,27 @@ bool GameView::initialize() {
                         }
                     }
                 }
+
+                if (childElem->getName() == "BoundingBox") {
+                    auto minAttr = childElem->getAttributes().find("min");
+                    auto maxAttr = childElem->getAttributes().find("max");
+                    if (minAttr != childElem->getAttributes().end() && maxAttr != childElem->getAttributes().end()) {
+                        glm::vec3 minVec(0.0f);
+                        glm::vec3 maxVec(0.0f);
+
+                        std::istringstream minStream(minAttr->second);
+                        minStream >> minVec.x >> minVec.y >> minVec.z;
+
+                        std::istringstream maxStream(maxAttr->second);
+                        maxStream >> maxVec.x >> maxVec.y >> maxVec.z;
+
+                        auto AabbVolume = actorScene->addComponent<OGCollisionComponent>();
+                        AabbVolume->setVolume(std::make_unique<AABBVolume>(minVec, maxVec));
+                    }
+                }
             }
         }
     }
-
     return true;
 }
 

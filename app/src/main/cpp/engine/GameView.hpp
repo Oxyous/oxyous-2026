@@ -13,6 +13,7 @@
 class IGameView {
 public:
     IGameView() = default;
+
     virtual ~IGameView() = default;
 
     /* Render Scene Graph */
@@ -31,6 +32,7 @@ public:
 class GameView : public IGameView {
 public:
     GameView() = default;
+
     virtual ~GameView() = default;
 
     /* Render Scene Graph */
@@ -46,46 +48,65 @@ public:
     void destroy() override;
 
     /* Get Entities */
-    std::unordered_map<std::string, std::unique_ptr<OGEntity>>& getEntities() {
+    std::unordered_map<std::string, std::unique_ptr<OGEntity>> &getEntities() {
         return m_entities;
     }
 
     /* Temporary Collision */
     template<typename T>
-    T* addCollider(T* collider) {
-        m_colliders.push_back((T*)std::move(collider));
+    T *addCollider(T *collider) {
+        m_colliders.push_back((T *) std::move(collider));
     }
 
     /* */
-    std::vector<std::shared_ptr<IVolume>>& getColliders() {
+    std::vector<std::shared_ptr<IVolume>> &getColliders() {
         return m_colliders;
     }
 
-    std::function<void(const Ray&, RaycastHit&)> raycastCallback;
+    std::function<void(const Ray &, RaycastHit &)> raycastCallback;
 
     template<typename T, typename... TArgs>
-    T* addActor(std::string name, TArgs&&... args) {
-        T* actor(new T(std::forward<TArgs>(args)...));
+    T *addActor(std::string name, TArgs &&... args) {
+        T *actor(new T(std::forward<TArgs>(args)...));
 
-        std::unique_ptr<OGEntity> uPtr {actor};
+        std::unique_ptr<OGEntity> uPtr{actor};
 
         m_entities[name] = std::move(uPtr);
 
-        return (T*)m_entities[name].get();
+        return (T *) m_entities[name].get();
     }
 
     template<typename T>
-    T* getActor(const std::string& name)
-    {
-        return m_entities.find(name) != m_entities.end() ? (T*)m_entities[name].get() : nullptr;
+    T *getActor(const std::string &name) {
+        return m_entities.find(name) != m_entities.end() ? (T *) m_entities[name].get() : nullptr;
     }
 
+    template<typename T>
+    std::vector<OGEntity*> getActorsWithComponent() {
+        std::vector<OGEntity*> results;
+        for (auto const& [name, entity] : m_entities) {
+            if (entity->hasComponent<T>()) {
+                results.push_back(entity.get());
+            }
+        }
+        return results;
+    }
+
+    bool loadSceneFile(const std::string &sceneFile);
+
+    /* */
+    std::vector<OGPolygon>& getWorldPolygons()
+    {
+        return m_worldPolygons;
+    }
 
 private:
     /* Temporary Collision */
     std::vector<std::shared_ptr<IVolume>> m_colliders;
 
     std::unordered_map<std::string, std::unique_ptr<OGEntity>> m_entities;
+
+    std::vector<OGPolygon> m_worldPolygons;
 };
 
 #define GAME_VIEW OGSingleton<GameView>::getInstance()

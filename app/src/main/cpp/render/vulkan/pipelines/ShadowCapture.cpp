@@ -61,7 +61,6 @@ bool ShadowCapture::initialize() {
         aout << "Failed to load shader!" << std::endl;
         return false;
     }
-
     VkShaderModuleCreateInfo vertexShaderModuleCreateInfo{};
     vertexShaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     vertexShaderModuleCreateInfo.codeSize = vertexShaderCode.size();
@@ -73,14 +72,33 @@ bool ShadowCapture::initialize() {
         return false;
     }
 
+    std::vector<uint8_t> fragShaderCode;
+    RESOURCE_MANAGER->loadShader("shaders/shadow.frag.spv", fragShaderCode);
+
+    VkShaderModuleCreateInfo fragShaderModuleCreateInfo{};
+    fragShaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    fragShaderModuleCreateInfo.codeSize = fragShaderCode.size();
+    fragShaderModuleCreateInfo.pCode = reinterpret_cast<const uint32_t *>(fragShaderCode.data());
+
+    if (vkCreateShaderModule(RENDER_DEVICE->getDevice(), &fragShaderModuleCreateInfo, nullptr,
+                             &fragShaderModule) != VK_SUCCESS) {
+        aout << "Failed to create fragment shader module!" << std::endl;
+        return false;
+    }
+
     VkPipelineShaderStageCreateInfo vertexShaderStageCreateInfo{};
     vertexShaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     vertexShaderStageCreateInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
     vertexShaderStageCreateInfo.module = vertexShaderModule;
     vertexShaderStageCreateInfo.pName = "main";
 
+    VkPipelineShaderStageCreateInfo fragShaderCreateInfo{};
+    fragShaderCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    fragShaderCreateInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    fragShaderCreateInfo.module = fragShaderModule;
+    fragShaderCreateInfo.pName = "main";
 
-    VkPipelineShaderStageCreateInfo shaderStages[] = {vertexShaderStageCreateInfo};
+    VkPipelineShaderStageCreateInfo shaderStages[] = {vertexShaderStageCreateInfo, fragShaderCreateInfo };
 
     /* Initialize Descriptors */
     VkDescriptorSetLayoutBinding layoutBinding = {};
@@ -101,7 +119,7 @@ bool ShadowCapture::initialize() {
 
     /* Create Pipeline Layout */
     VkPushConstantRange pushConstantRange = {};
-    pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     pushConstantRange.offset = 0;
     pushConstantRange.size = sizeof(ShadowMapPushConstants);
 
@@ -256,7 +274,7 @@ bool ShadowCapture::initialize() {
 
     VkGraphicsPipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipelineInfo.stageCount = 1;
+    pipelineInfo.stageCount = 2;
     pipelineInfo.pStages = shaderStages;
     pipelineInfo.pVertexInputState = &vertexInputInfo;
     pipelineInfo.pInputAssemblyState = &inputAssembly;
@@ -274,13 +292,16 @@ bool ShadowCapture::initialize() {
 
     VkResult res = vkCreateGraphicsPipelines(RENDER_DEVICE->getDevice(), VK_NULL_HANDLE, 1, &pipelineInfo,
                                   nullptr, &m_pipeline);
-    if (res != VK_SUCCESS) {
-        aout << "Failed to create graphics pipeline! Error code: " << res << std::endl;
-        return false;
-    }
 
     /* Step 6 Destroy Shader Modules */
     vkDestroyShaderModule(RENDER_DEVICE->getDevice(), vertexShaderModule, nullptr);
+    vkDestroyShaderModule(RENDER_DEVICE->getDevice(), fragShaderModule, nullptr);
+
+    if (res != VK_SUCCESS) {
+        aout << "Failed to create graphics pipeline! Error code: " << res << std::endl;
+        m_pipeline = VK_NULL_HANDLE;
+        return false;
+    }
 
     m_uniformBuffer.initialize<CSMUBO>({
                                        .lightProjection = {
@@ -536,6 +557,8 @@ bool ShadowCapture::initializeFrameBuffer() {
 }
 
 void ShadowCapture::bindPipeline(VkCommandBuffer const &commandBuffer) {
+    if (m_pipeline == VK_NULL_HANDLE) return;
+
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
     uint32_t currentFrame = ENGINE->getCurrentFrame();
 
@@ -549,6 +572,7 @@ void ShadowCapture::bindPipeline(VkCommandBuffer const &commandBuffer) {
 
 void ShadowCapture::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
                            VkFramebuffer framebuffer) {
+    if (m_pipeline == VK_NULL_HANDLE) return;
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
 

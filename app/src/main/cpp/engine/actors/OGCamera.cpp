@@ -10,7 +10,7 @@ OGCamera::~OGCamera() {
 }
 
 void OGCamera::update(double delta) {
-
+    m_position = getTranslation();
     m_pitch += ENGINE->getThumbStick(THUMBSTICK_LEFT)->getActuator().x * m_sensitivity;
     m_yaw += ENGINE->getThumbStick(THUMBSTICK_LEFT)->getActuator().y * m_sensitivity;
 
@@ -26,6 +26,10 @@ void OGCamera::update(double delta) {
 
     m_position += m_forward * ENGINE->getThumbStick(THUMBSTICK_RIGHT)->getActuator().x * m_speed * (float)delta;
     m_position += glm::normalize(glm::cross(m_forward, m_up)) * ENGINE->getThumbStick(THUMBSTICK_RIGHT)->getActuator().y * m_speed * (float)delta;
+    setTranslation(m_position);
+
+    m_bounds.setCenter(m_position);
+    m_bounds.setRadius(1.0f);
 
     m_viewMatrix = glm::lookAt(m_position, m_position + m_forward, m_up);
 }

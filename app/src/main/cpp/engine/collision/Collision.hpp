@@ -30,11 +30,15 @@ public:
 
     /* Intersect OBB with Volume */
     [[nodiscard]] virtual bool intersect(const OBBVolume& obb) const = 0;
+
+    /* Intersect Plane with Volume */
+    [[nodiscard]] virtual bool intersect(const PlaneVolume& plane) const = 0;
 };
 
 /* Plane Volume */
 class PlaneVolume : public IVolume {
 public:
+    PlaneVolume() { }
     PlaneVolume(const glm::vec3& normal, float distance) : m_normal(normal), m_distance(distance) {}
     ~PlaneVolume() override = default;
 public:
@@ -50,7 +54,8 @@ public:
     /* Intersect OBB with Volume */
     bool intersect(const OBBVolume& obb) const override;
 
-protected:
+    bool intersect(const PlaneVolume& plane) const override;
+public:
     glm::vec3 m_normal;
     float m_distance;
 };
@@ -64,6 +69,10 @@ public:
     [[nodiscard]] glm::vec3 getCenter() const { return m_center; }
     [[nodiscard]] float getRadius() const { return m_radius; }
 
+    void setCenter(glm::vec3 newCenter);
+
+    void setRadius(float radius);
+
 public:
     /* Intersect Ray with Volume */
     bool intersect(const Ray& ray, RaycastHit& hit) const override;
@@ -73,6 +82,8 @@ public:
     bool intersect(const AABBVolume& aabb) const override;
     /* Intersect OBB with Volume */
     bool intersect(const OBBVolume& obb) const override;
+    /* Intersect Plane with Volume */
+    bool intersect(const PlaneVolume& obb) const override;
 protected:
     glm::vec3 m_center;
     float m_radius;
@@ -120,7 +131,9 @@ public:
     /* Intersect OBB with Volume */
     bool intersect(const OBBVolume& obb) const override;
 
-protected:
+    bool intersect(const PlaneVolume& plane) const override;
+
+public:
     glm::vec3 m_min;
     glm::vec3 m_max;
 };
@@ -152,7 +165,7 @@ public:
     /* Intersect OBB with Volume */
     bool intersect(const OBBVolume& obb) const override;
 
-protected:
+public:
     glm::vec3 m_center;
     glm::vec3 m_extents;
     glm::quat m_rotation;

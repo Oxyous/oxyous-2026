@@ -53,6 +53,7 @@ private:
     std::vector<VkFramebuffer> frameBuffers;
     VkDescriptorImageInfo m_shadowMapDescriptor;
     VkShaderModule vertexShaderModule;
+    VkShaderModule fragShaderModule;
     UniformBuffer m_uniformBuffer;
     VkDescriptorSetLayout m_shadowDSL{};
     VkDescriptorSet m_shadowSets[2]{};

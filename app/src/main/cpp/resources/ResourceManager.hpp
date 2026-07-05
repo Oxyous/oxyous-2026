@@ -47,6 +47,9 @@ public:
     /* Load Shader Binary form Assets*/
     void loadShader(const std::string &fileName, std::vector<uint8_t> &data);
 
+    /* Load Scene collision */
+    bool loadSceneCollision(const std::string& assetPath, std::vector<OGPolygon>& polys);
+
     /* Load Binary form Assets */
     template<typename T>
     static bool loadBinary(const std::string &assetPath, std::vector<uint8_t> &data) {

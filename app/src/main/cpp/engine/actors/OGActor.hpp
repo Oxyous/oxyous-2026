@@ -11,15 +11,16 @@
 class OGActor : public OGEntity {
 public:
     OGActor() : OGEntity() {}
+
 public:
-    void setPath(const std::vector<glm::vec3>& path) {
+    void setPath(const std::vector<glm::vec3> &path) {
         m_path = path;
         m_pathIndex = 0;
     }
 
     void update(double deltaTime) override {
         OGEntity::update(deltaTime);
-
+/*
         if (m_path.size() > 0) {
             glm::vec3 targetPosition = m_path[m_pathIndex];
             glm::vec3 direction = targetPosition - getTranslation();
@@ -37,14 +38,17 @@ public:
             } else {
                 // Normalize the direction and move towards the target position
                 direction = glm::normalize(direction);
-                setTranslation(getTranslation() + direction * speed * static_cast<float>(deltaTime));
+                setTranslation(
+                        getTranslation() + direction * speed * static_cast<float>(deltaTime));
 
-                auto newDirection = glm::quat_cast(lookRotation(direction, glm::vec3(0.0f, 1.0f, 0.0f)));
+                auto newDirection = glm::quat_cast(
+                        lookRotation(direction, glm::vec3(0.0f, 1.0f, 0.0f)));
 
-                m_rotation =glm::lerp( glm::normalize(m_rotation), newDirection, (float)deltaTime * 5.0f); // Smoothly interpolate rotation
+                m_rotation = glm::lerp(glm::normalize(m_rotation), newDirection,
+                                       (float) deltaTime * 5.0f); // Smoothly interpolate rotation
 
             }
-        }
+        }*/
     }
 
     glm::mat4 lookRotation(glm::vec3 direction, glm::vec3 up) {
@@ -59,6 +63,7 @@ public:
 
         return rotationMatrix;
     }
+
 protected:
     std::vector<glm::vec3> m_path;
 private:

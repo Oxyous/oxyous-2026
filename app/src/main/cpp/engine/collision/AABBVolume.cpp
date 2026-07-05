@@ -25,3 +25,16 @@ bool AABBVolume::intersect(const OBBVolume& obb) const {
     return true;
 }
 
+bool AABBVolume::intersect(const PlaneVolume &plane) const {
+    glm::vec3 center = (m_min + m_max) * 0.5f;
+    glm::vec3 extents = m_max - center;
+
+    float projectionRadius = extents.x * std::abs(plane.m_normal.x) +
+                             extents.y * std::abs(plane.m_normal.y) +
+                             extents.z * std::abs(plane.m_normal.z);
+
+    float distance = glm::dot(plane.m_normal, center) - plane.m_distance;
+
+    return std::abs(distance) <= projectionRadius;
+}
+

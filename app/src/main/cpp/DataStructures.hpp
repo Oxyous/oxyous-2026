@@ -21,9 +21,20 @@ struct saveState {
 
 };
 
-typedef struct {
-    glm::vec3 a, b, c;
+/* Polygon */
+typedef struct OGPolygon {
+    glm::vec3 vertices[3];
+    glm::vec3 normal;
 } OGPolygon;
+
+typedef struct OGContact
+{
+    glm::vec3 hitPoint;
+    glm::vec3 normal;
+
+    float depth;
+
+} OGContact;
 
 /* App Engine Struct */
 struct appEngine {

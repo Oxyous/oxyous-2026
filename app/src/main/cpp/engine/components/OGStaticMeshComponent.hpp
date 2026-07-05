@@ -15,6 +15,9 @@
 
 class OGStaticMeshComponent : public OGComponent {
 public:
+
+    DEFINE_TYPE
+
     OGStaticMeshComponent() : OGComponent() {
         m_owner = nullptr;
     }
