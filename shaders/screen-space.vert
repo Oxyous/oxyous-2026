@@ -34,6 +34,7 @@ out VS_OUTPUT
 
 layout(push_constant) uniform PushConstants
 {
+    mat4 model;
     uint textureIndex;
     uint objectIndex;
 } pc;
@@ -46,6 +47,6 @@ void main()
     vs_out.uvCoord = uvCoord;
     vs_out.fragObjectIndex = pc.objectIndex;
 
-    vec4 world = obj.model * vec4(position, 0.0, 1.0);
+    vec4 world = pc.model * vec4(position, 0.0, 1.0);
     gl_Position = orthoProjection * world;
 }

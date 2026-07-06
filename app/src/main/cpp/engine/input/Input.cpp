@@ -8,6 +8,7 @@
 #include "../../render/vulkan/Swapchain.hpp"
 #include "../ui/OGUi.hpp"
 #include "../../system/OGTimer.hpp"
+#include "../collision/CollisionHelper.hpp"
 
 void Input::handleInput() {
     auto *input = android_app_swap_input_buffers(ENGINE->getApp());
@@ -159,28 +160,41 @@ void Input::update(double delta) {
 void Input::processTap(TouchEvent &event, uint32_t i) {
     const auto& touchPos = event.touchPoints[i].position;
 
-    glm::vec3 screenPos = glm::vec3(touchPos.x, touchPos.y, 1.0f);
-    glm::vec3 screenPosNear = glm::vec3(touchPos.x, touchPos.y, 0.0f);
+    // Flip Y coordinate as Android touch is 0 at top, but unProject expects 0 at bottom of viewport
+    float flippedY = DESIGN_HEIGHT - touchPos.y;
+
+    glm::vec3 screenPos = glm::vec3(SWAPCHAIN->getExtent().width - touchPos.x, flippedY, 1.0f);
+    glm::vec3 screenPosNear = glm::vec3(SWAPCHAIN->getExtent().width - touchPos.x, flippedY, 0.0f);
     glm::mat4 view = ENGINE->getCameraView();
     const float aspect = static_cast<float>(SWAPCHAIN->getExtent().width) /
                          static_cast<float>(SWAPCHAIN->getExtent().height);
     glm::mat4 projection = ENGINE->getCameraProjection();
 
-    glm::vec3 worldPos = glm::unProject(screenPosNear, view, projection,
-                                        glm::vec4(0.0f, 0.0f,
-                                                  SWAPCHAIN->getExtent().width,
-                                                  SWAPCHAIN->getExtent().height));
-    glm::vec3 worldPosFar = glm::unProject(screenPos, view, projection,
-                                           glm::vec4(0.0f, 0.0f,
-                                                     SWAPCHAIN->getExtent().width,
-                                                     SWAPCHAIN->getExtent().height));
+    float designWidth = (static_cast<float>(SWAPCHAIN->getExtent().width) * DESIGN_HEIGHT) /
+                        static_cast<float>(SWAPCHAIN->getExtent().height);
+    glm::vec4 viewport(0.0f, 0.0f, designWidth, DESIGN_HEIGHT);
+
+    glm::vec3 worldPos = glm::unProject(screenPosNear, view, projection, viewport);
+    glm::vec3 worldPosFar = glm::unProject(screenPos, view, projection, viewport);
 
     Ray ray(worldPos, glm::normalize(worldPosFar - worldPos));
 
-    for (auto &collider: GAME_VIEW->getColliders()) {
-        RaycastHit hit;
-        if (collider->intersect(ray, hit)) {
-            GAME_VIEW->raycastCallback(ray, hit);
+    OGContact bestHit;
+    bool found = false;
+    float minDistance = FLT_MAX;
+
+    for (auto& poly : GAME_VIEW->getWorldPolygons()) {
+        OGContact hit;
+        if (CollisionHelper::resolvePolygonRay(poly, ray.m_origin, ray.m_direction, hit)) {
+            if (hit.depth < minDistance) {
+                minDistance = hit.depth;
+                bestHit = hit;
+                found = true;
+            }
         }
+    }
+
+    if (found && GAME_VIEW->raycastCallback) {
+        GAME_VIEW->raycastCallback(ray, bestHit);
     }
 }

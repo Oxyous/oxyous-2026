@@ -20,8 +20,8 @@ public:
 
     void update(double deltaTime) override {
         OGEntity::update(deltaTime);
-/*
-        if (m_path.size() > 0) {
+
+        if(m_path.size() > 0) {
             glm::vec3 targetPosition = m_path[m_pathIndex];
             glm::vec3 direction = targetPosition - getTranslation();
             float distance = glm::length(direction);
@@ -48,7 +48,7 @@ public:
                                        (float) deltaTime * 5.0f); // Smoothly interpolate rotation
 
             }
-        }*/
+        }
     }
 
     glm::mat4 lookRotation(glm::vec3 direction, glm::vec3 up) {

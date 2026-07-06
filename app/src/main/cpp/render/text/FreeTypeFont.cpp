@@ -84,7 +84,7 @@ bool FreeTypeFont::initializeFont(const std::string &fontFile) {
         if (!RenderFramework::createGpuTexture(rgbaPixels.data(), rgbaPixels.size(),
                                                VK_FORMAT_R8G8B8A8_UNORM,
                                                uploadWidth,
-                                               uploadHeight, texture)) {
+                                               uploadHeight, texture, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)) {
             return false;
         }
 
@@ -174,9 +174,10 @@ void FreeTypeFont::renderString(VkCommandBuffer &cmd, const std::string &text, f
         model = glm::scale(model, glm::vec3(w / 2.0f, h / 2.0f, 1.0f));
         handle.transform = model;
         handle.textureId = ch.textureId;
-        SCREEN_RENDER->updateElement(ch.objectId, handle);
+        // SCREEN_RENDER->updateElement(ch.objectId, handle);
 
         PCScreenElements pc = {};
+        pc.transform = model;
         pc.objectIndex = ch.objectId;
         pc.textureIndex = ch.textureId;
         vkCmdPushConstants(cmd, SCREEN_RENDER->getPipelineLayout(),

@@ -253,7 +253,7 @@ def export_collision_mesh(self, context, filepath, obj):
                     vertex = rotation_x_minus_90 @ pos
 
                     vertices.append(vertex)
-                    normals.append((loop.normal).normalized())
+                    normals.append((rotation_x_minus_90 @ loop.normal).normalized())
                     indices.append(len(vertices) - 1)
     return {
         "vertices": vertices,

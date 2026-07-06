@@ -63,7 +63,7 @@ public:
         return m_colliders;
     }
 
-    std::function<void(const Ray &, RaycastHit &)> raycastCallback;
+    std::function<void(const Ray &, OGContact &)> raycastCallback;
 
     template<typename T, typename... TArgs>
     T *addActor(std::string name, TArgs &&... args) {
@@ -100,6 +100,24 @@ public:
         return m_worldPolygons;
     }
 
+    /* */
+    std::vector<OGPolygon>& getWorldBlockingPolygons()
+    {
+        return m_BlockingPolygons;
+    }
+
+    /*  */
+    void computeBlockingPolygons()
+    {
+        m_BlockingPolygons.clear();
+        m_BlockingPolygons.reserve(m_worldPolygons.size());
+        for (const auto& poly : m_worldPolygons) {
+            if (std::abs(poly.normal.y) < 0.5f) {
+                m_BlockingPolygons.push_back(poly);
+            }
+        }
+    }
+
 private:
     /* Temporary Collision */
     std::vector<std::shared_ptr<IVolume>> m_colliders;
@@ -107,6 +125,7 @@ private:
     std::unordered_map<std::string, std::unique_ptr<OGEntity>> m_entities;
 
     std::vector<OGPolygon> m_worldPolygons;
+    std::vector<OGPolygon> m_BlockingPolygons;
 };
 
 #define GAME_VIEW OGSingleton<GameView>::getInstance()

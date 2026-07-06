@@ -286,6 +286,7 @@ typedef struct BindlessRenderer2D {
 } BindlessRenderer2D;
 
 typedef struct PCScreenElements{
+    glm::mat4 transform;
     uint32_t textureIndex;
     uint32_t objectIndex;
 } PCScreenElements;

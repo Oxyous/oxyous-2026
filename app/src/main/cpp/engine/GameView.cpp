@@ -22,6 +22,8 @@
 #include "../render/vulkan/pipelines/ShadowCapture.hpp"
 #include "../system/OGXml.hpp"
 #include "components/OGCollisionComponent.hpp"
+#include "engine/ai/AIPathFinding.hpp"
+#include "engine/ai/NavMesh.hpp"
 
 void GameView::render() {
 
@@ -90,7 +92,7 @@ bool GameView::initialize() {
     auto normal = RESOURCE_MANAGER->get<GPUTextureResource>("grunge1_nm.png");
     auto metalPanel = RESOURCE_MANAGER->get<GPUTextureResource>("metal-panel.jpg");
 
-    auto mesh = RESOURCE_MANAGER->get<GPUStaticMeshResource>("tree.osm");
+    auto mesh = RESOURCE_MANAGER->get<GPUStaticMeshResource>("blender.osm");
     auto mesh2 = RESOURCE_MANAGER->get<GPUStaticMeshResource>("scene/brick-walls.osm");
     auto tank = RESOURCE_MANAGER->get<GPUStaticMeshResource>("tank.osm");
     auto plane = RESOURCE_MANAGER->get<GPUStaticMeshResource>("plane.osm");
@@ -121,6 +123,21 @@ bool GameView::initialize() {
         aout << "Error: Failed to load scene collision!" << std::endl;
         return false;
     }
+
+    NavMesh navMesh(m_worldPolygons);
+
+    auto movableActor = addActor<OGActor>("movableActor");
+    auto movableMesh = movableActor->addComponent<OGStaticMeshComponent>();
+    movableMesh->setMeshResource(mesh);
+    movableMesh->setMaterialIndex(0);
+    movableActor->setTranslation(glm::vec3(0.0f, 2.0f, 0.0f));
+
+    raycastCallback = [movableActor, navMesh](const Ray &ray, OGContact &hit) {
+        auto path = navMesh.findPath(movableActor->getTranslation(), hit.hitPoint);
+        if (!path.empty()) {
+            movableActor->setPath(path);
+        }
+    };
 
     return true;
 }

@@ -446,7 +446,7 @@ public:
 
     inline static bool
     createGpuTexture(const void *data, uint32_t dataSize, VkFormat format, int width, int height,
-                     std::shared_ptr<GPUTexture> texture) {
+                     std::shared_ptr<GPUTexture> texture, VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT) {
         VkDevice device = RENDER_DEVICE->getDevice();
 
         if (!texture) {
@@ -714,9 +714,9 @@ public:
         samplerInfo.magFilter = VK_FILTER_LINEAR;
         samplerInfo.minFilter = VK_FILTER_LINEAR;
         samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-        samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        samplerInfo.addressModeU = addressMode;
+        samplerInfo.addressModeV = addressMode;
+        samplerInfo.addressModeW = addressMode;
         samplerInfo.mipLodBias = 0.0f;
         samplerInfo.maxAnisotropy = 1.0f;
         samplerInfo.minLod = 0.0f;

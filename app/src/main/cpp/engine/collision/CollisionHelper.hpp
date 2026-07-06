@@ -92,7 +92,9 @@ public:
     }
 
     /* Closest Point On Triangle*/
-    [[nodiscard]] inline static glm::vec3 ClosestPointOnTriangle(const glm::vec3& point, const glm::vec3& a, const glm::vec3& b, const glm::vec3& c) {
+    [[nodiscard]] inline static glm::vec3
+    ClosestPointOnTriangle(const glm::vec3 &point, const glm::vec3 &a, const glm::vec3 &b,
+                           const glm::vec3 &c) {
         glm::vec3 ab = b - a;
         glm::vec3 ac = c - a;
         glm::vec3 ap = point - a;
@@ -109,8 +111,7 @@ public:
             return b;
 
         float vc = d1 * d4 - d3 * d2;
-        if (vc <= 0.0f && d1 >= 0.0f && d3 <= 0.0f)
-        {
+        if (vc <= 0.0f && d1 >= 0.0f && d3 <= 0.0f) {
             float v = d1 / (d1 - d3);
             return a + ab * v;
         }
@@ -122,15 +123,13 @@ public:
             return c;
 
         float vb = d5 * d2 - d1 * d6;
-        if (vb <= 0.0f && d2 >= 0.0f && d6 <= 0.0f)
-        {
+        if (vb <= 0.0f && d2 >= 0.0f && d6 <= 0.0f) {
             float w = d2 / (d2 - d6);
             return a + ac * w;
         }
 
         float va = d3 * d6 - d5 * d4;
-        if (va <= 0.0f && (d4 - d3) >= 0.0f && (d5 - d6) >= 0.0f)
-        {
+        if (va <= 0.0f && (d4 - d3) >= 0.0f && (d5 - d6) >= 0.0f) {
             float w = (d4 - d3) / ((d4 - d3) + (d5 - d6));
             return b + (c - b) * w;
         }
@@ -143,8 +142,7 @@ public:
     }
 
     /* */
-    [[nodiscard]] inline static PlaneVolume getPolygonPlane(const OGPolygon& polygon)
-    {
+    [[nodiscard]] inline static PlaneVolume getPolygonPlane(const OGPolygon &polygon) {
         PlaneVolume plane;
         glm::vec3 ab = polygon.vertices[1] - polygon.vertices[0];
         glm::vec3 ac = polygon.vertices[2] - polygon.vertices[0];
@@ -154,9 +152,12 @@ public:
     }
 
     /* */
-    [[nodiscard]] inline static bool resolvePolygonSphereCollision(const OGPolygon &polygon, const SphereVolume& sphereVolume, OGContact& contact)
-    {
-        glm::vec3 closestToSphere = ClosestPointOnTriangle(sphereVolume.getCenter(), polygon.vertices[0], polygon.vertices[1], polygon.vertices[2]);
+    [[nodiscard]] inline static bool
+    resolvePolygonSphereCollision(const OGPolygon &polygon, const SphereVolume &sphereVolume,
+                                  OGContact &contact) {
+        glm::vec3 closestToSphere = ClosestPointOnTriangle(sphereVolume.getCenter(),
+                                                           polygon.vertices[0], polygon.vertices[1],
+                                                           polygon.vertices[2]);
         glm::vec3 sphereToClosest = closestToSphere - sphereVolume.getCenter();
 
         float d2 = glm::dot(sphereToClosest, sphereToClosest);
@@ -166,6 +167,48 @@ public:
             contact.hitPoint = closestToSphere;
             contact.normal = (d > 0.0f) ? -sphereToClosest / d : -getPolygonPlane(polygon).m_normal;
             contact.depth = sphereVolume.getRadius() - d;
+            return true;
+        }
+
+        return false;
+    }
+
+    [[nodiscard]] inline static bool
+    resolvePolygonRay(const OGPolygon &polygon, const glm::vec3 &origin, const glm::vec3 direction,
+                      OGContact &hitContact) {
+        constexpr float ESP = 0.0000001f;
+
+        glm::vec3 edge1 = polygon.vertices[1] - polygon.vertices[0];
+        glm::vec3 edge2 = polygon.vertices[2] - polygon.vertices[0];
+
+        glm::vec3 h = glm::cross(direction, edge2);
+        float a = glm::dot(edge1, h);
+
+        if (fabs(a) < ESP)
+            return false;
+
+        float f = 1.0f / a;
+        glm::vec3 s = origin - polygon.vertices[0];
+        float u = f * glm::dot(s, h);
+
+        if (u < 0.0f || u > 1.0f) {
+            return false;
+        }
+
+        glm::vec3 q = glm::cross(s, edge1);
+
+        float v = f * glm::dot(direction, q);
+
+        if (v < 0.0f || u + v > 1.0f) {
+            return false;
+        }
+
+        double t = f * glm::dot(edge2, q);
+
+        if (t > ESP) {
+            hitContact.depth = t;
+            hitContact.hitPoint = origin + direction * (float)t;
+            hitContact.normal = glm::normalize(h);
             return true;
         }
 

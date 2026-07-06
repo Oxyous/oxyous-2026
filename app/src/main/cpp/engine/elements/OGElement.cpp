@@ -12,6 +12,7 @@
 void OGRect::draw(VkCommandBuffer& commandBuffer, uint32_t frame) {
 
     PCScreenElements pc = {};
+    pc.transform = getTransform();
     pc.textureIndex = m_textureIndex;
     pc.objectIndex = m_objectIndex;
     vkCmdPushConstants(commandBuffer, SCREEN_RENDER->getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PCScreenElements), &pc);
