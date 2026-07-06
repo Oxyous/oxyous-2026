@@ -85,8 +85,8 @@ bool Swapchain::initialize(VkSurfaceKHR surface, VkPhysicalDevice physicalDevice
 
     if (m_preTransform == VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR ||
         m_preTransform == VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR) {
-        std::swap(m_width, m_height);
-        std::swap(m_extent.width, m_extent.height);
+       // std::swap(m_width, m_height);
+       // std::swap(m_extent.width, m_extent.height);
     }
 
 
@@ -120,7 +120,7 @@ bool Swapchain::initialize(VkSurfaceKHR surface, VkPhysicalDevice physicalDevice
     swapchainCreateInfo.minImageCount = m_imageCount;
     swapchainCreateInfo.imageFormat = m_imageFormat;
     swapchainCreateInfo.imageColorSpace = m_surfaceFormats[0].colorSpace;
-    swapchainCreateInfo.imageExtent = {m_width, m_height};
+    swapchainCreateInfo.imageExtent = m_extent;
     swapchainCreateInfo.imageArrayLayers = 1;
     swapchainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -181,17 +181,21 @@ void Swapchain::resize(const uint32_t &width, const uint32_t &height) {
         return;
     }
 
-    auto transform = m_surfaceCapabilities.currentTransform;
-    auto w = m_surfaceCapabilities.currentExtent.width;
-    auto h = m_surfaceCapabilities.currentExtent.height;
+    m_preTransform = m_surfaceCapabilities.currentTransform;
 
-    m_width = w;
-    m_height = h;
-
-    if (transform == VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR ||
-        transform == VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR) {
-        std::swap(m_width, m_height);
+    if (m_surfaceCapabilities.currentExtent.width == UINT32_MAX) {
+        m_extent = {width, height};
+        m_extent.width = std::max(m_surfaceCapabilities.minImageExtent.width,
+                                  std::min(m_extent.width, m_surfaceCapabilities.maxImageExtent.width));
+        m_extent.height = std::max(m_surfaceCapabilities.minImageExtent.height,
+                                   std::min(m_extent.height, m_surfaceCapabilities.maxImageExtent.height));
+    } else {
+        m_extent = m_surfaceCapabilities.currentExtent;
     }
+
+    m_width = m_extent.width;
+    m_height = m_extent.height;
+
 
     VkSwapchainKHR oldSwapchain = m_swapChain;
 

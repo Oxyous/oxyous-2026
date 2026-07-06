@@ -8,6 +8,8 @@
 #include "../Swapchain.hpp"
 #include "../../../engine/elements/ScreenSpaceRenderer.hpp"
 #include "../../../engine/ui/OGUi.hpp"
+#include "system/OGTimer.hpp"
+#include "engine/Engine.hpp"
 
 
 void ScreenSpace::update(double delta) {
@@ -263,7 +265,7 @@ void ScreenSpace::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
     // GLM's ortho(left, right, bottom, top) maps [bottom, top] to NDC [-1, 1].
     // In Vulkan, NDC Y is -1 at top and 1 at bottom.
     // So we map 0 to -1 and DESIGN_HEIGHT to 1.
-    frame.perFrame.projection = glm::ortho(0.0f, width, height, 0.0f, -1.0f, 1.0f);
+    frame.perFrame.projection = ENGINE->preRotation() * glm::ortho(0.0f, width,  0.0f,height, -1.0f, 1.0f);
 
     frame.perFrame.screenSize = glm::vec2(designWidth, DESIGN_HEIGHT);
 
@@ -294,8 +296,9 @@ void ScreenSpace::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
             element->draw(commandBuffer, currentFrame);
         }
     }
-
-    UI->drawString(commandBuffer, "ABCDEfgh", 0.0f,0.0f, 2.0f);
+    std::stringstream ss;
+    ss << "FPS : " << SYS_TIMER->getFPS();
+    UI->drawString(commandBuffer, ss.str(), 32.0f,32.0f, 1.0f);
 
     vkCmdEndRenderPass(commandBuffer);
 }

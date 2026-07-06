@@ -39,6 +39,8 @@ public:
 
     virtual bool postInitialize();
 
+    virtual glm::mat4 preRotation();
+
     virtual ThumbStick* getThumbStick(ThumbStickType type);
 public:
     template<typename T, typename... TArgs>

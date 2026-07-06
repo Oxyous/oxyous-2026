@@ -39,6 +39,6 @@ void main()
     ObjectData obj = objects[nonuniformEXT(vs_out.fragObjectIndex)];
     fragColor = texture(textures[nonuniformEXT(obj.textureId)], vs_out.uvCoord);
 
-    if(fragColor.a < 0.1)
+    if(fragColor.a < 0.05)
       discard;
 }

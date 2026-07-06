@@ -116,22 +116,21 @@ bool FreeTypeFont::initializeFont(const std::string &fontFile) {
     std::vector<OGVertex2D> vertices;
     vertices.resize(4);
 
-    // Rect from (0,0) to (size.x, size.y) in local space
     // Top Left
     vertices[0].position = glm::vec2(-1.0f, -1.0f);
-    vertices[0].uv = glm::vec2(1.0, 1.0);
+    vertices[0].uv = glm::vec2(0.0f, 0.0f);
 
     // Top Right
     vertices[1].position = glm::vec2(1.0f, -1.0f);
-    vertices[1].uv = glm::vec2(1.0, 0.0);
+    vertices[1].uv = glm::vec2(1.0f, 0.0f);
 
     // Bottom Right
     vertices[2].position = glm::vec2(1.0f, 1.0f);
-    vertices[2].uv = glm::vec2(0.0, 0.0);
+    vertices[2].uv = glm::vec2(1.0f, 1.0f);
 
     // Bottom Left
     vertices[3].position = glm::vec2(-1.0f, 1.0f);
-    vertices[3].uv = glm::vec2(0.0, 1.0);
+    vertices[3].uv = glm::vec2(0.0f, 1.0f);
 
 
     void *data;
@@ -156,17 +155,22 @@ FreeTypeFont::~FreeTypeFont() {
 void FreeTypeFont::renderString(VkCommandBuffer &cmd, const std::string &text, float x, float y,
                                 float scale) {
 
+    vkCmdBindVertexBuffers(cmd, 0, 1, &m_vertexBuffer.buffer, &m_vertexBuffer.offset);
+
+
     for (const char &c: text) {
-        OGChar ch = m_characters[c];
+        auto it = m_characters.find(c);
+        if (it == m_characters.end()) continue;
+        const OGChar& ch = it->second;
 
         float xpos = x + ch.bearing.x * scale;
-        float ypos = y - (ch.size.y - ch.bearing.y) * scale;
+        float ypos = y + (ch.size.y - ch.bearing.y) * scale;
         float w = ch.size.x * scale;
         float h = ch.size.y * scale;
 
         GPUElementHandle handle{};
         glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(ypos + h / 2.0f, xpos + w / 2.0f,  0.0f));
+        model = glm::translate(model, glm::vec3(xpos + w / 2.0f, ypos + h / 2.0f, 0.0f));
         model = glm::scale(model, glm::vec3(w / 2.0f, h / 2.0f, 1.0f));
         handle.transform = model;
         handle.textureId = ch.textureId;
@@ -179,7 +183,6 @@ void FreeTypeFont::renderString(VkCommandBuffer &cmd, const std::string &text, f
                            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                            sizeof(PCScreenElements), &pc);
 
-        vkCmdBindVertexBuffers(cmd, 0, 1, &m_vertexBuffer.buffer, &m_vertexBuffer.offset);
         vkCmdDraw(cmd, static_cast<uint32_t>(4), 1, 0, 0);
 
         x += (ch.advance >> 6) * scale;

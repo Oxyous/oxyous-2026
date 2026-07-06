@@ -13,8 +13,8 @@ void Input::handleInput() {
     auto *input = android_app_swap_input_buffers(ENGINE->getApp());
     if (!input) return;
 
-    float screenWidth = static_cast<float>(SWAPCHAIN->getExtent().height);
-    float screenHeight = static_cast<float>(SWAPCHAIN->getExtent().width);
+    float screenWidth = static_cast<float>(SWAPCHAIN->getExtent().width);
+    float screenHeight = static_cast<float>(SWAPCHAIN->getExtent().height);
     float scale = DESIGN_HEIGHT / screenHeight;
 
     for (int i = 0; i < input->motionEventsCount; i++) {
@@ -30,8 +30,8 @@ void Input::handleInput() {
             auto &pointer = motionEvent.pointers[j];
             // Scale raw pixels to design space
             event.touchPoints[j].position = glm::vec2(
-                    (screenHeight - GameActivityPointerAxes_getY(&pointer)) * scale,
-                    (screenWidth - GameActivityPointerAxes_getX(&pointer)) * scale
+                    (GameActivityPointerAxes_getX(&pointer)) * scale,
+                    (GameActivityPointerAxes_getY(&pointer)) * scale
             );
             event.touchPoints[j].identifier = pointer.id; // Unique persistent ID
             event.touchPoints[j].isChanged = (j == (uint32_t)pointerIndex);
@@ -63,8 +63,8 @@ Input::Input() {
 }
 
 void Input::processEvents(TouchEvent &event) {
-    float screenWidth = static_cast<float>(SWAPCHAIN->getExtent().height);
-    float screenHeight = static_cast<float>(SWAPCHAIN->getExtent().width);
+    float screenWidth = static_cast<float>(SWAPCHAIN->getExtent().width);
+    float screenHeight = static_cast<float>(SWAPCHAIN->getExtent().height);
     float scale = DESIGN_HEIGHT / screenHeight;
     float midX = (screenWidth * scale) / 2.0f;
 
@@ -78,7 +78,7 @@ void Input::processEvents(TouchEvent &event) {
             // Assign stick based on which side of the screen was touched
             for (auto &stick : m_thumbSticks) {
                 if (!stick->isPressed()) {
-                    bool isLeftRegion = (point.position.y < midX);
+                    bool isLeftRegion = (point.position.x < midX);
                     if ((isLeftRegion && stick->getType() == THUMBSTICK_LEFT) ||
                         (!isLeftRegion && stick->getType() == THUMBSTICK_RIGHT)) {
                         stick->onTouchDown(point.position);
