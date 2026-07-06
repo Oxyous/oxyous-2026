@@ -74,7 +74,7 @@ void main()
     vec4 emissive= texture(textures[nonuniformEXT(emiIdx)], vs_out.uvCoord);
     vec4 normalSample = texture(textures[nonuniformEXT(nrmIdx)], vs_out.uvCoord);
 
-    if(albedo.a < 0.01)
+    if(albedo.a < 0.05)
         discard;
 
     // ========= BUILD TBN =========

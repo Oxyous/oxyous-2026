@@ -52,3 +52,7 @@ void Engine::prepareInput() {
 ThumbStick *Engine::getThumbStick(ThumbStickType type) {
     return m_input.getThumbStick(type);
 }
+
+bool Engine::postInitialize() {
+    return true;
+}

@@ -407,8 +407,8 @@ def export_scene_graph(self, context, filepath):
         # Rotation (Euler)
         rot_elem = ET.SubElement(obj_elem, "Rotation")
         rot_elem.set("x", str(obj.rotation_euler.x))
-        rot_elem.set("y", str(obj.rotation_euler.y))
-        rot_elem.set("z", str(obj.rotation_euler.z))
+        rot_elem.set("y", str(obj.rotation_euler.z))
+        rot_elem.set("z", str(obj.rotation_euler.y))
 
         # Scale
         scale_elem = ET.SubElement(obj_elem, "Scale")

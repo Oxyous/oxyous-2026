@@ -27,13 +27,13 @@ typedef struct OGPolygon {
     glm::vec3 normal;
 } OGPolygon;
 
+/* Collision Contact Hit Result*/
 typedef struct OGContact
 {
     glm::vec3 hitPoint;
     glm::vec3 normal;
 
     float depth;
-
 } OGContact;
 
 /* App Engine Struct */
@@ -44,6 +44,17 @@ struct appEngine {
     struct saveState *state;
     Renderer *renderer;
 };
+
+/* */
+
+typedef struct OGChar
+{
+    uint32_t textureId;
+    uint32_t objectId;
+    glm::ivec2 size;
+    glm::ivec2 bearing;
+    uint32_t advance;
+} OGChar;
 
 /* */
 typedef struct CSMData

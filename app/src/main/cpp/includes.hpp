@@ -44,6 +44,11 @@
 #include "external/glm/gtc/quaternion.hpp"
 #include "external/glm/gtc/matrix_transform.hpp"
 
+
+#include "external/freetype-2.14.3/include/ft2build.h"
+#include FT_FREETYPE_H
+
+
 #include "AndroidOut.h"
 
 #endif //OXYOUS_2026_INCLUDES_HPP

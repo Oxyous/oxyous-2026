@@ -78,6 +78,11 @@ bool GameView::initialize() {
     postProcess->setFrameBufferImage("gShadow", shadowPass->getFrameBufferImage("gShadow"));
     postProcess->updateDescriptors();
 
+    if (!UI->initializeUI()) {
+        aout << "Failed to initialize UI" << std::endl;
+        return false;
+    }
+
     /* Test loading assets*/
     auto texture = RESOURCE_MANAGER->get<GPUTextureResource>("debug-uv.png");
     auto texture2 = RESOURCE_MANAGER->get<GPUTextureResource>("android_robot.png");
@@ -104,6 +109,8 @@ bool GameView::initialize() {
                                     });
 
     /* Prepare Game Logic*/
+
+    ENGINE->setCameraPosition(glm::vec3(1.0,1.0,1.0));
 
     if(!loadSceneFile("demo/scene_graph.xml")) {
         aout << "Error: Failed to load scene graph!" << std::endl;
@@ -211,6 +218,20 @@ bool GameView::loadSceneFile(const std::string& sceneFile) {
                         }
                     }
                     actorScene->setRotation(q);
+                }
+
+                if (childElem->getName() == "Scale") {
+                    glm::vec3 scale(1.0f);
+                    for (const auto& attr : childElem->getAttributes()) {
+                        if (attr.first == "x") {
+                            scale.x = std::stof(attr.second);
+                        } else if (attr.first == "y") {
+                            scale.y = std::stof(attr.second);
+                        } else if (attr.first == "z") {
+                            scale.z = std::stof(attr.second);
+                        }
+                    }
+                    actorScene->setScale(scale);
                 }
 
                 if (childElem->getName() == "MeshResource") {

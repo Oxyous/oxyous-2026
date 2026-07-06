@@ -29,7 +29,6 @@ void OGCamera::update(double delta) {
     setTranslation(m_position);
 
     m_bounds.setCenter(m_position);
-    m_bounds.setRadius(1.0f);
 
     m_viewMatrix = glm::lookAt(m_position, m_position + m_forward, m_up);
 }

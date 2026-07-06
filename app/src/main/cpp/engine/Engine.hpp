@@ -37,6 +37,8 @@ public:
     /* */
     virtual void prepareInput();
 
+    virtual bool postInitialize();
+
     virtual ThumbStick* getThumbStick(ThumbStickType type);
 public:
     template<typename T, typename... TArgs>
@@ -82,6 +84,14 @@ public:
 
     void setCameraProjection(glm::mat4 projection){
         m_camera.setProjectionMatrix(projection);
+    }
+
+    void setCameraPosition(glm::vec3 position) {
+        m_camera.setTranslation(position);
+    }
+
+    void setCameraRotation(glm::vec3 rotation) {
+        m_camera.setRotation(rotation);
     }
 
     void setSharedCSMData(const CSMData& data) { m_sharedCSMData = data; }

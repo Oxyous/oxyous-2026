@@ -11,7 +11,7 @@
 
 class OGCamera : public OGActor {
 public:
-    OGCamera(glm::vec3 position = glm::vec3(0.0f)) : OGActor(), m_position(position), m_bounds(position, 1.0f) {
+    OGCamera(glm::vec3 position = glm::vec3(0.0f)) : OGActor(), m_position(position), m_bounds(position, 0.5f) {
         m_position = position;
         m_up = glm::vec3(0.0f, 1.0f, 0.0f);
         m_forward = glm::vec3(0.0f);

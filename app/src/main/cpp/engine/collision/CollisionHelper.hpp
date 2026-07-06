@@ -12,7 +12,7 @@ private:
     static constexpr double EPS = 1e-8;
 public:
     /* Calculate Polygon AABB Volume*/
-    inline static AABBVolume PolygonBounds(const OGPolygon &poly) {
+    [[nodiscard]] inline static AABBVolume PolygonBounds(const OGPolygon &poly) {
         AABBVolume bounds{};
         bounds.addPoint(poly.vertices[0]);
         bounds.addPoint(poly.vertices[1]);
@@ -21,12 +21,12 @@ public:
     }
 
     /* Calculate Polygon Centroid  */
-    inline static glm::vec3 PolygonCentroid(const OGPolygon &poly) {
+    [[nodiscard]] inline static glm::vec3 PolygonCentroid(const OGPolygon &poly) {
         return (poly.vertices[0] + poly.vertices[1] + poly.vertices[2]) / 3.0f;
     }
 
     /* Segment Intersects AABB Volume*/
-    inline static bool
+    [[nodiscard]] inline static bool
     segmentIntersectsAabb(const glm::vec3 &a, const glm::vec3 &b, const AABBVolume &aabb) {
         glm::vec3 d = b - a;
         double tmin = 0.0;
@@ -55,7 +55,7 @@ public:
     }
 
     /* Segment Intersects Polygon Volume*/
-    inline static bool
+    [[nodiscard]] inline static bool
     segmentIntersectsPolygon(const glm::vec3 &a, const glm::vec3 &b, const OGPolygon &poly,
                              double &_t) {
         glm::vec3 dir = b - a;
@@ -91,8 +91,59 @@ public:
         return true;
     }
 
+    /* Closest Point On Triangle*/
+    [[nodiscard]] inline static glm::vec3 ClosestPointOnTriangle(const glm::vec3& point, const glm::vec3& a, const glm::vec3& b, const glm::vec3& c) {
+        glm::vec3 ab = b - a;
+        glm::vec3 ac = c - a;
+        glm::vec3 ap = point - a;
+
+        float d1 = glm::dot(ab, ap);
+        float d2 = glm::dot(ac, ap);
+        if (d1 <= 0.0f && d2 <= 0.0f)
+            return a;
+
+        glm::vec3 bp = point - b;
+        float d3 = glm::dot(ab, bp);
+        float d4 = glm::dot(ac, bp);
+        if (d3 >= 0.0f && d4 <= d3)
+            return b;
+
+        float vc = d1 * d4 - d3 * d2;
+        if (vc <= 0.0f && d1 >= 0.0f && d3 <= 0.0f)
+        {
+            float v = d1 / (d1 - d3);
+            return a + ab * v;
+        }
+
+        glm::vec3 cp = point - c;
+        float d5 = glm::dot(ab, cp);
+        float d6 = glm::dot(ac, cp);
+        if (d6 >= 0.0f && d5 <= d6)
+            return c;
+
+        float vb = d5 * d2 - d1 * d6;
+        if (vb <= 0.0f && d2 >= 0.0f && d6 <= 0.0f)
+        {
+            float w = d2 / (d2 - d6);
+            return a + ac * w;
+        }
+
+        float va = d3 * d6 - d5 * d4;
+        if (va <= 0.0f && (d4 - d3) >= 0.0f && (d5 - d6) >= 0.0f)
+        {
+            float w = (d4 - d3) / ((d4 - d3) + (d5 - d6));
+            return b + (c - b) * w;
+        }
+
+        float denom = 1.0f / (va + vb + vc);
+        float v = vb * denom;
+        float w = vc * denom;
+
+        return a + ab * v + ac * w;
+    }
+
     /* */
-    inline static PlaneVolume getPolygonPlane(OGPolygon& polygon)
+    [[nodiscard]] inline static PlaneVolume getPolygonPlane(const OGPolygon& polygon)
     {
         PlaneVolume plane;
         glm::vec3 ab = polygon.vertices[1] - polygon.vertices[0];
@@ -103,40 +154,22 @@ public:
     }
 
     /* */
-    inline static bool resolvePolygonSphereCollision(OGPolygon &polygon, const SphereVolume& sphereVolume, OGContact& contact)
+    [[nodiscard]] inline static bool resolvePolygonSphereCollision(const OGPolygon &polygon, const SphereVolume& sphereVolume, OGContact& contact)
     {
-        PlaneVolume plane = getPolygonPlane(polygon);
-        float distance = glm::dot(sphereVolume.getCenter(), plane.m_normal) - plane.m_distance;
+        glm::vec3 closestToSphere = ClosestPointOnTriangle(sphereVolume.getCenter(), polygon.vertices[0], polygon.vertices[1], polygon.vertices[2]);
+        glm::vec3 sphereToClosest = closestToSphere - sphereVolume.getCenter();
 
-        if (std::abs(distance) > sphereVolume.getRadius()) {
-            return false;
+        float d2 = glm::dot(sphereToClosest, sphereToClosest);
+
+        if (d2 < sphereVolume.getRadius() * sphereVolume.getRadius()) {
+            float d = sqrt(d2);
+            contact.hitPoint = closestToSphere;
+            contact.normal = (d > 0.0f) ? -sphereToClosest / d : -getPolygonPlane(polygon).m_normal;
+            contact.depth = sphereVolume.getRadius() - d;
+            return true;
         }
 
-        glm::vec3 project = sphereVolume.getCenter() - plane.m_normal * distance;
-
-        // Barycentric coordinates check to see if 'project' is inside the triangle
-        glm::vec3 v0 = polygon.vertices[1] - polygon.vertices[0];
-        glm::vec3 v1 = polygon.vertices[2] - polygon.vertices[0];
-        glm::vec3 v2 = project - polygon.vertices[0];
-
-        float d00 = glm::dot(v0, v0);
-        float d01 = glm::dot(v0, v1);
-        float d11 = glm::dot(v1, v1);
-        float d20 = glm::dot(v2, v0);
-        float d21 = glm::dot(v2, v1);
-        float denom = d00 * d11 - d01 * d01;
-
-        float v = (d11 * d20 - d01 * d21) / denom;
-        float w = (d00 * d21 - d01 * d20) / denom;
-        float u = 1.0f - v - w;
-
-        if (u < 0.0f || v < 0.0f || w < 0.0f) return false;
-
-        contact.normal = plane.m_normal;
-        contact.depth = sphereVolume.getRadius() - std::abs(distance);
-        contact.hitPoint = project;
-
-        return true;
+        return false;
     }
 };
 

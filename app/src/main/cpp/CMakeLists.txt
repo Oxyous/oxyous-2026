@@ -24,8 +24,10 @@ add_library(oxyous_2026 SHARED
         engine/GPUResources.cpp
         system/OGTimer.cpp
         system/OGXml.cpp
+        engine/ui/OGUi.cpp
         engine/actors/OGCamera.cpp
         engine/components/OGCollisionComponent.cpp
+        render/text/FreeTypeFont.cpp
         render/vulkan/pipelines/ScreenSpace.cpp
         render/vulkan/pipelines/ShadowCapture.cpp
         render/meshes/GPUStaticMesh.cpp
@@ -49,6 +51,21 @@ set(CMAKE_SHARED_LINKER_FLAGS
 
 set(CMAKE_ANDROID_API 30)
 
+target_include_directories(oxyous_2026 PRIVATE
+        ${CMAKE_SOURCE_DIR}
+        ${CMAKE_SOURCE_DIR}/external/freetype-2.14.3/include
+        ${CMAKE_SOURCE_DIR}/external/freetype-2.14.3/include/freetype
+)
+
+set(FT_DISABLE_PNG TRUE)
+set(FT_DISABLE_BZIP2 TRUE)
+set(FT_DISABLE_BROTLI TRUE)
+
+
+add_subdirectory(
+        ${CMAKE_SOURCE_DIR}/external/freetype-2.14.3
+)
+
 # Configure libraries CMake uses to link your target library.
 target_link_libraries(oxyous_2026
         # The game activity
@@ -59,4 +76,6 @@ target_link_libraries(oxyous_2026
         vulkan
         jnigraphics
         android
-        log)
+        log
+        freetype
+)

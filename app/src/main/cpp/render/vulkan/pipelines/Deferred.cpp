@@ -187,6 +187,7 @@ bool Deferred::initialize() {
     multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     multisampling.sampleShadingEnable = VK_FALSE;
     multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    multisampling.alphaToCoverageEnable = VK_TRUE;
 
     /* Depth and Stencil State */
     VkPipelineDepthStencilStateCreateInfo depthStencil{};

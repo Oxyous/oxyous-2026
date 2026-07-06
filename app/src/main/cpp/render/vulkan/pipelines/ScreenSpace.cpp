@@ -295,6 +295,8 @@ void ScreenSpace::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
         }
     }
 
+    UI->drawString(commandBuffer, "ABCDEfgh", 0.0f,0.0f, 2.0f);
+
     vkCmdEndRenderPass(commandBuffer);
 }
 
