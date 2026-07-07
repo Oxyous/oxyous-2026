@@ -33,6 +33,8 @@ void handle_cmd(android_app *pApp, int32_t cmd) {
 
             int32_t width = ANativeWindow_getWidth(pApp->window);
             int32_t height = ANativeWindow_getHeight(pApp->window);
+            //int32_t width = 800;
+            //int32_t height = 600;
 
             ANativeWindow_setBuffersGeometry(pApp->window, width, height, WINDOW_FORMAT_RGBA_8888);
 

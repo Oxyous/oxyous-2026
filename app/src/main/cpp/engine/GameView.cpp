@@ -24,6 +24,7 @@
 #include "components/OGCollisionComponent.hpp"
 #include "engine/ai/AIPathFinding.hpp"
 #include "engine/ai/NavMesh.hpp"
+#include "IOHelper.hpp"
 
 void GameView::render() {
 
@@ -86,35 +87,13 @@ bool GameView::initialize() {
     }
 
     /* Test loading assets*/
-    auto texture = RESOURCE_MANAGER->get<GPUTextureResource>("debug-uv.png");
-    auto texture2 = RESOURCE_MANAGER->get<GPUTextureResource>("android_robot.png");
-    auto texture3 = RESOURCE_MANAGER->get<GPUTextureResource>("grass-land-diffuse.jpg");
-    auto normal = RESOURCE_MANAGER->get<GPUTextureResource>("grunge1_nm.png");
-    auto metalPanel = RESOURCE_MANAGER->get<GPUTextureResource>("metal-panel.jpg");
-
     auto mesh = RESOURCE_MANAGER->get<GPUStaticMeshResource>("blender.osm");
-    auto mesh2 = RESOURCE_MANAGER->get<GPUStaticMeshResource>("scene/brick-walls.osm");
-    auto tank = RESOURCE_MANAGER->get<GPUStaticMeshResource>("tank.osm");
-    auto plane = RESOURCE_MANAGER->get<GPUStaticMeshResource>("plane.osm");
-
-    GPU_RESOURCES->registerMaterial({
-                                            0, 1, 1, 0, 1.0f, 1.0f, 1.0f, 1.0f
-                                    });
-
-    GPU_RESOURCES->registerTexture(*metalPanel->get());
-    GPU_RESOURCES->registerTexture(*normal->get());
-
-    GPU_RESOURCES->registerTexture(*texture3->get());
-
-    GPU_RESOURCES->registerMaterial({
-                                            2, 1, 1, 1, 1.0f, 1.0f, 1.0f, 1.0f
-                                    });
 
     /* Prepare Game Logic*/
 
     ENGINE->setCameraPosition(glm::vec3(1.0,1.0,1.0));
 
-    if(!loadSceneFile("demo/scene_graph.xml")) {
+    if(!loadSceneFile("level1/scene_graph.xml")) {
         aout << "Error: Failed to load scene graph!" << std::endl;
         return false;
     }
@@ -148,6 +127,9 @@ bool GameView::loadSceneFile(const std::string& sceneFile) {
     if (!OGXml::loadGXml(sceneFile, sceneGraph)) {
         return false;
     }
+
+    std::string scenePath = IOHelper::getFilePath(sceneFile);
+
     std::map<std::string, GPUMaterialHandle> materials;
     std::map<std::string, uint32_t> materialSlots;
     std::shared_ptr<OGXmlNode> sceneRoot;
@@ -176,19 +158,19 @@ bool GameView::loadSceneFile(const std::string& sceneFile) {
 
             auto albedoAttr = attrs.find("albedo");
             if (albedoAttr != attrs.end()) {
-                auto texture = RESOURCE_MANAGER->get<GPUTextureResource>("demo/textures/" + albedoAttr->second);
+                auto texture = RESOURCE_MANAGER->get<GPUTextureResource>(scenePath + "/textures/" + albedoAttr->second);
                 material.albedoIndex = GPU_RESOURCES->registerTexture(*texture->get());
             }
 
             auto normalAttr = attrs.find("normal");
             if (normalAttr != attrs.end()) {
-                auto texture = RESOURCE_MANAGER->get<GPUTextureResource>("demo/textures/" + normalAttr->second);
+                auto texture = RESOURCE_MANAGER->get<GPUTextureResource>(scenePath + "/textures/" + normalAttr->second);
                 material.normalIndex = GPU_RESOURCES->registerTexture(*texture->get());
             }
 
             auto pbrAttr = attrs.find("pbr");
             if (pbrAttr != attrs.end()) {
-                auto texture = RESOURCE_MANAGER->get<GPUTextureResource>("demo/textures/" + pbrAttr->second);
+                auto texture = RESOURCE_MANAGER->get<GPUTextureResource>(scenePath + "/textures/" + pbrAttr->second);
                 material.ormIndex = GPU_RESOURCES->registerTexture(*texture->get());
             }
 
@@ -254,7 +236,7 @@ bool GameView::loadSceneFile(const std::string& sceneFile) {
                 if (childElem->getName() == "MeshResource") {
                     auto valueAttr = childElem->getAttributes().find("value");
                     if (valueAttr != childElem->getAttributes().end()) {
-                        auto mesh = RESOURCE_MANAGER->get<GPUStaticMeshResource>("demo/" + valueAttr->second + ".osm");
+                        auto mesh = RESOURCE_MANAGER->get<GPUStaticMeshResource>(scenePath + "/" + valueAttr->second + ".osm");
                         meshComp->setMeshResource(mesh);
                     }
                 }

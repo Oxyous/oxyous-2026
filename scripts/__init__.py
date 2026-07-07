@@ -109,6 +109,56 @@ def compute_bounding_box(obj):
     max_corner = mathutils.Vector((max(v.x for v in bbox), max(v.y for v in bbox), max(v.z for v in bbox)))
     return min_corner, max_corner
 
+
+def get_export_basis():
+    """
+    Converts Blender's basis into the engine basis.
+    """
+    rotation_x_minus_90 = mathutils.Matrix.Rotation(math.radians(-90.0), 3, 'X')
+    mirror_x = mathutils.Matrix.Diagonal((-1.0, 1.0, 1.0))
+    return mirror_x @ rotation_x_minus_90
+
+
+def convert_local_transform(obj, basis_change):
+    """
+    Converts an object's local transform into the export coordinate basis.
+    """
+    basis_change_4x4 = basis_change.to_4x4()
+    converted_matrix = basis_change_4x4 @ obj.matrix_basis @ basis_change_4x4.inverted()
+    location, rotation, scale = converted_matrix.decompose()
+    converted_location = location.copy()
+    converted_rotation = rotation.to_euler('XYZ')
+    return converted_location, converted_rotation, scale
+
+
+def convert_bounding_box(obj, basis_change):
+    """
+    Converts the object's world-space bounding box into the export basis.
+    """
+    min_corner, max_corner = compute_bounding_box(obj)
+    corners = [
+        mathutils.Vector((min_corner.x, min_corner.y, min_corner.z)),
+        mathutils.Vector((min_corner.x, min_corner.y, max_corner.z)),
+        mathutils.Vector((min_corner.x, max_corner.y, min_corner.z)),
+        mathutils.Vector((min_corner.x, max_corner.y, max_corner.z)),
+        mathutils.Vector((max_corner.x, min_corner.y, min_corner.z)),
+        mathutils.Vector((max_corner.x, min_corner.y, max_corner.z)),
+        mathutils.Vector((max_corner.x, max_corner.y, min_corner.z)),
+        mathutils.Vector((max_corner.x, max_corner.y, max_corner.z)),
+    ]
+    converted_corners = [basis_change @ corner for corner in corners]
+    converted_min = mathutils.Vector((
+        min(v.x for v in converted_corners),
+        min(v.y for v in converted_corners),
+        min(v.z for v in converted_corners),
+    ))
+    converted_max = mathutils.Vector((
+        max(v.x for v in converted_corners),
+        max(v.y for v in converted_corners),
+        max(v.z for v in converted_corners),
+    ))
+    return converted_min, converted_max
+
 # ------------------------------------------------------------
 # Mesh Export
 # ------------------------------------------------------------
@@ -145,9 +195,11 @@ def export_mesh(self, context, filepath, resource_key, obj):
 
         vertex_lookup = {}  # Maps vertex keys to their index in the vertices list
 
-        rotation_x_minus_90 = mathutils.Matrix.Rotation(math.radians(-90.0), 3, 'X')
+        export_basis = get_export_basis()
 
         for tri in mesh.loop_triangles:
+            tri_indices = []
+
             for loop_index in tri.loops:
                 loop = mesh.loops[loop_index]
                 vertex = mesh.vertices[loop.vertex_index]
@@ -165,16 +217,16 @@ def export_mesh(self, context, filepath, resource_key, obj):
                 existing_index = vertex_lookup.get(key)
 
                 if existing_index is not None:
-                    indices.append(existing_index)
+                    tri_indices.append(existing_index)
                     continue
 
                 new_index = len(vertices)
                 vertex_lookup[key] = new_index
-                indices.append(new_index)
+                tri_indices.append(new_index)
 
-                rotated_pos = rotation_x_minus_90 @ pos
-                rotated_normal = rotation_x_minus_90 @ normal
-                rotated_tangent = rotation_x_minus_90 @ tangent
+                rotated_pos = export_basis @ pos
+                rotated_normal = export_basis @ normal
+                rotated_tangent = export_basis @ tangent
 
                 if rotated_normal.length > 0.0:
                     rotated_normal.normalize()
@@ -185,9 +237,11 @@ def export_mesh(self, context, filepath, resource_key, obj):
                     'position': rotated_pos,
                     'normal': rotated_normal,
                     'tangent': rotated_tangent,
-                    'tangent_w': tangent_w,
+                    'tangent_w': -tangent_w,
                     'uv': uv,
                 })
+
+            indices.extend((tri_indices[0], tri_indices[2], tri_indices[1]))
         with open(filepath + resource_key, 'wb') as f:
             # Write header
             f.write(struct.pack("i", len(vertices)))
@@ -230,7 +284,7 @@ def export_collision_mesh(self, context, filepath, obj):
     
     This function is similar to export_mesh but may have different requirements for collision meshes.
     """
-    rotation_x_minus_90 = mathutils.Matrix.Rotation(math.radians(-90.0), 3, 'X')
+    export_basis = get_export_basis()
 
     vertices = []
     indices = []
@@ -250,10 +304,11 @@ def export_collision_mesh(self, context, filepath, obj):
                     loop = mesh.loops[loop_index]
                     vertex = mesh.vertices[loop.vertex_index]
                     pos = vertex.co.copy()
-                    vertex = rotation_x_minus_90 @ pos
+                    vertex = export_basis @ pos
 
                     vertices.append(vertex)
-                    normals.append((rotation_x_minus_90 @ loop.normal).normalized())
+                    normal = export_basis @ loop.normal
+                    normals.append(normal.normalized())
                     indices.append(len(vertices) - 1)
     return {
         "vertices": vertices,
@@ -323,8 +378,15 @@ def export_materials(self, context, filepath):
 
                 if from_node.type == 'TEX_IMAGE' and from_node.image:
                     img = from_node.image
-                    src_path = bpy.path.abspath(img.filepath)
-                    
+                    if img.packed_file:
+                        # Unpack the image to a temporary location
+                        temp_path = bpy.path.abspath("//temp_texture.png")
+                        img.filepath_raw = temp_path
+                        img.save()
+                        src_path = temp_path
+                    else:
+                        src_path = bpy.path.abspath(img.filepath)
+                        
                     if src_path and os.path.exists(src_path):
                         filename = os.path.basename(src_path)
 
@@ -333,7 +395,7 @@ def export_materials(self, context, filepath):
                             shutil.copy2(src_path, dest_path)
                             copied.add(filename)
                             texture_cache[filename] = dest_path
-                            albedo_texture = filename
+                        albedo_texture = filename
                             
             
             normal_input = Principled_node.inputs["Normal"]
@@ -356,7 +418,7 @@ def export_materials(self, context, filepath):
                                 shutil.copy2(src_path, dest_path)
                                 copied.add(filename)
                                 texture_cache[filename] = dest_path
-                                normal_texture = filename
+                            normal_texture = filename
         material_cache[mat.name] = {
             'albedo_texture': albedo_texture,
             'normal_texture': normal_texture
@@ -390,6 +452,9 @@ def export_scene_graph(self, context, filepath):
         if obj.type != 'MESH':
             continue
 
+        export_basis = get_export_basis()
+        converted_location, converted_rotation, converted_scale = convert_local_transform(obj, export_basis)
+
         obj_elem = ET.SubElement(root, "Object")
 
         obj_elem.set("name", obj.name)
@@ -397,24 +462,21 @@ def export_scene_graph(self, context, filepath):
 
         # Location
         loc_elem = ET.SubElement(obj_elem, "Location")
-        rot_correction = mathutils.Matrix.Rotation(math.radians(-90.0), 3, 'X')
-        corrected_location = rot_correction @ obj.location
-
-        loc_elem.set("x", str(round(corrected_location.x,3)))
-        loc_elem.set("y", str(round(corrected_location.y,3)))
-        loc_elem.set("z", str(round(corrected_location.z,3)))
+        loc_elem.set("x", str(round(converted_location.x,3)))
+        loc_elem.set("y", str(round(converted_location.y,3)))
+        loc_elem.set("z", str(round(converted_location.z,3)))
         
         # Rotation (Euler)
         rot_elem = ET.SubElement(obj_elem, "Rotation")
-        rot_elem.set("x", str(obj.rotation_euler.x))
-        rot_elem.set("y", str(obj.rotation_euler.z))
-        rot_elem.set("z", str(obj.rotation_euler.y))
+        rot_elem.set("x", str(converted_rotation.x))
+        rot_elem.set("y", str(converted_rotation.y))
+        rot_elem.set("z", str(converted_rotation.z))
 
         # Scale
         scale_elem = ET.SubElement(obj_elem, "Scale")
-        scale_elem.set("x", str(obj.scale.x))
-        scale_elem.set("y", str(obj.scale.y))
-        scale_elem.set("z", str(obj.scale.z))
+        scale_elem.set("x", str(converted_scale.x))
+        scale_elem.set("y", str(converted_scale.y))
+        scale_elem.set("z", str(converted_scale.z))
 
         for key, value in obj.items():
             if key.startswith("_"):
@@ -430,7 +492,7 @@ def export_scene_graph(self, context, filepath):
             mat_elem.set("name", materal.name)
         
         bbox_elem = ET.SubElement(obj_elem, "BoundingBox")
-        min_corner, max_corner = compute_bounding_box(obj)
+        min_corner, max_corner = convert_bounding_box(obj, export_basis)
         bbox_elem.set("min", f"{round(min_corner.x,3)},{round(min_corner.y,3)},{round(min_corner.z,3)}")
         bbox_elem.set("max", f"{round(max_corner.x,3)},{round(max_corner.y,3)},{round(max_corner.z,3)}")
         
@@ -487,6 +549,12 @@ def export_collision(self, context, filepath):
 # Operator
 #------------------------------------------------------------
 
+def createTextureDirectory(filepath):
+    texture_dir = os.path.join(filepath, "textures")
+    if not os.path.exists(texture_dir):
+        os.makedirs(texture_dir)
+    return texture_dir
+
 class ObjectExport(Operator, ExportHelper):
     """
     Export all scene assets to custom xml format.
@@ -503,8 +571,9 @@ class ObjectExport(Operator, ExportHelper):
     )
 
     def execute(self, context):
+        createTextureDirectory(self.filepath)
         export_scene_meshes(self, context, self.filepath)
-        export_materials(self, context, self.filepath + "\\textures\\")
+        export_materials(self, context, self.filepath + "textures\\")
         export_scene_graph(self, context, self.filepath)
 
         mesh_cache.clear()

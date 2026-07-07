@@ -5,6 +5,7 @@
 #ifndef OXYOUS_2026_NAVMESH_HPP
 #define OXYOUS_2026_NAVMESH_HPP
 
+#include <algorithm>
 #include <limits>
 #include <queue>
 #include <vector>
@@ -29,7 +30,7 @@ public:
         m_nodes.clear();
 
         for (const auto &poly: worldPolygons) {
-            if (std::abs(poly.normal.y) >= minWalkableNormalY) {
+            if (std::abs(poly.normal.x) >= minWalkableNormalY) {
                 m_walkablePolygons.push_back(poly);
             }
         }

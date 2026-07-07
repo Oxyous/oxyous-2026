@@ -18,7 +18,7 @@ public:
         m_yaw = 0.0f;
         m_pitch = 0.0f;
         m_speed = 8.0f;
-        m_sensitivity = 0.63f;
+        m_sensitivity = 1.43f;
         m_viewMatrix = glm::mat4(1.0f);
         m_projection = glm::mat4(1.0f);
     }

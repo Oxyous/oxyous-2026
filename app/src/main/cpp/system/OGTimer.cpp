@@ -62,10 +62,6 @@ double OGTimer::GetDelta() {
     return m_deltaTime;
 }
 
-int OGTimer::GetTimeDifference() {
-    return static_cast<int>((m_currentTime - m_startTime) ) % 60;
-}
-
 int OGTimer::GetMinutesDifference() {
     return static_cast<int>(((m_currentTime - m_startTime) ) / 60);
 }
@@ -82,8 +78,15 @@ int OGTimer::getFPS() {
     return m_fps;
 }
 
-double OGTimer::getTime() {
-    double time;
-    QueryPerformanceTimer(&time);
-    return time / m_countPerSecond;
+std::chrono::steady_clock::time_point OGTimer::getCurrentTime() const {
+    return std::chrono::steady_clock::now();
+}
+
+long long OGTimer::getTimeDifferenceMs(std::chrono::steady_clock::time_point start) const {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(getCurrentTime() - start).count();
+}
+
+long long OGTimer::getTimeDifferenceMs(std::chrono::steady_clock::time_point start,
+                                       std::chrono::steady_clock::time_point end) const {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 }

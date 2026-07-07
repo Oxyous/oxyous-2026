@@ -25,7 +25,7 @@ layout (location = 0) in vec2 uvCoord;
 layout (location = 0) out vec4 outColor;
 
 const vec3 lightDir = normalize(vec3(0.5, 1.0, 0.5));
-const vec3 lightColor = vec3(1.0);
+const vec3 lightColor = vec3(1.5);
 
 
 int getCascadeIndex(float distance)
@@ -93,7 +93,7 @@ float sampleShadow(vec3 worldPos, int cascadeIndex, vec3 normal)
 
             // Vulkan Depth: smaller is closer.
             // If currentDepth (fragment) is farther than shadowDepth (stored occluder), in shadow.
-            visibility += (currentDepth - bias > shadowDepth) ? 0.2 : 1.0;
+            visibility += (currentDepth - bias > shadowDepth) ? 0.4 : 1.0;
         }
     }
 
@@ -142,7 +142,7 @@ void main()
     vec3 specular = F0 * spec;
 
     // --- Combine ---
-    vec3 color = (diffuse * NdotL + specular) * lightColor;
+    vec3 color = ((diffuse * (NdotL + diffuse.rgb * 0.666) + specular) * lightColor);
 
 
     /**/
@@ -174,6 +174,6 @@ void main()
     if (depth >= 1.0) {
         outColor = texture(gEnvironment, worldDir);
     }else {
-        outColor = vec4(color * shadow, 1.0) + vec4(color.rgb,1.0) * 0.333;
+        outColor = vec4(color * shadow, 1.0);
     }
 }

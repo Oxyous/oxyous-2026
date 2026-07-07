@@ -7,6 +7,7 @@
 
 #define CLOCK_PRECISION 1E9
 #include <time.h>
+#include <chrono>
 #include "OGSingleton.hpp"
 
 static const unsigned usec_per_sec = 1000000;
@@ -20,8 +21,10 @@ public:
     void Reset();
     void Stop();
     double GetDelta();
-    double getTime();
-    int GetTimeDifference();
+    std::chrono::steady_clock::time_point getCurrentTime() const;
+    long long getTimeDifferenceMs(std::chrono::steady_clock::time_point start) const;
+    long long getTimeDifferenceMs(std::chrono::steady_clock::time_point start,
+                                  std::chrono::steady_clock::time_point end) const;
     int GetMinutesDifference();
     float GetAppTime();
     bool IsStopped()

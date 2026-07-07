@@ -36,7 +36,6 @@ void Input::handleInput() {
             );
             event.touchPoints[j].identifier = pointer.id; // Unique persistent ID
             event.touchPoints[j].isChanged = (j == (uint32_t)pointerIndex);
-            event.touchPoints[j].time = SYS_TIMER->getTime(); // Record the time of the event
         }
 
         switch (actionCode) {
@@ -46,6 +45,7 @@ void Input::handleInput() {
                 break;
             case AMOTION_EVENT_ACTION_UP:
             case AMOTION_EVENT_ACTION_POINTER_UP:
+            case AMOTION_EVENT_ACTION_CANCEL:
                 event.eType = TouchEvent::stopped;
                 break;
             case AMOTION_EVENT_ACTION_MOVE:
@@ -73,9 +73,7 @@ void Input::processEvents(TouchEvent &event) {
         auto &point = event.touchPoints[i];
 
         if (event.eType == TouchEvent::started && point.isChanged) {
-
-            event.touchPoints[i].time = SYS_TIMER->getTime(); // Record the time of touch down
-
+            m_touchStartTimes[point.identifier] = SYS_TIMER->getCurrentTime();
             // Assign stick based on which side of the screen was touched
             for (auto &stick : m_thumbSticks) {
                 if (!stick->isPressed()) {
@@ -95,13 +93,14 @@ void Input::processEvents(TouchEvent &event) {
                 it->second->onTouchMove(point.position);
             }
         } else if (event.eType == TouchEvent::stopped && point.isChanged) {
-
-            double timeDif = SYS_TIMER->getTime() - event.touchPoints[i].time; // Calculate duration of touch
-            if (timeDif < 0.8) {
-
-                processTap(event, i);
-                event.touchPoints[i].time = SYS_TIMER->getTime();
-                //return;
+            auto startIt = m_touchStartTimes.find(point.identifier);
+            if (startIt != m_touchStartTimes.end()) {
+                auto timeDif = SYS_TIMER->getTimeDifferenceMs(startIt->second, SYS_TIMER->getCurrentTime());
+                if (timeDif < 600) {
+                    aout << "TAP: " << timeDif << "ms" << std::endl;
+                    processTap(event, i);
+                }
+                m_touchStartTimes.erase(startIt);
             }
 
             // Release the stick associated with this specific finger

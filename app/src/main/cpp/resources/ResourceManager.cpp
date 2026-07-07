@@ -84,17 +84,10 @@ bool ResourceManager::loadSceneCollision(const std::string& assetPath, std::vect
                 vertices[idx * 3 + 2]
             };
         }
-        uint32_t normalIdx = i / 3;
-        poly.normal = {
-            normals[normalIdx * 3],
-            normals[normalIdx * 3 + 1],
-            normals[normalIdx * 3 + 2]
-        };
-        poly.normal = glm::normalize(poly.normal);
+        glm::vec3 normal = glm::cross(poly.vertices[1] - poly.vertices[0], poly.vertices[2] - poly.vertices[0]);
+        poly.normal = glm::normalize(normal);
         polys.push_back(poly);
     }
-
-    buffer.clear();
 
     AAsset_close(asset);
 
