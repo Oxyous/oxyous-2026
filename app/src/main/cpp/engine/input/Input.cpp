@@ -159,6 +159,10 @@ void Input::update(double delta) {
 void Input::processTap(TouchEvent &event, uint32_t i) {
     const auto& touchPos = event.touchPoints[i].position;
 
+    if(UI->handleInput(touchPos, false)){
+        return;
+    }
+
     // Flip Y coordinate as Android touch is 0 at top, but unProject expects 0 at bottom of viewport
     float flippedY = DESIGN_HEIGHT - touchPos.y;
 
@@ -182,8 +186,7 @@ void Input::processTap(TouchEvent &event, uint32_t i) {
     bool found = false;
     float minDistance = FLT_MAX;
 
-    /** Atlas Debug */
-    UI->addSprite("mouse_cursor", glm::vec2(touchPos.x, touchPos.y), glm::vec2(256.0f, 256.0f));
+
 
     for (auto& poly : GAME_VIEW->getWorldPolygons()) {
         OGContact hit;

@@ -125,6 +125,11 @@ bool GameView::initialize() {
         }
     };
 
+    /* Create UI Elements Button etc*/
+    UI->addButton(new OGButton("button1", "sm-button", glm::vec2(100, 100), glm::vec2(128 * 2.5, 32 * 2.5), []() {
+        aout << "Button 1 clicked!" << std::endl;
+    }));
+
     return true;
 }
 

@@ -7,17 +7,17 @@
 
 #include "OGElement.hpp"
 
-class OGButton : public OGElement {
+class OGButton {
 public:
-    void draw(VkCommandBuffer& commandBuffer, uint32_t frame) override;
 
-    void destroy() override;
+    OGButton(std::string name, std::string spriteName, glm::vec2 position, glm::vec2 size, std::function<void()> onTap) {
+        create(position, size, name, spriteName);
+        setOnTap(onTap);
+    }
 
-    void update(float delta) override;
+    void create(const glm::vec2 &origin, const glm::vec2 &size, const std::string &text, const std::string &spriteName);
 
-    void create(const glm::vec2 &origin, const glm::vec2 &size, const std::string &text);
-
-    bool handleInput(const glm::vec2& touchPosition, bool pressed) override;
+    bool handleInput(const glm::vec2& touchPosition, bool pressed);
 
     void setOnTap(std::function<void()> onTap);
 
@@ -25,8 +25,7 @@ protected:
     std::string m_text;
     glm::vec2 m_position;
     glm::vec2 m_size;
-    uint32_t m_textureIndex;
-    uint32_t m_objectIndex;
+    uint32_t m_spriteInstanceId;
     std::function<void()> m_onTap;
 };
 

@@ -14,7 +14,8 @@ bool OGUi::initializeUI() {
 }
 
 /** Create Sprite Vertex */
-void OGUi::addSprite(const std::string& spriteTextureName, glm::vec2 position, glm::vec2 scale) {
+uint32_t OGUi::addSprite(const std::string& spriteTextureName, glm::vec2 position, glm::vec2 scale) {
+    uint32_t instanceId = -1;
     auto* spriteData = m_atlas.getSpriteData(spriteTextureName);
     if(spriteData) {
         SpriteInstance instance;
@@ -22,8 +23,11 @@ void OGUi::addSprite(const std::string& spriteTextureName, glm::vec2 position, g
         instance.size = scale;
         instance.uvOffset = {spriteData->x, spriteData->y};
         instance.uvScale = {spriteData->width, spriteData->height};
+        instanceId = static_cast<uint32_t>(m_instances.size());
         m_instances.push_back(instance);
     }
+
+    return instanceId;
 }
 
 bool OGUi::loadSpriteAsset(const std::string &assetPath, const std::string &spriteSheetName) {
@@ -39,21 +43,44 @@ bool OGUi::loadSpriteAsset(const std::string &assetPath, const std::string &spri
     return true;
 }
 
-/** Create Quad Indices */
-std::vector<uint16_t> OGUi::CreateQuadIndices(uint32_t maxSprites) {
-    std::vector<uint16_t> indices(maxSprites * 6);
 
-    for (uint32_t i = 0; i < maxSprites; i++) {
-        uint16_t baseVertex = static_cast<uint16_t>(i * 4);
-        uint32_t index = i * 6;
+std::vector<std::unique_ptr<OGElement>> &OGUi::getElements() {
+    return m_elements;
+}
 
-        indices[index + 0] = baseVertex + 0;
-        indices[index + 1] = baseVertex + 1;
-        indices[index + 2] = baseVertex + 2;
-        indices[index + 3] = baseVertex + 2;
-        indices[index + 4] = baseVertex + 3;
-        indices[index + 5] = baseVertex + 0;
+const std::vector<std::unique_ptr<OGElement>> &OGUi::getElements() const {
+    return m_elements;
+}
+
+const GPUTexture* OGUi::getAtlasTexture() {
+    return m_atlas.getAtlasTexture();
+}
+
+const std::vector<SpriteInstance>& OGUi::getInstances() const {
+    return m_instances;
+}
+
+void OGUi::clearInstances() {
+    m_instances.clear();
+}
+
+void OGUi::clearElements() {
+    m_elements.clear();
+}
+
+void OGUi::drawString(VkCommandBuffer cmd, const std::string &text, float x, float y, float scale) {
+    m_fontEngine.renderString(cmd, text, x, y, scale);
+}
+
+void OGUi::addButton(OGButton *button) {
+    m_buttons.push_back(button);
+}
+
+bool OGUi::handleInput(const glm::vec2 &touchPosition, bool pressed) {
+    for (const auto& btn : m_buttons) {
+        if (btn->handleInput(touchPosition, pressed)) {
+            return true;
+        }
     }
-
-    return indices;
+    return false;
 }

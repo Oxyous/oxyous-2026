@@ -380,6 +380,8 @@ void UIRender::record(VkCommandBuffer cmd, uint64_t currentFrame, VkFramebuffer 
         vkCmdDrawIndexed(cmd, static_cast<uint32_t>(sizeof(spriteIndices) / sizeof(uint16_t)), static_cast<uint32_t>(instances.size()), 0, 0, 0);
     }
 
+
+
     vkCmdEndRenderPass(cmd);
 
 }
@@ -525,7 +527,7 @@ void UIRender::updateDescriptorSet() {
         return;
     }
 
-    auto texture = UI->getAtlas().getAtlasTexture();
+    auto texture = UI->getAtlasTexture();
     if (texture == nullptr) {
         aout << "UIRender::updateDescriptorSet atlas texture is null" << std::endl;
         return;
