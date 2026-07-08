@@ -182,6 +182,9 @@ void Input::processTap(TouchEvent &event, uint32_t i) {
     bool found = false;
     float minDistance = FLT_MAX;
 
+    /** Atlas Debug */
+    UI->addSprite("mouse_cursor", glm::vec2(touchPos.x, touchPos.y), glm::vec2(256.0f, 256.0f));
+
     for (auto& poly : GAME_VIEW->getWorldPolygons()) {
         OGContact hit;
         if (CollisionHelper::resolvePolygonRay(poly, ray.m_origin, ray.m_direction, hit)) {

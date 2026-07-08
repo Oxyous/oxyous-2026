@@ -42,8 +42,23 @@ bool GPUTextureResource::load(AAssetManager *assetManager, const std::vector<uin
 
     AImageDecoder_delete(pAndroidDecoder);
     AAsset_close(textureAsset);
+    std::vector<uint8_t> packedImageData(static_cast<size_t>(width) * static_cast<size_t>(height) * 4u);
+    const size_t rowBytes = static_cast<size_t>(width) * 4u;
+    for (int y = 0; y < height; ++y) {
+        std::memcpy(
+                packedImageData.data() + static_cast<size_t>(y) * rowBytes,
+                upAndroidImageData->data() + static_cast<size_t>(y) * static_cast<size_t>(stride),
+                rowBytes);
+    }
+
     m_texture = std::make_unique<GPUTexture>();
-    if (!RenderFramework::createGpuTexture(upAndroidImageData->data(), upAndroidImageData->size(), VK_FORMAT_R8G8B8A8_UNORM, width, height, m_texture)) {
+    if (!RenderFramework::createGpuTexture(
+            packedImageData.data(),
+            static_cast<uint32_t>(packedImageData.size()),
+            VK_FORMAT_R8G8B8A8_UNORM,
+            width,
+            height,
+            m_texture)) {
         aout << "Failed to create gpu texture" << std::endl;
         return false;
     }

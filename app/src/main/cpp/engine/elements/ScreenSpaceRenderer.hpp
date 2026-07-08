@@ -16,28 +16,31 @@ public:
     VkDescriptorSet &getBindLessSet(uint32_t frame);
 
     VkPipelineLayout &getPipelineLayout() { return m_bindlessRenderer.pipelineLayout; }
-    /* */
+
+    /** */
     void uploadFrameData(ScreenElements& frameData);
 
-    /* */
+    /** */
     ScreenElements& getScreenElements(uint32_t frame) { return m_bindlessRenderer.frameData[frame]; }
 
-    /* */
+    /** */
     uint32_t registerTexture(GPUTexture texture);
 
-    /* */
+    /** */
     uint32_t registerElement(GPUElementHandle element);
 
-    /* */
+    /** */
     void updateElement(uint32_t index, GPUElementHandle element);
 
 
-    /* register object for bindless */
+    /** register object for bindless */
     uint32_t registerObject(GPUElementHandle object);
 
+    /** Create Screen Quad */
+    GPUBuffer createQuadBuffer(const glm::vec2& origin, const glm::vec2& size);
 
 protected:
-    /* */
+    /** */
     uint32_t allocateTextureSlot();
 
     bool createBindlessDescriptors();

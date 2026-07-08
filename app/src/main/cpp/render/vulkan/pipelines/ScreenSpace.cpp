@@ -286,16 +286,18 @@ void ScreenSpace::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
     renderPassInfo.pClearValues = clearValues.data();
 
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
-
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &SCREEN_RENDER->getBindLessSet(currentFrame), 0, nullptr);
 
-    for(const auto& element : UI->getElements()) {
-        if(element->isVisible()) {
-            element->draw(commandBuffer, currentFrame);
+
+
+    auto &elements = UI->getElements();
+    for (auto &element : elements) {
+        if (element && element->isVisible()) {
+            element->draw(commandBuffer, static_cast<uint32_t>(currentFrame));
         }
     }
+
     std::stringstream ss;
     ss << "FPS : " << SYS_TIMER->getFPS();
     UI->drawString(commandBuffer, ss.str(), 32.0f,32.0f, 1.0f);
@@ -323,8 +325,8 @@ bool ScreenSpace::initializeRenderPass() {
     attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    attachments[0].initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    attachments[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    attachments[0].initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    attachments[0].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
     attachments[1].format = SWAPCHAIN->getDepthFormat();
     attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;

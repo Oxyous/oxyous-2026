@@ -14,6 +14,7 @@
 #include "../../engine/elements/ScreenSpaceRenderer.hpp"
 #include "pipelines/ShadowCapture.hpp"
 #include "RenderHelper.hpp"
+#include "render/vulkan/pipelines/UIRender.hpp"
 #include <game-activity/native_app_glue/android_native_app_glue.h>
 
 VkBool32
@@ -172,6 +173,13 @@ bool Renderer::initialize(ANativeWindow *window) {
     const auto projection = glm::perspective(glm::radians(60.0f), (float) m_width / (float) m_height, 0.1f, 10000.0f);
     ENGINE->prepareInput();
     ENGINE->setCameraProjection(projection);
+
+    auto ui = ENGINE->getPipeline<UIRender>("user-interface");
+
+    if(ui) {
+        ui->initialize();
+        ui->updateDescriptorSet();
+    }
 
     m_graphicsInitialized = true;
 
@@ -394,6 +402,11 @@ void Renderer::recreateSwapChain() {
     if (screenSpace) {
         screenSpace->resize(m_width, m_height);
     }
+
+    auto ui = ENGINE->getPipeline<UIRender>("user-interface");
+    if (ui) {
+        ui->resize(m_width, m_height);
+    }
 }
 
 void Renderer::render() {
@@ -534,6 +547,7 @@ void Renderer::prepareFrame(int index, VkCommandBuffer commandBuffer) {
     auto deferred = ENGINE->getPipeline<Deferred>("deferred");
     auto postProcess = ENGINE->getPipeline<PostProcess>("post-process");
     auto screenSpace = ENGINE->getPipeline<ScreenSpace>("screen-space");
+    auto ui = ENGINE->getPipeline<UIRender>("user-interface");
 
     // Ensure shadow/deferred attachment writes are visible before shader sampling.
     VkMemoryBarrier barrier = {};
@@ -577,6 +591,25 @@ void Renderer::prepareFrame(int index, VkCommandBuffer commandBuffer) {
     if (screenSpace) {
         screenSpace->record(commandBuffer, m_currentFrame, m_framebuffers[index]);
     }
+
+    vkCmdPipelineBarrier(commandBuffer,
+                         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
+                         VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+                         VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                         0, 1, &barrier, 0, nullptr, 0, nullptr);
+
+    if (ui) {
+        ui->record(commandBuffer, m_currentFrame, m_framebuffers[index]);
+    }
+
+    vkCmdPipelineBarrier(commandBuffer,
+                         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
+                         VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+                         VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                         0, 1, &barrier, 0, nullptr, 0, nullptr);
+
 }
 
 void Renderer::update(double delta) {
@@ -604,5 +637,10 @@ void Renderer::update(double delta) {
     auto shadow = ENGINE->getPipeline<ShadowCapture>("shadow-capture");
     if (shadow) {
         shadow->update(delta);
+    }
+
+    auto ui = ENGINE->getPipeline<UIRender>("user-interface");
+    if (ui) {
+        ui->update(delta);
     }
 }

@@ -67,3 +67,7 @@ void OGRect::create(const glm::vec2 &origin, const glm::vec2 &size) {
 
     m_textureIndex = SCREEN_RENDER->registerTexture(*RESOURCE_MANAGER->get<GPUTextureResource>("thumbstick-bkg.png")->get());
 }
+
+bool OGRect::handleInput(const glm::vec2 &touchPosition, bool pressed) {
+    return true;
+}

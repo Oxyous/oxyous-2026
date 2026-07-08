@@ -30,10 +30,12 @@ bool ThumbStick::initialize() {
 
     /* Prepare UI */
     auto outerRect = new OGRect();
+    outerRect->setVisible(false);
     outerRect->create(glm::vec2(0.0f, 0.0f), glm::vec2(256.0f, 256.0f));
     m_outerStick = reinterpret_cast<OGElement *>(UI->addElement(outerRect));
 
     auto innerRect = new OGRect();
+    innerRect->setVisible(false);
     innerRect->create(glm::vec2(0.0f, 0.0f), glm::vec2(192.0f, 192.0f));
     m_innerStick = reinterpret_cast<OGElement *>(UI->addElement(innerRect));
 

@@ -25,6 +25,7 @@
 #include "engine/ai/AIPathFinding.hpp"
 #include "engine/ai/NavMesh.hpp"
 #include "IOHelper.hpp"
+#include "render/vulkan/pipelines/UIRender.hpp"
 
 void GameView::render() {
 
@@ -70,6 +71,8 @@ bool GameView::initialize() {
 
     const auto &shadowPass = ENGINE->createPipeline<ShadowCapture>("shadow-capture");
 
+    const auto &userInterface = ENGINE->createPipeline<UIRender>("user-interface");
+
     /* Set input textures for post-process from deferred G-Buffers */
     postProcess->setFrameBufferImage("gDiffuse", *deferred->getFrameBufferImage("gDiffuse"));
     postProcess->setFrameBufferImage("gNormal", *deferred->getFrameBufferImage("gNormal"));
@@ -83,6 +86,10 @@ bool GameView::initialize() {
 
     if (!UI->initializeUI()) {
         aout << "Failed to initialize UI" << std::endl;
+        return false;
+    }
+
+    if (!UI->loadSpriteAsset("", "ui_sprites")) {
         return false;
     }
 

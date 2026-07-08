@@ -16,6 +16,8 @@ public:
 
     virtual void update(float delta) = 0;
 
+    virtual bool handleInput(const glm::vec2& touchPosition, bool pressed) = 0;
+
     virtual glm::mat4 getTransform() {
         return m_translation * m_size;
     }
@@ -49,6 +51,8 @@ public:
     void update(float delta) override;
 
     void create(const glm::vec2 &origin, const glm::vec2 &size);
+
+    bool handleInput(const glm::vec2& touchPosition, bool pressed) override;
 
 protected:
     uint32_t m_textureIndex;

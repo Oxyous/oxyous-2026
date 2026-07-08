@@ -28,8 +28,7 @@ typedef struct OGPolygon {
 } OGPolygon;
 
 /* Collision Contact Hit Result*/
-typedef struct OGContact
-{
+typedef struct OGContact {
     glm::vec3 hitPoint;
     glm::vec3 normal;
 
@@ -45,10 +44,49 @@ struct appEngine {
     Renderer *renderer;
 };
 
-/* */
+/** Sprite Data */
+typedef struct OGSpriteData {
+    std::string name;
+    float x, y, width, height;
+} OGSpriteData;
 
-typedef struct OGChar
-{
+/** Sprite Mesh */
+typedef struct OGSpriteMesh {
+    uint32_t indexCount;
+    uint32_t firstIndex;
+    uint32_t vertexCount;
+} OGSpriteMesh;
+
+/** Single Quad Instanced */
+typedef struct OGSpriteVertex {
+    float x, y, u, v;
+} OGSpriteVertex;
+
+/** Single Quad Vertices */
+const static OGSpriteVertex spriteVertices[] = {
+        {0.0f, 0.0f, 0.0f, 0.0f},
+        {1.0f, 0.0f, 1.0f, 0.0f},
+        {0.0f, 1.0f, 0.0f, 1.0f},
+        {1.0f, 1.0f, 1.0f, 1.0f}
+};
+
+/** Single Quad Indices */
+const static uint16_t spriteIndices[] =
+        {
+                0, 1, 2,
+                2, 1, 3
+        };
+
+/** SpriteInstance */
+typedef struct SpriteInstance {
+    glm::vec2 position;
+    glm::vec2 size;
+    glm::vec2 uvOffset;
+    glm::vec2 uvScale;
+}SpriteInstance;
+
+/* */
+typedef struct OGChar {
     uint32_t textureId;
     uint32_t objectId;
     glm::ivec2 size;
@@ -57,11 +95,10 @@ typedef struct OGChar
 } OGChar;
 
 /* */
-typedef struct CSMData
-{
+typedef struct CSMData {
     glm::mat4 lightProjection[4];
     glm::vec4 cascadeSplits;
-}CSMData;
+} CSMData;
 
 /* GPUBuffer*/
 typedef struct GPUBuffer {
@@ -75,7 +112,7 @@ typedef struct GPUBuffer {
     VkDeviceSize range = 0;
     VkDescriptorType type = VK_DESCRIPTOR_TYPE_MAX_ENUM;
 
-    void* mapped;
+    void *mapped;
 
     bool operator==(const GPUBuffer &other) const {
         return buffer == other.buffer &&
@@ -106,7 +143,7 @@ typedef struct GPUTexture {
     VkSampler sampler;
     uint32_t width;
     uint32_t height;
-    VkDescriptorImageInfo descriptor = { VK_NULL_HANDLE, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_UNDEFINED };
+    VkDescriptorImageInfo descriptor = {VK_NULL_HANDLE, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_UNDEFINED};
     VkImageLayout imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     VkDescriptorType type = VK_DESCRIPTOR_TYPE_MAX_ENUM;
 
@@ -132,7 +169,7 @@ typedef struct StaticMeshVertex {
 } StaticMeshVertex;
 
 /* 2d Vertex */
-typedef struct OGVertex2D{
+typedef struct OGVertex2D {
     glm::vec2 position;
     glm::vec2 uv;
 } OGVertex2D;
@@ -149,7 +186,7 @@ typedef struct PerFrameUBO {
 typedef struct ScreenSpaceUBO {
     glm::mat4 projection;
     glm::vec2 screenSize;
-}ScreenSpaceUBO;
+} ScreenSpaceUBO;
 
 /* Per Object UBO */
 typedef struct PerObjectUBO {
@@ -197,7 +234,7 @@ typedef struct GPUMeshHandle {
     uint32_t pad0;
     uint32_t pad1;
     uint32_t pad2;
-}GPUMeshHandle;
+} GPUMeshHandle;
 
 /* Screen space handle */
 typedef struct GPUElementHandle {
@@ -206,7 +243,7 @@ typedef struct GPUElementHandle {
     uint32_t pad0;
     uint32_t pad1;
     uint32_t pad2;
-}GPUElementHandle;
+} GPUElementHandle;
 
 /* Bindless Frame Data */
 typedef struct FrameData {
@@ -223,7 +260,7 @@ typedef struct FrameData {
 
     PerFrameUBO perFrame;
 
-}FrameData;
+} FrameData;
 
 /* Bindless Renderer */
 typedef struct BindlessRenderer {
@@ -233,7 +270,7 @@ typedef struct BindlessRenderer {
     VkPipeline pipeline = VK_NULL_HANDLE;
     VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
 
-    std::array<FrameData, MAX_FRAMES_IN_FLIGHT> frameData { };
+    std::array<FrameData, MAX_FRAMES_IN_FLIGHT> frameData{};
     uint32_t currentFrame = 0;
 
     std::vector<GPUMaterialHandle> materials;
@@ -252,7 +289,7 @@ typedef struct BindlessPushConstants {
 typedef struct ShadowMapPushConstants {
     uint32_t objectIndex;
     uint32_t cascadeIndex;
- } ShadowMapPushConstants;
+} ShadowMapPushConstants;
 
 /* 2d element screen */
 typedef struct ScreenElements {
@@ -269,7 +306,7 @@ typedef struct ScreenElements {
     ScreenSpaceUBO perFrame;
 } ScreenElements;
 
-    /* Bindless Renderer 2D Elements*/
+/* Bindless Renderer 2D Elements*/
 typedef struct BindlessRenderer2D {
     VkDescriptorPool bindlessPool = VK_NULL_HANDLE;
     VkDescriptorSetLayout bindlessSetLayout = VK_NULL_HANDLE;
@@ -277,7 +314,7 @@ typedef struct BindlessRenderer2D {
     VkPipeline pipeline = VK_NULL_HANDLE;
     VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
 
-    std::array<ScreenElements, MAX_FRAMES_IN_FLIGHT> frameData { };
+    std::array<ScreenElements, MAX_FRAMES_IN_FLIGHT> frameData{};
     uint32_t currentFrame = 0;
 
     std::vector<GPUElementHandle> elements;
@@ -285,7 +322,7 @@ typedef struct BindlessRenderer2D {
     std::vector<bool> textureSlotUsed;
 } BindlessRenderer2D;
 
-typedef struct PCScreenElements{
+typedef struct PCScreenElements {
     glm::mat4 transform;
     uint32_t textureIndex;
     uint32_t objectIndex;

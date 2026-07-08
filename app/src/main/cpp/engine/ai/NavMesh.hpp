@@ -30,7 +30,7 @@ public:
         m_nodes.clear();
 
         for (const auto &poly: worldPolygons) {
-            if (std::abs(poly.normal.x) >= minWalkableNormalY) {
+            if (std::abs(poly.normal.y) >= minWalkableNormalY) {
                 m_walkablePolygons.push_back(poly);
             }
         }

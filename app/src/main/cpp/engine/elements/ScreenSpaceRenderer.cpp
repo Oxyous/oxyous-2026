@@ -303,3 +303,26 @@ uint32_t ScreenSpaceRenderer::registerObject(GPUElementHandle object) {
     m_bindlessRenderer.elements.push_back(object);
     return index;
 }
+
+GPUBuffer ScreenSpaceRenderer::createQuadBuffer(const glm::vec2 &origin, const glm::vec2 &size) {
+    GPUBuffer vertexBuffer{};
+    OGVertex2D vertices[4] = {};
+
+    vertices[0].position = glm::vec2(origin.x, origin.y);
+    vertices[0].uv = glm::vec2(1.0f, 1.0f);
+
+    vertices[1].position = glm::vec2(origin.x + size.x, origin.y);
+    vertices[1].uv = glm::vec2(1.0f, 0.0f);
+
+    vertices[2].position = glm::vec2(origin.x + size.x, origin.y + size.y);
+    vertices[2].uv = glm::vec2(0.0f,0.0f);
+
+    vertices[3].position = glm::vec2(origin.x, origin.y + size.y);
+    vertices[3].uv = glm::vec2(0.0f, 1.0f);
+
+    if (!RenderFramework::createStagingBuffer(vertices, sizeof(vertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, &vertexBuffer)) {
+        aout << "Failed to create vertex buffer!" << std::endl;
+    }
+
+    return vertexBuffer;
+}

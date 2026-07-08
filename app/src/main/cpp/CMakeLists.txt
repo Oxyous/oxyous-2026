@@ -18,6 +18,7 @@ add_library(oxyous_2026 SHARED
         engine/input/Input.cpp
         engine/input/ThumbStick.cpp
         engine/elements/OGElement.cpp
+        engine/elements/OGButton.cpp
         engine/elements/ScreenSpaceRenderer.cpp
         engine/GameView.cpp
         engine/Engine.cpp
@@ -25,6 +26,8 @@ add_library(oxyous_2026 SHARED
         system/OGTimer.cpp
         system/OGXml.cpp
         engine/ui/OGUi.cpp
+        engine/ui/OGSprite.cpp
+        engine/ui/OGSpriteAtlas.cpp
         engine/actors/OGCamera.cpp
         engine/components/OGCollisionComponent.cpp
         render/text/FreeTypeFont.cpp
@@ -33,6 +36,7 @@ add_library(oxyous_2026 SHARED
         render/meshes/GPUStaticMesh.cpp
         render/vulkan/pipelines/PostProcess.cpp
         render/vulkan/pipelines/Deferred.cpp
+        render/vulkan/pipelines/UIRender.cpp
         render/vulkan/Renderer.cpp
         render/vulkan/Swapchain.cpp
         render/vulkan/RenderDevice.cpp
