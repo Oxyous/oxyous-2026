@@ -10,6 +10,9 @@ OGCamera::~OGCamera() {
 }
 
 void OGCamera::update(double delta) {
+    if (!ENGINE->isGameModeFly())
+        return;
+
     m_position = getTranslation();
     m_yaw -= ENGINE->getThumbStick(THUMBSTICK_RIGHT)->getActuator().x * m_sensitivity;
     m_pitch -= ENGINE->getThumbStick(THUMBSTICK_RIGHT)->getActuator().y * m_sensitivity;
@@ -46,4 +49,8 @@ glm::mat4 OGCamera::getProjectionMatrix() {
 
 void OGCamera::setProjectionMatrix(glm::mat4 projection) {
     m_projection = projection;
+}
+
+bool OGCamera::initialize() {
+    return true;
 }

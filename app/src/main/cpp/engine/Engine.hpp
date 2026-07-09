@@ -13,14 +13,17 @@
 #include "actors/OGActor.hpp"
 #include "actors/OGCamera.hpp"
 #include "../DataStructures.hpp"
+#include "GameView.hpp"
 
 class Engine {
 public:
     Engine() = default;
+
     virtual ~Engine() = default;
+
 public:
     /* Initialize Game Engine */
-    virtual bool initialize(android_app* app);
+    virtual bool initialize(android_app *app);
 
     /* Destroy Game Engine */
     virtual void destroy();
@@ -41,10 +44,11 @@ public:
 
     virtual glm::mat4 preRotation();
 
-    virtual ThumbStick* getThumbStick(ThumbStickType type);
+    virtual ThumbStick *getThumbStick(ThumbStickType type);
+
 public:
     template<typename T, typename... TArgs>
-    T* createPipeline(const std::string& name, TArgs&&... args) {
+    T *createPipeline(const std::string &name, TArgs &&... args) {
         T *renderPipeline(new T(std::forward<TArgs>(args)...));
 
         std::unique_ptr<IRenderPipeline> uPtr{renderPipeline};
@@ -57,50 +61,80 @@ public:
     }
 
     template<typename T>
-    T* getPipeline(const std::string& name)
-    {
+    T *getPipeline(const std::string &name) {
         auto it = m_pipelines.find(name);
         if (it == m_pipelines.end()) {
             return nullptr;
         }
 
-        return dynamic_cast<T*>(it->second.get());
+        return dynamic_cast<T *>(it->second.get());
     }
 
     /* Get Android App */
-    android_app* getApp() {
+    android_app *getApp() {
         return m_app;
     }
 
-    glm::mat4 getCameraView(){
+    glm::mat4 getCameraView() {
+        if (!m_gameModeFly) {
+            const auto player = dynamic_cast<OGPlayerActor *>(GAME_VIEW->getActivePlayer().get());
+            if (player) {
+                return player->getViewMatrix();
+            }
+        }
+
         return m_camera.getViewMatrix();
     }
 
-    glm::mat4 getCameraProjection(){
+    glm::mat4 getCameraProjection() {
         return m_camera.getProjectionMatrix();
     }
 
-    glm::vec3 getCameraPosition(){
+    glm::vec3 getCameraPosition() {
+
+        if (m_gameModeFly) {
+            return m_camera.getPosition();
+        } else {
+            const auto player = dynamic_cast<OGPlayerActor *>(GAME_VIEW->getActivePlayer().get());
+            if (player) {
+                return player->getCameraPosition();
+            }
+        }
+
         return m_camera.getPosition();
     }
 
-    void setCameraProjection(glm::mat4 projection){
+    void setCameraProjection(glm::mat4 projection) {
+        if (!m_gameModeFly) {
+            const auto player = dynamic_cast<OGPlayerActor *>(GAME_VIEW->getActivePlayer().get());
+            if (player) {
+                player->setProjectionMatrix(projection);
+            }
+        }
         m_camera.setProjectionMatrix(projection);
     }
 
     void setCameraPosition(glm::vec3 position) {
+        if (!m_gameModeFly) {
+            const auto player = dynamic_cast<OGPlayerActor *>(GAME_VIEW->getActivePlayer().get());
+            if (player) {
+                player->setTranslation(position);
+            }
+        }
         m_camera.setTranslation(position);
     }
 
-    void setCameraRotation(glm::vec3 rotation) {
-        m_camera.setRotation(rotation);
-    }
+    void setSharedCSMData(const CSMData &data) { m_sharedCSMData = data; }
 
-    void setSharedCSMData(const CSMData& data) { m_sharedCSMData = data; }
     CSMData getSharedCSMData() const { return m_sharedCSMData; }
 
     void setCurrentFrame(uint32_t frame) { m_currentFrame = frame; }
+
     uint32_t getCurrentFrame() const { return m_currentFrame; }
+
+    void setGameModeFly(bool fly) { m_gameModeFly = fly; }
+
+    bool isGameModeFly() const { return m_gameModeFly; }
 
 protected:
     OGCamera m_camera;
@@ -109,6 +143,7 @@ protected:
     Input m_input;
     CSMData m_sharedCSMData;
     uint32_t m_currentFrame = 0;
+    bool m_gameModeFly = true;
 };
 
 #define ENGINE OGSingleton<Engine>::getInstance()

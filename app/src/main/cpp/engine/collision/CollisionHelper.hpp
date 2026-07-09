@@ -174,6 +174,66 @@ public:
     }
 
     [[nodiscard]] inline static bool
+    resolvePolygonCapsuleCollision(const OGPolygon &polygon, const CapsuleVolume &capsule,
+                                   OGContact &contact) {
+        glm::vec3 closestToCapsule = ClosestPointOnTriangle(capsule.getBase(),
+                                                            polygon.vertices[0],
+                                                            polygon.vertices[1],
+                                                            polygon.vertices[2]);
+        glm::vec3 capsuleToClosest = closestToCapsule - capsule.getBase();
+
+        float d2 = glm::dot(capsuleToClosest, capsuleToClosest);
+
+        if (d2 < capsule.getRadius() * capsule.getRadius()) {
+            float d = sqrt(d2);
+            contact.hitPoint = closestToCapsule;
+            contact.normal = (d > 0.0f) ? -capsuleToClosest / d : -getPolygonPlane(
+                    polygon).m_normal;
+            contact.depth = capsule.getRadius() - d;
+            return true;
+        }
+
+        return false;
+    }
+
+    /** Point in Triangle Polygon*/
+    [[nodiscard]] inline static bool pointInPolygon(const glm::vec3& point, const OGPolygon& polygon) {
+        return glm::dot(glm::cross(polygon.vertices[2] - polygon.vertices[0], point - polygon.vertices[0]), polygon.normal) >= 0 &&
+               glm::dot(glm::cross(polygon.vertices[0] - polygon.vertices[1], point - polygon.vertices[1]), polygon.normal) >= 0 &&
+               glm::dot(glm::cross(polygon.vertices[1] - polygon.vertices[2], point - polygon.vertices[2]), polygon.normal) >= 0;
+    }
+
+    /** Sphere Projection cast*/
+    [[nodiscard]] inline static bool
+    sphereCastPolygon(const OGPolygon &polygon, const glm::vec3 sphereOrigin, float radius, const glm::vec3& direction, float maxDistance, OGContact& hitResult) {
+        glm::vec3 start = sphereOrigin;
+
+        float startDis = glm::dot(start - polygon.vertices[0], polygon.normal);
+        float demon = glm::dot(direction, polygon.normal);
+
+        if (std::abs(demon) < EPS) {
+            return false;
+        }
+
+        float t = (radius - startDis) / demon;
+
+        /** Valid hit */
+        if (t >= 0 && t <= maxDistance) {
+            glm::vec3 impactCenter = sphereOrigin + direction * t;
+
+            glm::vec3 contactPoint = impactCenter - polygon.normal * radius;
+
+            if (pointInPolygon(glm::vec3(contactPoint), polygon)) {
+                hitResult.hitPoint = contactPoint;
+                hitResult.normal = polygon.normal;
+                hitResult.depth = t;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    [[nodiscard]] inline static bool
     resolvePolygonRay(const OGPolygon &polygon, const glm::vec3 &origin, const glm::vec3 direction,
                       OGContact &hitContact) {
         constexpr float ESP = 0.0000001f;
@@ -207,7 +267,7 @@ public:
 
         if (t > ESP) {
             hitContact.depth = t;
-            hitContact.hitPoint = origin + direction * (float)t;
+            hitContact.hitPoint = origin + direction * (float) t;
             hitContact.normal = glm::normalize(h);
             return true;
         }

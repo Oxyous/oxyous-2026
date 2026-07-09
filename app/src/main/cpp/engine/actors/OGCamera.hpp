@@ -39,6 +39,8 @@ public:
 
     virtual SphereVolume& getBounds() { return m_bounds; }
 
+    bool initialize() override;
+
 protected:
     glm::vec3 m_position{};
     glm::vec3 m_up{};

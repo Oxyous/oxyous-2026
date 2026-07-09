@@ -25,6 +25,11 @@ public:
 
     void setVolume(std::unique_ptr<IVolume> volume);
 
+    template<typename T>
+    T* getCollisionVolume(){
+        return dynamic_cast<T*>(m_collider.get());
+    }
+
 private:
     std::unique_ptr<IVolume> m_collider;
 };

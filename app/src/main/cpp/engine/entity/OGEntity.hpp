@@ -152,6 +152,9 @@ public:
         }
     }
 
+    /** Initialize Actor */
+    virtual bool initialize() = 0;
+
     /* Get World Transform */
     virtual glm::mat4 getWorldTransform() {
         if (m_parent) {
@@ -184,6 +187,11 @@ public:
     /* Get Translation  */
     glm::vec3 getTranslation() const {
         return glm::vec3(m_translation[3]);
+    }
+
+    /* Get Rotation */
+    glm::quat getRotation() const {
+        return m_rotation;
     }
 protected:
     std::unordered_map<ComponentID, std::unique_ptr<OGComponent>> m_components { MAX_COMPONENTS };

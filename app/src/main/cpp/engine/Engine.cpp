@@ -6,6 +6,7 @@
 #include "../render/vulkan/DescriptorCache.hpp"
 #include "GameView.hpp"
 #include "../engine/collision/CollisionHelper.hpp"
+#include "engine/components/OGCollisionComponent.hpp"
 
 bool Engine::initialize(android_app *app) {
     m_app = app;
@@ -25,18 +26,42 @@ void Engine::update(float deltaTime) {
     m_input.update(deltaTime);
     m_camera.update(deltaTime);
 
-    auto camBound = m_camera.getBounds();
+    if (isGameModeFly()) {
+        auto camBound = m_camera.getBounds();
 
-    glm::vec3 camPos = m_camera.getTranslation();
+        glm::vec3 camPos = m_camera.getTranslation();
 
-    for (auto &p: GAME_VIEW->getWorldPolygons()) {
-        OGContact contact;
+        for (auto &p: GAME_VIEW->getWorldPolygons()) {
+            OGContact contact;
 
-        if (CollisionHelper::resolvePolygonSphereCollision(p, camBound, contact)) {
-            // Handle collision response here
-            camPos += contact.normal * contact.depth;
-            m_camera.setTranslation(camPos);
-            camBound.setCenter(camPos);
+            if (CollisionHelper::resolvePolygonSphereCollision(p, camBound, contact)) {
+                // Handle collision response here
+                camPos += contact.normal * contact.depth;
+                m_camera.setTranslation(camPos);
+                camBound.setCenter(camPos);
+            }
+        }
+    } else {
+        const auto player = dynamic_cast<OGPlayerActor*>(GAME_VIEW->getActivePlayer().get());
+        const auto playerCollision = player->getComponent<OGCollisionComponent>()->getCollisionVolume<CapsuleVolume>();
+
+        glm::vec3 playerPos = player->getTranslation();
+        player->setGrounded(false, 0.0f);
+
+        for (auto &p : GAME_VIEW->getWorldPolygons()) {
+            OGContact contact;
+
+            if(CollisionHelper::sphereCastPolygon(p, playerCollision->getBase(), playerCollision->getRadius(), glm::vec3(0.0,-1.0,0.0), 0.2f, contact)) {
+                playerPos += contact.normal * contact.depth;
+                player->setTranslation(playerPos);
+                float height = contact.hitPoint.y - playerCollision->getRadius();
+                player->setGrounded(true,height);
+            }
+
+            if (CollisionHelper::resolvePolygonCapsuleCollision(p, playerCollision->transform(playerPos, player->getRotation()), contact)) {
+                playerPos += contact.normal * contact.depth;
+                player->setTranslation(playerPos);
+            }
         }
     }
 }

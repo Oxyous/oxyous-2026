@@ -9,6 +9,7 @@
 #include "entity/OGEntity.hpp"
 #include "collision/Collision.hpp"
 #include "input/ThumbStick.hpp"
+#include "engine/actors/OGPlayerActor.hpp"
 
 class IGameView {
 public:
@@ -58,13 +59,15 @@ public:
         m_colliders.push_back((T *) std::move(collider));
     }
 
-    /* */
+    /** */
     std::vector<std::shared_ptr<IVolume>> &getColliders() {
         return m_colliders;
     }
 
+    /** Debug Ray cast function */
     std::function<void(const Ray &, OGContact &)> raycastCallback;
 
+    /** Add new actor */
     template<typename T, typename... TArgs>
     T *addActor(std::string name, TArgs &&... args) {
         T *actor(new T(std::forward<TArgs>(args)...));
@@ -72,6 +75,8 @@ public:
         std::unique_ptr<OGEntity> uPtr{actor};
 
         m_entities[name] = std::move(uPtr);
+
+        m_entities[name]->initialize();
 
         return (T *) m_entities[name].get();
     }
@@ -81,10 +86,11 @@ public:
         return m_entities.find(name) != m_entities.end() ? (T *) m_entities[name].get() : nullptr;
     }
 
+    /** Get All actors with component */
     template<typename T>
-    std::vector<OGEntity*> getActorsWithComponent() {
-        std::vector<OGEntity*> results;
-        for (auto const& [name, entity] : m_entities) {
+    std::vector<OGEntity *> getActorsWithComponent() {
+        std::vector<OGEntity *> results;
+        for (auto const &[name, entity]: m_entities) {
             if (entity->hasComponent<T>()) {
                 results.push_back(entity.get());
             }
@@ -92,30 +98,63 @@ public:
         return results;
     }
 
+    /** Load Scene File */
     bool loadSceneFile(const std::string &sceneFile);
 
-    /* */
-    std::vector<OGPolygon>& getWorldPolygons()
-    {
+    /** Get World Collision Polygons */
+    std::vector<OGPolygon> &getWorldPolygons() {
         return m_worldPolygons;
     }
 
     /* */
-    std::vector<OGPolygon>& getWorldBlockingPolygons()
-    {
+    std::vector<OGPolygon> &getWorldBlockingPolygons() {
         return m_BlockingPolygons;
     }
 
     /*  */
-    void computeBlockingPolygons()
-    {
+    void computeBlockingPolygons() {
         m_BlockingPolygons.clear();
         m_BlockingPolygons.reserve(m_worldPolygons.size());
-        for (const auto& poly : m_worldPolygons) {
+        for (const auto &poly: m_worldPolygons) {
             if (std::abs(poly.normal.y) < 0.5f) {
                 m_BlockingPolygons.push_back(poly);
             }
         }
+    }
+
+    /* Get Active Player */
+    std::shared_ptr<OGActor> getActivePlayer() const {
+        return m_activePlayer;
+    }
+
+    void setActivePlayer(OGActor *player) {
+        const auto playerActor = dynamic_cast<OGPlayerActor*>(player);
+
+        if (!playerActor) {
+            aout << "Error: Active player must be of type OGPlayerActor!" << std::endl;
+            return;
+        }
+
+        // Set the active player using a no-op deleter because m_entities owns the underlying unique_ptr
+        m_activePlayer = std::shared_ptr<OGActor>(playerActor, [](OGActor *) {
+            /* No-op deleter as m_entities owns it */
+        });
+    }
+
+    /* Get View Matrix from Active Player */
+    glm::mat4 getViewMatrix() const {
+        if (m_activePlayer) {
+            return dynamic_cast<OGPlayerActor *>(m_activePlayer.get())->getViewMatrix();
+        }
+        return glm::mat4(1.0f);
+    }
+
+    /* Get Projection Matrix from Active Player */
+    glm::mat4 getProjectionMatrix() const {
+        if (m_activePlayer) {
+            return dynamic_cast<OGPlayerActor *>(m_activePlayer.get())->getProjectionMatrix();
+        }
+        return glm::mat4(1.0f);
     }
 
 private:
@@ -126,6 +165,8 @@ private:
 
     std::vector<OGPolygon> m_worldPolygons;
     std::vector<OGPolygon> m_BlockingPolygons;
+
+    std::shared_ptr<OGActor> m_activePlayer;
 };
 
 #define GAME_VIEW OGSingleton<GameView>::getInstance()

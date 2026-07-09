@@ -26,6 +26,9 @@
 #include "engine/ai/NavMesh.hpp"
 #include "IOHelper.hpp"
 #include "render/vulkan/pipelines/UIRender.hpp"
+#include "engine/actors/OGPlayerActor.hpp"
+#include "render/vulkan/Swapchain.hpp"
+#include "engine/collision/CollisionFactory.hpp"
 
 void GameView::render() {
 
@@ -35,12 +38,12 @@ void GameView::update(double deltaTime) {
     for (auto &entity: m_entities) {
         entity.second->update(deltaTime);
     }
-    for (auto &uiElement : UI->getElements()) {
+    for (auto &uiElement: UI->getElements()) {
         uiElement->update(deltaTime);
     }
 
     auto colliders = getActorsWithComponent<OGCollisionComponent>();
-    for (auto& c : colliders) {
+    for (auto &c: colliders) {
         c->update(deltaTime);
     }
 }
@@ -50,14 +53,14 @@ bool GameView::initialize() {
     GPUTexture cubeMapTexture;
 
     /* CubeMap */
-    if(!RenderFramework::createCubMap({
-                                              "cubemap/sky_right.png",
-                                              "cubemap/sky_left.png",
-                                              "cubemap/sky_up.png",
-                                              "cubemap/sky_down.png",
-                                              "cubemap/sky_forward.png",
-                                              "cubemap/sky_back.png"
-                                      }, 1024, &cubeMapTexture)) {
+    if (!RenderFramework::createCubMap({
+                                               "cubemap/sky_right.png",
+                                               "cubemap/sky_left.png",
+                                               "cubemap/sky_up.png",
+                                               "cubemap/sky_down.png",
+                                               "cubemap/sky_forward.png",
+                                               "cubemap/sky_back.png"
+                                       }, 1024, &cubeMapTexture)) {
         aout << "Error: Failed to create cubemap!" << std::endl;
         return false;
     }
@@ -98,14 +101,14 @@ bool GameView::initialize() {
 
     /* Prepare Game Logic*/
 
-    ENGINE->setCameraPosition(glm::vec3(1.0,1.0,1.0));
+    ENGINE->setCameraPosition(glm::vec3(1.0, 1.0, 1.0));
 
-    if(!loadSceneFile("level1/scene_graph.xml")) {
+    if (!loadSceneFile("level1/scene_graph.xml")) {
         aout << "Error: Failed to load scene graph!" << std::endl;
         return false;
     }
 
-    if (!RESOURCE_MANAGER->loadSceneCollision("world.osc",m_worldPolygons)) {
+    if (!RESOURCE_MANAGER->loadSceneCollision("world.osc", m_worldPolygons)) {
         aout << "Error: Failed to load scene collision!" << std::endl;
         return false;
     }
@@ -126,14 +129,44 @@ bool GameView::initialize() {
     };
 
     /* Create UI Elements Button etc*/
-    UI->addButton(new OGButton("button1", "sm-button", glm::vec2(100, 100), glm::vec2(128 * 2.5, 32 * 2.5), []() {
-        aout << "Button 1 clicked!" << std::endl;
-    }));
+    UI->addButton(new OGButton("button1", "sm-button", glm::vec2(100, 100),
+                               glm::vec2(128 * 2.5, 32 * 2.5), []() {
+                aout << "Button 1 clicked!" << std::endl;
+                ENGINE->setGameModeFly(!ENGINE->isGameModeFly());
+            }));
+
+    auto spawnPlayer = addActor<OGPlayerActor>("main-player");
+    if (spawnPlayer) {
+        spawnPlayer->initialize();
+        spawnPlayer->setTranslation(glm::vec3(0.0f, 0.0f, 0.0f));
+
+        auto playerMeshComp = spawnPlayer->addComponent<OGStaticMeshComponent>();
+        if (playerMeshComp) {
+            auto playerMeshRes = RESOURCE_MANAGER->get<GPUStaticMeshResource>("player/player-mesh.osm");
+            auto playerTextureAlbedo = RESOURCE_MANAGER->get<GPUTextureResource>("player/textures/player-demo.png");
+            auto playerTextureNormal = RESOURCE_MANAGER->get<GPUTextureResource>("player/textures/player-nm.png");
+
+            GPUMaterialHandle playerMaterial = {0, 0, 0, 0, 1.0f, 1.0f, 1.0f, 1.0f};
+            playerMaterial.albedoIndex = GPU_RESOURCES->registerTexture(*playerTextureAlbedo->get());
+            playerMaterial.normalIndex = GPU_RESOURCES->registerTexture(*playerTextureNormal->get());
+
+            uint32_t materialSlot = GPU_RESOURCES->registerMaterial(playerMaterial);
+            playerMeshComp->setMeshResource(playerMeshRes);
+            playerMeshComp->setMaterialIndex(materialSlot);
+
+            spawnPlayer->setProjectionMatrix(glm::perspective(glm::radians(60.0f), (float) SWAPCHAIN->getExtent().width / (float)  SWAPCHAIN->getExtent().width, 0.1f, 10000.0f));
+
+            setActivePlayer(spawnPlayer);
+        }
+
+        auto collision = spawnPlayer->addComponent<OGCollisionComponent>();
+        collision->setVolume(std::unique_ptr<CapsuleVolume>(CollisionFactory::createCapsule(0.5f, 2.0f)));
+    }
 
     return true;
 }
 
-bool GameView::loadSceneFile(const std::string& sceneFile) {
+bool GameView::loadSceneFile(const std::string &sceneFile) {
 
     std::vector<std::unique_ptr<OGXmlNode>> sceneGraph;
     if (!OGXml::loadGXml(sceneFile, sceneGraph)) {
@@ -146,7 +179,7 @@ bool GameView::loadSceneFile(const std::string& sceneFile) {
     std::map<std::string, uint32_t> materialSlots;
     std::shared_ptr<OGXmlNode> sceneRoot;
 
-    for (const auto &node : sceneGraph) {
+    for (const auto &node: sceneGraph) {
         if (node->getName() == "Scene") {
             sceneRoot = std::shared_ptr<OGXmlNode>(node.get(), [](OGXmlNode *) {});
             break;
@@ -157,7 +190,7 @@ bool GameView::loadSceneFile(const std::string& sceneFile) {
         return false;
     }
 
-    for (const auto &node : sceneRoot->getChildren()) {
+    for (const auto &node: sceneRoot->getChildren()) {
         if (node->getName() == "Material") {
             const auto &attrs = node->getAttributes();
             auto nameAttr = attrs.find("name");
@@ -170,19 +203,22 @@ bool GameView::loadSceneFile(const std::string& sceneFile) {
 
             auto albedoAttr = attrs.find("albedo");
             if (albedoAttr != attrs.end()) {
-                auto texture = RESOURCE_MANAGER->get<GPUTextureResource>(scenePath + "/textures/" + albedoAttr->second);
+                auto texture = RESOURCE_MANAGER->get<GPUTextureResource>(
+                        scenePath + "/textures/" + albedoAttr->second);
                 material.albedoIndex = GPU_RESOURCES->registerTexture(*texture->get());
             }
 
             auto normalAttr = attrs.find("normal");
             if (normalAttr != attrs.end()) {
-                auto texture = RESOURCE_MANAGER->get<GPUTextureResource>(scenePath + "/textures/" + normalAttr->second);
+                auto texture = RESOURCE_MANAGER->get<GPUTextureResource>(
+                        scenePath + "/textures/" + normalAttr->second);
                 material.normalIndex = GPU_RESOURCES->registerTexture(*texture->get());
             }
 
             auto pbrAttr = attrs.find("pbr");
             if (pbrAttr != attrs.end()) {
-                auto texture = RESOURCE_MANAGER->get<GPUTextureResource>(scenePath + "/textures/" + pbrAttr->second);
+                auto texture = RESOURCE_MANAGER->get<GPUTextureResource>(
+                        scenePath + "/textures/" + pbrAttr->second);
                 material.ormIndex = GPU_RESOURCES->registerTexture(*texture->get());
             }
 
@@ -205,7 +241,7 @@ bool GameView::loadSceneFile(const std::string& sceneFile) {
             for (const auto &childElem: node->getChildren()) {
                 if (childElem->getName() == "Location") {
                     glm::vec3 position(0.0f);
-                    for (const auto &attr : childElem->getAttributes()) {
+                    for (const auto &attr: childElem->getAttributes()) {
                         if (attr.first == "x") {
                             position.x = std::stof(attr.second);
                         } else if (attr.first == "y") {
@@ -219,7 +255,7 @@ bool GameView::loadSceneFile(const std::string& sceneFile) {
 
                 if (childElem->getName() == "Rotation") {
                     glm::vec3 q(0.0f);
-                    for (const auto &attr : childElem->getAttributes()) {
+                    for (const auto &attr: childElem->getAttributes()) {
                         if (attr.first == "x") {
                             q.x = std::stof(attr.second);
                         } else if (attr.first == "y") {
@@ -233,7 +269,7 @@ bool GameView::loadSceneFile(const std::string& sceneFile) {
 
                 if (childElem->getName() == "Scale") {
                     glm::vec3 scale(1.0f);
-                    for (const auto& attr : childElem->getAttributes()) {
+                    for (const auto &attr: childElem->getAttributes()) {
                         if (attr.first == "x") {
                             scale.x = std::stof(attr.second);
                         } else if (attr.first == "y") {
@@ -248,7 +284,8 @@ bool GameView::loadSceneFile(const std::string& sceneFile) {
                 if (childElem->getName() == "MeshResource") {
                     auto valueAttr = childElem->getAttributes().find("value");
                     if (valueAttr != childElem->getAttributes().end()) {
-                        auto mesh = RESOURCE_MANAGER->get<GPUStaticMeshResource>(scenePath + "/" + valueAttr->second + ".osm");
+                        auto mesh = RESOURCE_MANAGER->get<GPUStaticMeshResource>(
+                                scenePath + "/" + valueAttr->second + ".osm");
                         meshComp->setMeshResource(mesh);
                     }
                 }
@@ -266,7 +303,8 @@ bool GameView::loadSceneFile(const std::string& sceneFile) {
                 if (childElem->getName() == "BoundingBox") {
                     auto minAttr = childElem->getAttributes().find("min");
                     auto maxAttr = childElem->getAttributes().find("max");
-                    if (minAttr != childElem->getAttributes().end() && maxAttr != childElem->getAttributes().end()) {
+                    if (minAttr != childElem->getAttributes().end() &&
+                        maxAttr != childElem->getAttributes().end()) {
                         glm::vec3 minVec(0.0f);
                         glm::vec3 maxVec(0.0f);
 

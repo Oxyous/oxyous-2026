@@ -14,6 +14,7 @@ add_library(oxyous_2026 SHARED
         engine/collision/PlaneVolume.cpp
         engine/collision/AABBVolume.cpp
         engine/collision/SphereVolume.cpp
+        engine/collision/CapsuleVolume.cpp
         engine/collision/BHV.cpp
         engine/input/Input.cpp
         engine/input/ThumbStick.cpp
@@ -29,6 +30,7 @@ add_library(oxyous_2026 SHARED
         engine/ui/OGSprite.cpp
         engine/ui/OGSpriteAtlas.cpp
         engine/actors/OGCamera.cpp
+        engine/actors/OGPlayerActor.cpp
         engine/components/OGCollisionComponent.cpp
         render/text/FreeTypeFont.cpp
         render/vulkan/pipelines/ScreenSpace.cpp

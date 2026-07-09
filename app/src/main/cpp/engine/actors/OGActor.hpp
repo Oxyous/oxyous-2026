@@ -18,7 +18,7 @@ public:
         m_pathIndex = 0;
     }
 
-    void update(double deltaTime) override {
+    virtual void update(double deltaTime) override {
         OGEntity::update(deltaTime);
 
         if(m_path.size() > 0) {
@@ -63,6 +63,8 @@ public:
 
         return rotationMatrix;
     }
+
+    virtual bool initialize() override;
 
 protected:
     std::vector<glm::vec3> m_path;
