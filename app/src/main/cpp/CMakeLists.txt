@@ -15,12 +15,15 @@ add_library(oxyous_2026 SHARED
         engine/collision/AABBVolume.cpp
         engine/collision/SphereVolume.cpp
         engine/collision/CapsuleVolume.cpp
+        engine/collision/OBBVolume.cpp
         engine/collision/BHV.cpp
         engine/input/Input.cpp
         engine/input/ThumbStick.cpp
         engine/elements/OGElement.cpp
         engine/elements/OGButton.cpp
         engine/elements/ScreenSpaceRenderer.cpp
+        engine/physics/OGPhysicsManager.cpp
+        engine/physics/OGCollisionManifold.cpp
         engine/GameView.cpp
         engine/Engine.cpp
         engine/GPUResources.cpp
@@ -32,6 +35,7 @@ add_library(oxyous_2026 SHARED
         engine/actors/OGCamera.cpp
         engine/actors/OGPlayerActor.cpp
         engine/components/OGCollisionComponent.cpp
+        engine/components/OGPhysicsComponent.cpp
         render/text/FreeTypeFont.cpp
         render/vulkan/pipelines/ScreenSpace.cpp
         render/vulkan/pipelines/ShadowCapture.cpp

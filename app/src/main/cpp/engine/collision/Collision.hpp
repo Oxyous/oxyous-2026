@@ -15,6 +15,7 @@ class CapsuleVolume;
 class OBBVolume;
 class Ray;
 class RaycastHit;
+class OGCollisionManifold;
 
 class IVolume {
 public:
@@ -37,6 +38,9 @@ public:
 
     /* Intersect Plane with Volume */
     [[nodiscard]] virtual bool intersect(const PlaneVolume& plane) const = 0;
+
+    /** Determinate Collision with Volume*/
+    virtual OGCollisionManifold resolveCollision(IVolume* volume) = 0;
 };
 
 /* Plane Volume */
@@ -59,6 +63,8 @@ public:
     bool intersect(const OBBVolume& obb) const override;
 
     bool intersect(const PlaneVolume& plane) const override;
+
+    virtual OGCollisionManifold resolveCollision(IVolume* volume) override;
 public:
     glm::vec3 m_normal;
     float m_distance;
@@ -91,6 +97,8 @@ public:
     bool intersect(const OBBVolume& obb) const override;
     /* Intersect Plane with Volume */
     bool intersect(const PlaneVolume& obb) const override;
+    /* resolve Collision */
+    virtual OGCollisionManifold resolveCollision(IVolume* volume) override;
 protected:
     glm::vec3 m_center;
     float m_radius;
@@ -128,6 +136,9 @@ public:
 
     /* Intersect Plane with Volume */
     bool intersect(const PlaneVolume& plane) const override;
+
+    /* resolve Collision */
+    virtual OGCollisionManifold resolveCollision(IVolume* volume) override;
 protected:
     glm::vec3 m_base;
     glm::vec3 m_top;
@@ -180,6 +191,8 @@ public:
 
     bool intersect(const PlaneVolume& plane) const override;
 
+    /* resolve Collision */
+    virtual OGCollisionManifold resolveCollision(IVolume* volume) override;
 public:
     glm::vec3 m_min;
     glm::vec3 m_max;
@@ -190,12 +203,12 @@ class OBBVolume : public IVolume {
 public:
     friend class CollisionFactory;
     OBBVolume() = default;
-    OBBVolume(const glm::vec3& center, const glm::vec3& extents, const glm::quat& rotation) : m_center(center), m_extents(extents), m_rotation(rotation) {}
+    OBBVolume(const glm::vec3& center, const glm::vec3& extents, const glm::quat& rotation) : m_center(center), m_extents(extents), m_orientation(rotation) {}
 
     ~OBBVolume() override = default;
 
     /**/
-    glm::quat getOrientation() const { return m_rotation; }
+    glm::quat getOrientation() const { return m_orientation; }
 
     glm::vec3 getCenter() const { return m_center; }
 
@@ -217,10 +230,12 @@ public:
     /** */
     bool intersect(const PlaneVolume& plane) const override;
 
+    /* resolve Collision */
+    virtual OGCollisionManifold resolveCollision(IVolume* volume) override;
 public:
     glm::vec3 m_center;
     glm::vec3 m_extents;
-    glm::quat m_rotation;
+    glm::quat m_orientation;
 };
 
 /*  */

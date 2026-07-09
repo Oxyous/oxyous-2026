@@ -3,6 +3,7 @@
 //
 
 #include "Collision.hpp"
+#include "../physics/OGCollisionManifold.hpp"
 
 bool CapsuleVolume::intersect(const Ray& ray, RaycastHit& hit) const {
     // TODO: Implement Ray-Capsule intersection
@@ -42,5 +43,9 @@ CapsuleVolume CapsuleVolume::transform(const glm::vec3 &position, const glm::qua
     glm::vec3 newBase = position + (rotation * m_base);
     glm::vec3 newTop = position + (rotation * m_top);
     return CapsuleVolume(newBase, newTop, m_radius);
+}
+
+OGCollisionManifold CapsuleVolume::resolveCollision(IVolume *volume) {
+    return OGCollisionManifold();
 }
 

@@ -4,6 +4,8 @@
 
 #include "../../includes.hpp"
 #include "Collision.hpp"
+#include "../physics/OGCollisionManifold.hpp"
+
 
 bool PlaneVolume::intersect(const Ray &ray, RaycastHit &hit) const {
     float numerator = glm::dot(ray.m_origin, m_normal) + m_distance;
@@ -64,4 +66,8 @@ bool PlaneVolume::intersect(const PlaneVolume &plane) const{
     // Two planes intersect if they are not parallel
     float dot = glm::dot(m_normal, plane.m_normal);
     return std::abs(dot) < 1.0f - 1e-6f; // Allow for some numerical error
+}
+
+OGCollisionManifold PlaneVolume::resolveCollision(IVolume *volume) {
+    return OGCollisionManifold();
 }

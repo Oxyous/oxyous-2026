@@ -42,7 +42,7 @@ public:
         OBBVolume* obb = new OBBVolume();
         obb->m_center = center;
         obb->m_extents = extents;
-        obb->m_rotation = orientation;
+        obb->m_orientation = orientation;
         return obb;
     }
 };

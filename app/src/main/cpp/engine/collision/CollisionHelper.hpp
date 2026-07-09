@@ -6,6 +6,7 @@
 #define OXYOUS_2026_COLLISIONHELPER_HPP
 
 #include "Collision.hpp"
+#include "../physics/OGCollisionManifold.hpp"
 
 class CollisionHelper {
 private:
@@ -197,15 +198,21 @@ public:
     }
 
     /** Point in Triangle Polygon*/
-    [[nodiscard]] inline static bool pointInPolygon(const glm::vec3& point, const OGPolygon& polygon) {
-        return glm::dot(glm::cross(polygon.vertices[2] - polygon.vertices[0], point - polygon.vertices[0]), polygon.normal) >= 0 &&
-               glm::dot(glm::cross(polygon.vertices[0] - polygon.vertices[1], point - polygon.vertices[1]), polygon.normal) >= 0 &&
-               glm::dot(glm::cross(polygon.vertices[1] - polygon.vertices[2], point - polygon.vertices[2]), polygon.normal) >= 0;
+    [[nodiscard]] inline static bool
+    pointInPolygon(const glm::vec3 &point, const OGPolygon &polygon) {
+        return glm::dot(
+                glm::cross(polygon.vertices[2] - polygon.vertices[0], point - polygon.vertices[0]),
+                polygon.normal) >= 0 &&
+               glm::dot(glm::cross(polygon.vertices[0] - polygon.vertices[1],
+                                   point - polygon.vertices[1]), polygon.normal) >= 0 &&
+               glm::dot(glm::cross(polygon.vertices[1] - polygon.vertices[2],
+                                   point - polygon.vertices[2]), polygon.normal) >= 0;
     }
 
     /** Sphere Projection cast*/
     [[nodiscard]] inline static bool
-    sphereCastPolygon(const OGPolygon &polygon, const glm::vec3 sphereOrigin, float radius, const glm::vec3& direction, float maxDistance, OGContact& hitResult) {
+    sphereCastPolygon(const OGPolygon &polygon, const glm::vec3 sphereOrigin, float radius,
+                      const glm::vec3 &direction, float maxDistance, OGContact &hitResult) {
         glm::vec3 start = sphereOrigin;
 
         float startDis = glm::dot(start - polygon.vertices[0], polygon.normal);
@@ -274,6 +281,285 @@ public:
 
         return false;
     }
+
+    /** Get Projected Range STA*/
+    [[nodiscard]]
+    inline static glm::vec2
+    getPolygonProjectedRange(const OGPolygon &polygon, const glm::vec3 &axis, float &min,
+                             float &max) {
+        min = max = glm::dot(polygon.vertices[0], axis);
+        for (int i = 1; i < 3; ++i) {
+            float projection = glm::dot(polygon.vertices[i], axis);
+            if (projection < min) {
+                min = projection;
+            }
+            if (projection > max) {
+                max = projection;
+            }
+        }
+        return glm::vec2(min, max);
+    }
+
+    /** Project SAT range for OBB */
+    [[nodiscard]]
+    inline static glm::vec2 getProjectRangeOBB(const OBBVolume &obb, const glm::vec3 &axis) {
+        glm::vec2 range(FLT_MAX, -FLT_MAX);
+        std::vector<glm::vec3> vertices;
+
+        computeObbVertices(obb, vertices);
+
+        for (int i = 0; i < 8; i++) {
+            float projection = glm::dot(vertices[i], axis);
+            if (projection < range.x) {
+                range.x = projection;
+            }
+            if (projection > range.y) {
+                range.y = projection;
+            }
+        }
+        return range;
+    }
+
+    /** Test in point lies inside OBB */
+    inline static bool pointInsideOBB(const OBBVolume &obb, const glm::vec3 &point) {
+        auto direction = point - obb.getCenter();
+
+        for (auto i = 0; i < 3; i++) {
+            auto axis = glm::mat3_cast(obb.getOrientation())[i];
+            auto projection = glm::dot(direction, axis);
+            if (projection < -obb.getExtents()[i] || projection > obb.getExtents()[i]) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /** Extract OBB Vertices */
+    inline static void
+    computeObbVertices(const OBBVolume &obb, std::vector<glm::vec3> &verticesOut) {
+        verticesOut.resize(8);
+        glm::vec3 center = obb.getCenter();
+        glm::vec3 extents = obb.getExtents();
+
+        auto X = glm::mat3_cast(obb.getOrientation())[0];
+        auto Y = glm::mat3_cast(obb.getOrientation())[1];
+        auto Z = glm::mat3_cast(obb.getOrientation())[2];
+
+        verticesOut[0] = glm::vec3(center + X * extents.x + Y * extents.y + Z * extents.z);
+        verticesOut[1] = glm::vec3(center - X * extents.x + Y * extents.y + Z * extents.z);
+        verticesOut[2] = glm::vec3(center + X * extents.x - Y * extents.y + Z * extents.z);
+        verticesOut[3] = glm::vec3(center - X * extents.x - Y * extents.y + Z * extents.z);
+        verticesOut[4] = glm::vec3(center - X * extents.x - Y * extents.y - Z * extents.z);
+        verticesOut[5] = glm::vec3(center + X * extents.x - Y * extents.y - Z * extents.z);
+        verticesOut[6] = glm::vec3(center - X * extents.x + Y * extents.y - Z * extents.z);
+        verticesOut[7] = glm::vec3(center + X * extents.x + Y * extents.y - Z * extents.z);
+    }
+
+    /** Extract OBB Edges */
+    inline static void computeObbEdges(const OBBVolume &obb, std::vector<OGSegment> &edges) {
+        edges.resize(12);
+
+        std::vector<glm::vec3> vertices;
+        computeObbVertices(obb, vertices);
+
+        int indices[][2] = {
+                {1, 6},
+                {6, 3},
+                {6, 4},
+                {2, 7},
+                {2, 5},
+                {2, 0},
+                {0, 1},
+                {0, 3},
+                {7, 1},
+                {7, 4},
+                {4, 5},
+                {5, 3}
+        };
+
+        for (auto i = 0; i < 12; i++) {
+            edges[i] = OGSegment{
+                    vertices[indices[i][0]],
+                    vertices[indices[i][1]]
+            };
+        }
+    }
+
+    /** Extract OBB planes */
+    inline static void
+    computeObbPlanes(const OBBVolume &obb, std::vector<PlaneVolume> &planes) {
+        planes.resize(6);
+
+        auto X = glm::mat3_cast(obb.getOrientation())[0];
+        auto Y = glm::mat3_cast(obb.getOrientation())[1];
+        auto Z = glm::mat3_cast(obb.getOrientation())[2];
+
+        planes[0] = PlaneVolume{X, glm::dot(X, obb.getCenter() + X * obb.getExtents().x)};
+        planes[1] = PlaneVolume{-X, glm::dot(-X, obb.getCenter() - X * obb.getExtents().x)};
+        planes[2] = PlaneVolume{Y, glm::dot(Y, obb.getCenter() + Y * obb.getExtents().y)};
+        planes[3] = PlaneVolume{-Y, glm::dot(-Y, obb.getCenter() - Y * obb.getExtents().y)};
+        planes[4] = PlaneVolume{Z, glm::dot(Z, obb.getCenter() + Z * obb.getExtents().z)};
+        planes[5] = PlaneVolume{-Z, glm::dot(-Z, obb.getCenter() - Z * obb.getExtents().z)};
+    }
+
+    /** Clip a segment by plane */
+    inline static bool clipSegmentPlane(const OGSegment& segment, const PlaneVolume& plane, glm::vec3& intersection) {
+        glm::vec3 ab = segment.end - segment.start;
+        float denom = glm::dot(plane.m_normal, ab);
+
+        if (std::abs(denom) > EPS) {
+            float t = (plane.m_distance - glm::dot(plane.m_normal, segment.start)) / denom;
+            if (t >= 0.0f && t <= 1.0f) {
+                intersection = segment.start + t * ab;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** Clip OBB Edges */
+    inline static void clipEdgesOBB(const OBBVolume &obb, const std::vector<OGSegment> &edges,
+                                    std::vector<glm::vec3> &pointsOut) {
+        std::vector<PlaneVolume> obbPlanes;
+        computeObbPlanes(obb, obbPlanes);
+        glm::vec3 intersection{};
+
+        for (auto i = 0; i < obbPlanes.size(); i++) {
+            for (auto j = 0; j < edges.size(); ++j) {
+                if (clipSegmentPlane(edges[j], obbPlanes[i], intersection)) {
+                    pointsOut.push_back(intersection);
+                }
+            }
+        }
+    }
+
+    /** Calculate Penetration Depth of Two OBBs*/
+    inline static float
+    penetrationDepth(const OBBVolume &obbA, const OBBVolume &obbB, const glm::vec3 &axis,
+                     bool *shouldFlip) {
+        auto projA = getProjectRangeOBB(obbA, axis);
+        auto projB = getProjectRangeOBB(obbB, axis);
+
+        if (!(projB.x <= projA.y) && (projA.x <= projB.y)) {
+            return 0.0f;
+        }
+
+        auto lenA = projA.y - projA.x;
+        auto lenB = projB.y - projB.x;
+
+        auto min = fminf(projA.x, projB.x);
+        auto max = fmaxf(projA.y, projB.y);
+
+        auto distance = max - min;
+
+        if (shouldFlip) {
+            *shouldFlip = (projB.x < projA.x);
+        }
+
+        return (lenA + lenB) - distance;
+    }
+
+    /** Resolve Collision Between to OBB volumes */
+   inline static OGCollisionManifold resolveCollision(const OBBVolume &obbA, const OBBVolume &obbB) {
+        OGCollisionManifold manifold{};
+
+        auto aX = glm::mat3_cast(obbA.getOrientation())[0];
+        auto aY = glm::mat3_cast(obbA.getOrientation())[1];
+        auto aZ = glm::mat3_cast(obbA.getOrientation())[2];
+
+        auto bX = glm::mat3_cast(obbB.getOrientation())[0];
+        auto bY = glm::mat3_cast(obbB.getOrientation())[1];
+        auto bZ = glm::mat3_cast(obbB.getOrientation())[2];
+
+        glm::vec3 tests[15] = {
+                aX,
+                aY,
+                aZ,
+                bX,
+                bY,
+                bZ
+        };
+
+        glm::vec3 aAxes[] = {aX, aY, aZ};
+        glm::vec3 bAxes[] = {bX, bY, bZ};
+
+        for (auto i = 0; i < 3; ++i) {
+            for (auto j = 0; j < 3; ++j) {
+                tests[6 + i * 3 + j] = glm::cross(aAxes[i], bAxes[j]);
+            }
+        }
+
+        glm::vec3 *contactNormal = nullptr;
+        bool shouldFlip = false;
+
+        for (auto i = 0; i < 15; ++i) {
+            if (glm::dot(tests[i], tests[i]) < 0.0001f) {
+                continue;
+            }
+
+            float depth = CollisionHelper::penetrationDepth(obbA, obbB, tests[i], &shouldFlip);
+
+            if (depth <= 0.0f) {
+                return OGCollisionManifold();
+            }
+
+            if (depth < manifold.m_depth) {
+                if (shouldFlip) {
+                    tests[i] = tests[i] * -1.0f;
+                }
+                manifold.m_depth = depth;
+                contactNormal = &tests[i];
+            }
+        }
+
+        /** Exit if no normal found */
+        if (contactNormal == nullptr) {
+            return OGCollisionManifold();
+        }
+
+        glm::vec3 axis = glm::normalize(*contactNormal);
+
+        std::vector<glm::vec3> c1, c2;
+        std::vector<OGSegment> e1, e2;
+        CollisionHelper::computeObbEdges(obbA, e1);
+        CollisionHelper::computeObbEdges(obbB, e2);
+
+        CollisionHelper::clipEdgesOBB(obbA, e1, c1);
+        CollisionHelper::clipEdgesOBB(obbB, e2, c2);
+
+        manifold.m_contacts.reserve(c1.size() + c2.size());
+        manifold.m_contacts.insert(manifold.m_contacts.end(), c1.begin(), c1.end());
+        manifold.m_contacts.insert(manifold.m_contacts.end(), c2.begin(), c2.end());
+
+        /** */
+        auto projA = CollisionHelper::getProjectRangeOBB(obbA, axis);
+
+        float dist = ((projA.y - projA.x) * 0.5) - manifold.m_depth * 0.5f;
+
+        glm::vec3 pointOnPlane = obbA.getCenter() + (axis * dist);
+
+        for (auto i = manifold.m_contacts.size() - 1; i > 0; --i) {
+            glm::vec3 contact = manifold.m_contacts[i];
+
+            manifold.m_contacts[i] = contact + axis * glm::dot(pointOnPlane - contact, axis);
+
+            for (auto j = manifold.m_contacts.size() - 1; j > i; --j) {
+                auto dif = manifold.m_contacts[j] - manifold.m_contacts[i];
+                if (glm::dot(dif, dif) < 0.00001f) {
+                    manifold.m_contacts.erase(manifold.m_contacts.begin() + j);
+                    break;
+                }
+            }
+        }
+
+        manifold.m_colliding = true;
+        manifold.m_normal = *contactNormal;
+
+        return manifold;
+    }
+
 };
 
 #endif //OXYOUS_2026_COLLISIONHELPER_HPP

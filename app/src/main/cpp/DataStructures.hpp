@@ -35,6 +35,13 @@ typedef struct OGContact {
     float depth;
 } OGContact;
 
+/** Simple 3d Segment */
+typedef struct OGSegment
+{
+    glm::vec3 start;
+    glm::vec3 end;
+} OGSegment;
+
 /* App Engine Struct */
 struct appEngine {
     int32_t width;

@@ -149,16 +149,16 @@ void android_main(struct android_app *pApp) {
 
         // Check if any user data is associated. This is assigned in handle_cmd
         if (pApp->userData) {
-            auto *gameEngine = reinterpret_cast<appEngine *>(pApp->userData);
+            auto *ge = reinterpret_cast<appEngine *>(pApp->userData);
 
-            if (gameEngine->renderer) {
+            if (ge->renderer) {
+                SYS_TIMER->Tick();
                 ENGINE->handleInput();
                 ENGINE->update(SYS_TIMER->GetDelta());
-                SYS_TIMER->Tick();
 
                 // Update then Render
-                gameEngine->renderer->update(SYS_TIMER->GetDelta());
-                gameEngine->renderer->render();
+                ge->renderer->update(SYS_TIMER->GetDelta());
+                ge->renderer->render();
             }
         }
     } while (!pApp->destroyRequested);

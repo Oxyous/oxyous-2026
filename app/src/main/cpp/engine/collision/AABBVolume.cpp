@@ -3,6 +3,8 @@
 //
 
 #include "Collision.hpp"
+#include "../physics/OGCollisionManifold.hpp"
+
 
 bool AABBVolume::intersect(const Ray& ray, RaycastHit& hit) const
 {
@@ -36,5 +38,9 @@ bool AABBVolume::intersect(const PlaneVolume &plane) const {
     float distance = glm::dot(plane.m_normal, center) - plane.m_distance;
 
     return std::abs(distance) <= projectionRadius;
+}
+
+OGCollisionManifold AABBVolume::resolveCollision(IVolume *volume) {
+    return OGCollisionManifold();
 }
 

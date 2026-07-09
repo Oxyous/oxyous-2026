@@ -7,6 +7,7 @@
 #include "GameView.hpp"
 #include "../engine/collision/CollisionHelper.hpp"
 #include "engine/components/OGCollisionComponent.hpp"
+#include "engine/physics/OGPhysicsManager.hpp"
 
 bool Engine::initialize(android_app *app) {
     m_app = app;
@@ -51,19 +52,14 @@ void Engine::update(float deltaTime) {
         for (auto &p : GAME_VIEW->getWorldPolygons()) {
             OGContact contact;
 
-            if(CollisionHelper::sphereCastPolygon(p, playerCollision->getBase(), playerCollision->getRadius(), glm::vec3(0.0,-1.0,0.0), 0.2f, contact)) {
-                playerPos += contact.normal * contact.depth;
-                player->setTranslation(playerPos);
-                float height = contact.hitPoint.y - playerCollision->getRadius();
-                player->setGrounded(true,height);
-            }
-
             if (CollisionHelper::resolvePolygonCapsuleCollision(p, playerCollision->transform(playerPos, player->getRotation()), contact)) {
                 playerPos += contact.normal * contact.depth;
                 player->setTranslation(playerPos);
             }
         }
     }
+
+    PHYSICS->update(deltaTime);
 }
 
 void Engine::handleInput() {

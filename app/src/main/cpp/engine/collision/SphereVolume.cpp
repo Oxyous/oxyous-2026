@@ -4,6 +4,8 @@
 
 #include "Collision.hpp"
 #include <cmath>
+#include "../physics/OGCollisionManifold.hpp"
+
 
 /*  */
 bool SphereVolume::intersect(const Ray& ray, RaycastHit& hit) const
@@ -58,7 +60,7 @@ bool SphereVolume::intersect(const PlaneVolume &plane) const {
 
 bool SphereVolume::intersect(const OBBVolume &obb) const {
     // Transform the sphere center into the OBB's local space
-    glm::vec3 localCenter = glm::vec3(glm::inverse(glm::mat4_cast(obb.m_rotation)) * glm::vec4((m_center - obb.m_center),1.0));
+    glm::vec3 localCenter = glm::vec3(glm::inverse(glm::mat4_cast(obb.m_orientation)) * glm::vec4((m_center - obb.m_center),1.0));
 
     // Find the closest point on the OBB to the sphere center
     glm::vec3 closestPoint = glm::clamp(localCenter, -obb.m_extents, obb.m_extents);
@@ -76,5 +78,9 @@ void SphereVolume::setCenter(glm::vec3 newCenter) {
 
 void SphereVolume::setRadius(float radius) {
     m_radius = radius;
+}
+
+OGCollisionManifold SphereVolume::resolveCollision(IVolume *volume) {
+    return OGCollisionManifold();
 }
 

@@ -175,6 +175,11 @@ public:
         m_rotation = glm::rotate(m_rotation, rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
     }
 
+    /** Set Local Rotation using Quaternion */
+    virtual void setRotation(const glm::quat rotation) {
+        m_rotation = rotation;
+    }
+
     virtual glm::vec3 getTranslation(){
         return glm::vec3(m_translation[3]);
     }
