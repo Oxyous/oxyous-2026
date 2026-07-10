@@ -11,6 +11,7 @@ add_library(oxyous_2026 SHARED
         main.cpp
         engine/algorithms/AStar.cpp
         engine/actors/OGActor.cpp
+        engine/actors/OGCharacter.cpp
         engine/collision/PlaneVolume.cpp
         engine/collision/AABBVolume.cpp
         engine/collision/SphereVolume.cpp

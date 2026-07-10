@@ -429,7 +429,9 @@ public:
         for (auto i = 0; i < obbPlanes.size(); i++) {
             for (auto j = 0; j < edges.size(); ++j) {
                 if (clipSegmentPlane(edges[j], obbPlanes[i], intersection)) {
-                    pointsOut.push_back(intersection);
+                    if (pointInsideOBB(obb, intersection)) {
+                        pointsOut.push_back(intersection);
+                    }
                 }
             }
         }
@@ -442,7 +444,7 @@ public:
         auto projA = getProjectRangeOBB(obbA, axis);
         auto projB = getProjectRangeOBB(obbB, axis);
 
-        if (!(projB.x <= projA.y) && (projA.x <= projB.y)) {
+        if (projB.x > projA.y || projA.x > projB.y) {
             return 0.0f;
         }
 
@@ -526,8 +528,8 @@ public:
         CollisionHelper::computeObbEdges(obbA, e1);
         CollisionHelper::computeObbEdges(obbB, e2);
 
-        CollisionHelper::clipEdgesOBB(obbA, e1, c1);
-        CollisionHelper::clipEdgesOBB(obbB, e2, c2);
+        CollisionHelper::clipEdgesOBB(obbA, e2, c1);
+        CollisionHelper::clipEdgesOBB(obbB, e1, c2);
 
         manifold.m_contacts.reserve(c1.size() + c2.size());
         manifold.m_contacts.insert(manifold.m_contacts.end(), c1.begin(), c1.end());

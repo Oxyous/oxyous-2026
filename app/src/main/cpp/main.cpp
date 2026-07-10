@@ -9,6 +9,7 @@
 #include "resources/ResourceManager.hpp"
 #include "engine/Engine.hpp"
 #include "system/OGTimer.hpp"
+#include "engine/physics/OGPhysicsManager.hpp"
 
 extern "C" {
 
@@ -107,15 +108,15 @@ void android_main(struct android_app *pApp) {
     pApp->onAppCmd = handle_cmd;
     pApp->userData = &gameEngine;
 
-    SYS_TIMER->Start();
-
-
     RESOURCE_MANAGER->setAssetManager(pApp->activity->assetManager);
 
     // Set input event filters (set it to NULL if the app wants to process all inputs).
     // Note that for key inputs, this example uses the default default_key_filter()
     // implemented in android_native_app_glue.c.
     android_app_set_motion_event_filter(pApp, motion_event_filter_func);
+
+    const float physicsDeltaTime = 1.0f / 60.0f;
+    float physicsAccumulator = 0.0f;
 
     // This sets up a typical game/event loop. It will run until the app is destroyed.
     do {
@@ -154,6 +155,13 @@ void android_main(struct android_app *pApp) {
             if (ge->renderer) {
                 SYS_TIMER->Tick();
                 ENGINE->handleInput();
+
+                physicsAccumulator += SYS_TIMER->GetDelta();
+                while (physicsAccumulator >= physicsDeltaTime) {
+                    PHYSICS->update(physicsDeltaTime);
+                    physicsAccumulator -= physicsDeltaTime;
+                }
+
                 ENGINE->update(SYS_TIMER->GetDelta());
 
                 // Update then Render

@@ -71,3 +71,7 @@ bool PlaneVolume::intersect(const PlaneVolume &plane) const{
 OGCollisionManifold PlaneVolume::resolveCollision(IVolume *volume) {
     return OGCollisionManifold();
 }
+
+void PlaneVolume::transform(const glm::mat4& transform) {
+
+}

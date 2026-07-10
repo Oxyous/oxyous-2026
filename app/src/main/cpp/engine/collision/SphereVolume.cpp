@@ -84,3 +84,7 @@ OGCollisionManifold SphereVolume::resolveCollision(IVolume *volume) {
     return OGCollisionManifold();
 }
 
+void SphereVolume::transform(const glm::mat4 &transform) {
+    m_center = glm::vec3(transform * glm::vec4(m_center, 1.0f));
+}
+

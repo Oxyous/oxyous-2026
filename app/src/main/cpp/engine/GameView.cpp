@@ -29,6 +29,10 @@
 #include "engine/actors/OGPlayerActor.hpp"
 #include "render/vulkan/Swapchain.hpp"
 #include "engine/collision/CollisionFactory.hpp"
+#include "engine/actors/OGCharacter.hpp"
+#include "engine/components/OGPhysicsComponent.hpp"
+#include "engine/physics/OGPhysicsManager.hpp"
+#include "system/OGTimer.hpp"
 
 void GameView::render() {
 
@@ -113,9 +117,10 @@ bool GameView::initialize() {
         return false;
     }
 
+    /** AI Test */
     NavMesh navMesh(m_worldPolygons);
 
-    auto movableActor = addActor<OGActor>("movableActor");
+    auto movableActor = addActor<OGCharacter>("movableActor");
     auto movableMesh = movableActor->addComponent<OGStaticMeshComponent>();
     movableMesh->setMeshResource(mesh);
     movableMesh->setMaterialIndex(0);
@@ -128,13 +133,14 @@ bool GameView::initialize() {
         }
     };
 
-    /* Create UI Elements Button etc*/
+    /** Create UI Elements Button etc*/
     UI->addButton(new OGButton("button1", "sm-button", glm::vec2(100, 100),
                                glm::vec2(128 * 2.5, 32 * 2.5), []() {
                 aout << "Button 1 clicked!" << std::endl;
                 ENGINE->setGameModeFly(!ENGINE->isGameModeFly());
             }));
 
+    /** Create Player Character */
     auto spawnPlayer = addActor<OGPlayerActor>("main-player");
     if (spawnPlayer) {
         spawnPlayer->initialize();
@@ -162,6 +168,40 @@ bool GameView::initialize() {
         auto collision = spawnPlayer->addComponent<OGCollisionComponent>();
         collision->setVolume(std::unique_ptr<CapsuleVolume>(CollisionFactory::createCapsule(0.5f, 2.0f)));
     }
+
+    /** Physics Test - Ground*/
+    auto ground = addActor<OGActor>("ground-plane");
+    auto groundPhys = ground->addComponent<OGPhysicsComponent>();
+    auto groundObb = ground->addComponent<OGCollisionComponent>();
+    groundObb->setVolume(std::unique_ptr<OBBVolume>(CollisionFactory::createOBB(glm::vec3(0.0f,0.0f,0.0f), glm::vec3(50.0f, 0.5f, 50.0f), glm::mat3(1.0f))));
+    ground->setTranslation(glm::vec3(0.0f, -1.0f, 0.0f));
+    groundPhys->setMass(0.0f);
+
+    /** Physics test - Box */
+    auto boxMeshRes = RESOURCE_MANAGER->get<GPUStaticMeshResource>("box/box.osm");
+    auto boxAlbedo = RESOURCE_MANAGER->get<GPUTextureResource>("box/textures/box-diffuse.png");
+    auto boxNormal = RESOURCE_MANAGER->get<GPUTextureResource>("box/textures/box-normal.jpg");
+    GPUMaterialHandle boxMaterial = {0, 0, 0, 0, 1.0f, 1.0f, 1.0f, 1.0f};
+    boxMaterial.albedoIndex = GPU_RESOURCES->registerTexture(*boxAlbedo->get());
+    boxMaterial.normalIndex = GPU_RESOURCES->registerTexture(*boxNormal->get());
+    uint32_t boxMaterialSlot = GPU_RESOURCES->registerMaterial(boxMaterial);
+
+    auto box = addActor<OGActor>("box");
+    box->setTranslation(glm::vec3(0.0f, 10.0f, 0.0f));
+    box->setRotation(glm::vec3(glm::radians(15.0f), glm::radians(15.0f), glm::radians(15.0f)));
+    auto boxMesh = box->addComponent<OGStaticMeshComponent>();
+    boxMesh->setMeshResource(boxMeshRes);
+    boxMesh->setMaterialIndex(boxMaterialSlot);
+    auto boxPhys = box->addComponent<OGPhysicsComponent>();
+    auto boxObb = box->addComponent<OGCollisionComponent>();
+    auto boxBound = CollisionFactory::createOBB(glm::vec3(0.0,10.0,0.0), glm::vec3(1.0f, 1.0f, 1.0f), glm::mat3(1.0f));
+    boxObb->setVolume(std::unique_ptr<OBBVolume>(boxBound));
+    boxPhys->setMass(1.0f);
+
+    SYS_TIMER->Start();
+    PHYSICS->registerPhysicsActor(ground);
+    PHYSICS->registerPhysicsActor(box);
+    PHYSICS->start();
 
     return true;
 }

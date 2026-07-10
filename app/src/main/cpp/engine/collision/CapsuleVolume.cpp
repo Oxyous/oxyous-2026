@@ -49,3 +49,7 @@ OGCollisionManifold CapsuleVolume::resolveCollision(IVolume *volume) {
     return OGCollisionManifold();
 }
 
+void CapsuleVolume::transform(const glm::mat4 &transform) {
+
+}
+

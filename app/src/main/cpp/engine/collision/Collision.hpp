@@ -41,6 +41,9 @@ public:
 
     /** Determinate Collision with Volume*/
     virtual OGCollisionManifold resolveCollision(IVolume* volume) = 0;
+
+    /** Transform Volume */
+    virtual void transform(const glm::mat4& transform) = 0;
 };
 
 /* Plane Volume */
@@ -65,6 +68,10 @@ public:
     bool intersect(const PlaneVolume& plane) const override;
 
     virtual OGCollisionManifold resolveCollision(IVolume* volume) override;
+
+    /** Transform Volume*/
+    virtual void transform(const glm::mat4& transform) override;
+
 public:
     glm::vec3 m_normal;
     float m_distance;
@@ -99,6 +106,8 @@ public:
     bool intersect(const PlaneVolume& obb) const override;
     /* resolve Collision */
     virtual OGCollisionManifold resolveCollision(IVolume* volume) override;
+    /** Transform Volume*/
+    virtual void transform(const glm::mat4& transform) override;
 protected:
     glm::vec3 m_center;
     float m_radius;
@@ -139,6 +148,9 @@ public:
 
     /* resolve Collision */
     virtual OGCollisionManifold resolveCollision(IVolume* volume) override;
+
+    /** Transform Volume*/
+    virtual void transform(const glm::mat4& transform) override;
 protected:
     glm::vec3 m_base;
     glm::vec3 m_top;
@@ -193,6 +205,9 @@ public:
 
     /* resolve Collision */
     virtual OGCollisionManifold resolveCollision(IVolume* volume) override;
+
+    /** Transform Volume*/
+    virtual void transform(const glm::mat4& transform) override;
 public:
     glm::vec3 m_min;
     glm::vec3 m_max;
@@ -232,6 +247,9 @@ public:
 
     /* resolve Collision */
     virtual OGCollisionManifold resolveCollision(IVolume* volume) override;
+
+    /** Transform Volume*/
+    virtual void transform(const glm::mat4& transform) override;
 public:
     glm::vec3 m_center;
     glm::vec3 m_extents;

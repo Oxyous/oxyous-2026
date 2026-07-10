@@ -44,3 +44,7 @@ OGCollisionManifold AABBVolume::resolveCollision(IVolume *volume) {
     return OGCollisionManifold();
 }
 
+void AABBVolume::transform(const glm::mat4 &transform) {
+
+}
+

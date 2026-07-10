@@ -9,7 +9,8 @@ void OGCollisionComponent::initialize() {
 }
 
 void OGCollisionComponent::update(double deltaTime) {
-
+    auto transform = getOwner()->getWorldTransform();
+    m_collider->transform(transform);
 }
 
 void OGCollisionComponent::destroy() {

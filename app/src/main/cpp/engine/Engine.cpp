@@ -58,8 +58,6 @@ void Engine::update(float deltaTime) {
             }
         }
     }
-
-    PHYSICS->update(deltaTime);
 }
 
 void Engine::handleInput() {

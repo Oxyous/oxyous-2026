@@ -13,14 +13,19 @@ void OGPhysicsComponent::computeInertia() {
         throw std::runtime_error("Error: Physics Component has no volume");
     }
 
-    const auto obb = dynamic_cast<OBBVolume*>(volume);
+    if(m_massInverse == 0.0f) {
+        m_inverseInertia = glm::mat3(1.0f);
+        m_inverseInertiaWorld = glm::mat3(1.0f);
+        return;
+    }
+
+    const auto obb = dynamic_cast<OBBVolume *>(volume);
 
     if (obb) {
         float fraction = 1.0f / 12.0f;
         float x2 = obb->getExtents().x * obb->getExtents().x;
         float y2 = obb->getExtents().y * obb->getExtents().y;
         float z2 = obb->getExtents().z * obb->getExtents().z;
-        const auto extents = obb->getExtents();
         ix = ((y2 + z2) / m_massInverse) * fraction;
         iy = ((x2 + z2) / m_massInverse) * fraction;
         iz = ((x2 + y2) / m_massInverse) * fraction;
@@ -31,47 +36,68 @@ void OGPhysicsComponent::computeInertia() {
                 0.0, 0.0, iz);
 
         m_inverseInertia = glm::inverse(m_inverseInertia);
+
+        glm::mat3 rot = glm::mat3_cast(m_owner->getRotation());
+        m_inverseInertiaWorld = rot * m_inverseInertia * glm::transpose(rot);
+        return;
+    }
+
+    const auto sphere = dynamic_cast<SphereVolume *>(volume);
+    if (sphere) {
+        float r2 = sphere->getRadius() * sphere->getRadius();
+        float i = (2.0f / 5.0f) * (1.0f / m_massInverse) * r2;
+        m_inverseInertia = glm::mat3(1.0f / i);
+        m_inverseInertiaWorld = m_inverseInertia; // Sphere inertia is invariant to rotation
         return;
     }
 }
 
-void OGPhysicsComponent::update(double delta) {
-    if (!m_owner) {
-        throw std::runtime_error("Error: Physics Component has no owner");
-    }
+void OGPhysicsComponent::integrateForces(float dt) {
+    if (!m_isAwake || m_massInverse == 0.0f) return;
 
-    if (!m_owner->getComponent<OGCollisionComponent>()) {
-        throw std::runtime_error("Error: Physics Component has no collision component");
-    }
+    // Standard damping (per second)
+    m_velocity *= powf(0.98f, dt);
+    m_angularVelocity *= powf(0.98f, dt);
 
-    const auto volume = m_owner->getComponent<OGCollisionComponent>()->getCollisionVolume<IVolume>();
-    if (!volume) {
-        throw std::runtime_error("Error: Physics Component has no volume");
-    }
+    m_velocity += m_acceleration * dt;
 
-    // Update position based on velocity
-    glm::vec3 newPosition = m_owner->getTranslation() + m_velocity * (float) delta;
+    glm::vec3 angularAcceleration = m_inverseInertiaWorld * m_torques;
+    m_torques = glm::vec3(0.0f);
+    m_angularVelocity += angularAcceleration * dt;
+}
+
+void OGPhysicsComponent::integrateVelocity(float dt) {
+    if (!m_isAwake || m_massInverse == 0.0f) return;
+
+    // Update position based on new velocity
+    glm::vec3 newPosition = m_owner->getTranslation() + m_velocity * dt;
     m_owner->setTranslation(newPosition);
 
-    // Update rotation based on angular velocity
-    glm::quat deltaRotation = glm::quat(0.0f, m_angularVelocity * (float) delta);
-    glm::quat newRotation = glm::normalize(deltaRotation * m_owner->getRotation());
-    m_owner->setRotation(newRotation);
+    // Update rotation based on new angular velocity
+    glm::vec3 scaledAV = m_angularVelocity * dt;
+    float angle = glm::length(scaledAV);
+    if (angle > 1e-6f) {
+        glm::quat deltaRotation = glm::angleAxis(angle, scaledAV / angle);
+        m_owner->setRotation(glm::normalize(deltaRotation * m_owner->getRotation()));
+    }
+}
 
-
+void OGPhysicsComponent::update(double delta) {
+    computeInertia();
 }
 
 float OGPhysicsComponent::getMass() {
     return m_massInverse;
 }
 
-glm::mat3 OGPhysicsComponent::getInertiaTensor() const{
-    return m_inverseInertia;
+glm::mat3 OGPhysicsComponent::getInertiaTensor() const {
+    return m_inverseInertiaWorld;
 }
 
 glm::vec3 OGPhysicsComponent::getVelocity() const {
     return m_velocity;
 }
+
 glm::vec3 OGPhysicsComponent::getAngularVelocity() const {
     return m_angularVelocity;
 }
@@ -98,4 +124,32 @@ void OGPhysicsComponent::setFriction(float friction) {
 
 void OGPhysicsComponent::setAwake(bool awake) {
     m_isAwake = awake;
+}
+
+void OGPhysicsComponent::initialize() {
+    if (m_massInverse > 0.0f) {
+        auto col = m_owner ? m_owner->getComponent<OGCollisionComponent>() : nullptr;
+        if (col && col->getCollisionVolume<IVolume>()) {
+            computeInertia();
+        }
+    }
+}
+
+void OGPhysicsComponent::destroy() {
+
+}
+
+void OGPhysicsComponent::render(VkCommandBuffer &commandBuffer, uint64_t currentFrame) {
+
+}
+
+OGEntity *OGPhysicsComponent::getOwner() const {
+    return OGComponent::getOwner();
+}
+
+void OGPhysicsComponent::setMass(float mass) {
+
+    if (mass == 0.0f) return;
+    //m_forces = GRAVITY_CONSTANT * m_massInverse;
+    m_massInverse = 1.0f / mass;
 }

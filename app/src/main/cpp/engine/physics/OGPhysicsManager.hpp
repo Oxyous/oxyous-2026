@@ -27,6 +27,9 @@ public:
     /** Add Actor Reference to physics system */
     void registerPhysicsActor(OGEntity* actorRef);
 
+    /** */
+    void start();
+
 private:
     void resolveCollisions();
     void integrate(float deltaTime);
@@ -39,6 +42,7 @@ protected:
     float m_gravity = -9.81f;
     std::vector<OGEntity*> m_physicsActors;
     std::vector<OGCollisionManifold> m_manifolds;
+    bool m_executing = false;
 };
 
 #define PHYSICS OGSingleton<OGPhysicsManager>::getInstance()

@@ -3,7 +3,3 @@
 //
 
 #include "OGActor.hpp"
-
-bool OGActor::initialize() {
-    return true;
-}

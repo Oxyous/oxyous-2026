@@ -194,6 +194,21 @@ public:
         points.push_back(p);
     }
 
+    inline static bool isClose(const float &a, const float &b) {
+        return (fabsf(a - b) <= 0.0001f);
+    }
+    /**
+    static glm::quat addScaledVector(const glm::vec3& v, const glm::quat& q, float scale) {
+        glm::quat scaled = glm::quat(v.x * scale, v.y * scale, v.z * scaled, 0.0f);
+        scaled *= q;
+
+        float w += scaled * 0.5f;
+        float x += scaled * 0.5f;
+        float y += scaled * 0.5f;
+        float z += scaled * 0.5f;
+
+        return glm::quat(x,y,z,w);
+    }*/
 };
 
 #endif //OXYOUS_2026_MATHHELPER_HPP

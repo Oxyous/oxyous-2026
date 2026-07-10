@@ -6,6 +6,7 @@
 #include "../collision/CollisionHelper.hpp"
 #include "../collision/Collision.hpp"
 #include "engine/components/OGCollisionComponent.hpp"
+#include "../math/MathHelper.hpp"
 
 
 OGPhysicsManager::OGPhysicsManager() {
@@ -17,6 +18,15 @@ OGPhysicsManager::~OGPhysicsManager() {
 }
 
 void OGPhysicsManager::update(float deltaTime) {
+    if (!m_executing) return;
+
+    // 1. Integrate Forces
+    for (auto actor : m_physicsActors) {
+        auto phys = actor->getComponent<OGPhysicsComponent>();
+        if (phys) phys->integrateForces(deltaTime);
+    }
+
+    // 2. Detect Collisions
     OGCollisionManifold manifold;
     m_manifolds.clear();
 
@@ -24,9 +34,7 @@ void OGPhysicsManager::update(float deltaTime) {
         auto colA = m_physicsActors[i]->getComponent<OGCollisionComponent>();
         auto volA = colA->getCollisionVolume<IVolume>();
 
-        for (auto j = i; j < m_physicsActors.size(); ++j) {
-            if (i == j) continue;
-
+        for (auto j = i + 1; j < m_physicsActors.size(); ++j) {
             auto colB = m_physicsActors[j]->getComponent<OGCollisionComponent>();
             auto volB = colB->getCollisionVolume<IVolume>();
 
@@ -53,12 +61,30 @@ void OGPhysicsManager::update(float deltaTime) {
             }
         }
     }
-/**
+
+    // 3. Resolve Collisions (Position then Impulses)
     std::sort(m_manifolds.begin(), m_manifolds.end(),
               [](const OGCollisionManifold &a, const OGCollisionManifold &b) {
                   return a.m_depth > b.m_depth;
               });
-*/
+
+    for (const auto &m: m_manifolds) {
+        updatePositionManifold(m);
+    }
+
+    for (int i = 0; i < 8; i++) {
+        for (auto &m: m_manifolds) {
+            for (size_t k = 0; k < m.m_contacts.size(); k++) {
+                applyRotationImpulse(m, (int) k);
+            }
+        }
+    }
+
+    // 4. Integrate Velocities (Move objects)
+    for (auto actor : m_physicsActors) {
+        auto phys = actor->getComponent<OGPhysicsComponent>();
+        if (phys) phys->integrateVelocity(deltaTime);
+    }
 }
 
 void OGPhysicsManager::registerPhysicsActor(OGEntity *actorRef) {
@@ -81,20 +107,21 @@ void OGPhysicsManager::updatePositionManifold(const OGCollisionManifold &manifol
         return;
     }
 
-    float massRatioA = bodyB->getMass() / totalMass;
-    float massRatioB = bodyA->getMass() / totalMass;
+    float massRatioA = bodyA->getMass() / totalMass;
+    float massRatioB = bodyB->getMass() / totalMass;
 
-    glm::vec3 correctionVector = manifold.m_normal * manifold.m_depth;
+    float percent = 0.5f; // Baumgarte stabilization
+    glm::vec3 correctionVector = manifold.m_normal * (manifold.m_depth * percent);
 
     if (bodyA->getMass() > 0.0f) {
         glm::vec3 newPositionA =
-                bodyA->getOwner()->getTranslation() + correctionVector * massRatioA;
+                bodyA->getOwner()->getTranslation() - correctionVector * massRatioA;
         bodyA->getOwner()->setTranslation(newPositionA);
     }
 
     if (bodyB->getMass() > 0.0f) {
         glm::vec3 newPositionB =
-                bodyB->getOwner()->getTranslation() - correctionVector * massRatioB;
+                bodyB->getOwner()->getTranslation() + correctionVector * massRatioB;
         bodyB->getOwner()->setTranslation(newPositionB);
     }
 }
@@ -129,6 +156,10 @@ void OGPhysicsManager::applyRotationImpulse(const OGCollisionManifold &manifold,
     }
 
     float e = fminf(bodyA->getRestitution(), bodyB->getRestitution());
+    if (std::abs(glm::dot(relativeVelocity, relativeNormal)) < 0.2f) {
+        e = 0.0f;
+    }
+
     float numerator = (-(1.0f + e) * glm::dot(relativeVelocity, relativeNormal));
 
     float d1 = massSum;
@@ -137,10 +168,6 @@ void OGPhysicsManager::applyRotationImpulse(const OGCollisionManifold &manifold,
     float denominator = d1 + glm::dot(relativeNormal, d2 + d3);
 
     float j = (denominator != 0.0f) ? numerator / denominator : 0.0f;
-
-    if (manifold.m_contacts.size() > 0 && j != 0.0f) {
-        j /= (float) manifold.m_contacts.size();
-    }
 
     glm::vec3 impulse = relativeNormal * j;
 
@@ -153,29 +180,26 @@ void OGPhysicsManager::applyRotationImpulse(const OGCollisionManifold &manifold,
     bodyA->setVelocity(velA - impulse * massA);
     bodyB->setVelocity(velB + impulse * massB);
 
-    bodyA->setAngularVelocity(angA - i1 * glm::cross(r1, impulse));
-    bodyB->setAngularVelocity(angB + i2 * glm::cross(r2, impulse));
+    bodyA->setAngularVelocity(angA - (i1 * glm::cross(r1, impulse)));
+    bodyB->setAngularVelocity(angB + (i2 * glm::cross(r2, impulse)));
 
     glm::vec3 t = relativeVelocity - (relativeNormal * glm::dot(relativeVelocity, relativeNormal));
 
-    if (glm::dot(t, t) < 0.0001f)
+    if (Math::isClose(glm::dot(t, t), 0.0f))
         return;
 
     t = glm::normalize(t);
 
     numerator = -glm::dot(relativeVelocity, t);
     d1 = massSum;
-    d2 = glm::cross(glm::cross(r1, t) * i1, r1);
-    d3 = glm::cross(glm::cross(r2, t) * i2, r2);
+    d2 = glm::cross(i1 * glm::cross(r1, t), r1);
+    d3 = glm::cross(i2 * glm::cross(r2, t), r2);
 
     denominator = d1 + glm::dot(t, d2 + d3);
 
     float jt = (denominator != 0.0f) ? numerator / denominator : 0.0f;
-    if (manifold.m_contacts.size() > 0.0f && jt != 0.0f) {
-        jt /= (float)manifold.m_contacts.size();
-    }
 
-    if (jt < 0.00001f) return;
+    if (Math::isClose(jt, 0.0)) return;
 
     float friction = sqrt(bodyA->getFriction() * bodyB->getFriction());
     if (jt > j * friction) {
@@ -186,12 +210,22 @@ void OGPhysicsManager::applyRotationImpulse(const OGCollisionManifold &manifold,
 
     glm::vec3 tangentImpulse = t * jt;
 
+    velA = bodyA->getVelocity();
+    velB = bodyB->getVelocity();
+
     bodyA->setVelocity(velA - tangentImpulse * massA);
     bodyB->setVelocity(velB + tangentImpulse * massB);
 
-    bodyA->setAngularVelocity(angA - i1 * glm::cross(r1, tangentImpulse));
-    bodyB->setAngularVelocity(angB + i2 * glm::cross(r2, tangentImpulse));
+    angA = bodyA->getAngularVelocity();
+    angB = bodyB->getAngularVelocity();
+
+    bodyA->setAngularVelocity(angA - (i1 * glm::cross(r1, tangentImpulse)));
+    bodyB->setAngularVelocity(angB + (i2 * glm::cross(r2, tangentImpulse)));
 
     bodyA->setAwake(true);
     bodyB->setAwake(true);
+}
+
+void OGPhysicsManager::start() {
+    m_executing = true;
 }

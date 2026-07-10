@@ -15,7 +15,7 @@ bool OBBVolume::intersect(const Ray &ray, RaycastHit &hit) const {
     glm::vec3 delta = m_center - ray.m_origin;
 
     // Test intersection with the 3 planes of the OBB
-    for (int i = 0; i < 3; ++i) {
+    for (auto i = 0; i < 3; ++i) {
         glm::vec3 axis = glm::mat3_cast(m_orientation)[i];
         float e = glm::dot(axis, delta);
         float f = glm::dot(ray.m_direction, axis);
@@ -88,4 +88,9 @@ OGCollisionManifold OBBVolume::resolveCollision(IVolume *volume) {
     }
 
     return OGCollisionManifold();
+}
+
+void OBBVolume::transform(const glm::mat4 &transform) {
+    m_center = transform[3];
+    m_orientation = glm::quat_cast(transform);
 }
