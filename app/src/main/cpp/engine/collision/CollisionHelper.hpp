@@ -493,35 +493,39 @@ public:
             }
         }
 
-        glm::vec3 *contactNormal = nullptr;
+        glm::vec3 bestAxis = glm::vec3(0.0f);
         bool shouldFlip = false;
+        bool found = false;
 
         for (auto i = 0; i < 15; ++i) {
-            if (glm::dot(tests[i], tests[i]) < 0.0001f) {
+            float magSq = glm::dot(tests[i], tests[i]);
+            if (magSq < 1e-6f) {
                 continue;
             }
 
-            float depth = CollisionHelper::penetrationDepth(obbA, obbB, tests[i], &shouldFlip);
+            glm::vec3 axis = tests[i] * (1.0f / sqrtf(magSq));
+            bool currentShouldFlip = false;
+            float depth = CollisionHelper::penetrationDepth(obbA, obbB, axis, &currentShouldFlip);
 
             if (depth <= 0.0f) {
                 return OGCollisionManifold();
             }
 
             if (depth < manifold.m_depth) {
-                if (shouldFlip) {
-                    tests[i] = tests[i] * -1.0f;
-                }
                 manifold.m_depth = depth;
-                contactNormal = &tests[i];
+                bestAxis = axis;
+                shouldFlip = currentShouldFlip;
+                found = true;
             }
         }
 
         /** Exit if no normal found */
-        if (contactNormal == nullptr) {
+        if (!found) {
             return OGCollisionManifold();
         }
 
-        glm::vec3 axis = glm::normalize(*contactNormal);
+        glm::vec3 axis = shouldFlip ? -bestAxis : bestAxis;
+        manifold.m_normal = axis;
 
         std::vector<glm::vec3> c1, c2;
         std::vector<OGSegment> e1, e2;
@@ -531,25 +535,28 @@ public:
         CollisionHelper::clipEdgesOBB(obbA, e2, c1);
         CollisionHelper::clipEdgesOBB(obbB, e1, c2);
 
+        manifold.m_contacts.clear();
         manifold.m_contacts.reserve(c1.size() + c2.size());
         manifold.m_contacts.insert(manifold.m_contacts.end(), c1.begin(), c1.end());
         manifold.m_contacts.insert(manifold.m_contacts.end(), c2.begin(), c2.end());
 
-        /** */
+        if (manifold.m_contacts.empty()) {
+             manifold.m_contacts.push_back((obbA.getCenter() + obbB.getCenter()) * 0.5f);
+        }
+
+        /** Project contact points onto the reference plane to ensure they are on the surface */
         auto projA = CollisionHelper::getProjectRangeOBB(obbA, axis);
+        float planeProj = projA.y - manifold.m_depth * 0.5f;
 
-        float dist = ((projA.y - projA.x) * 0.5) - manifold.m_depth * 0.5f;
+        for (int i = (int)manifold.m_contacts.size() - 1; i >= 0; --i) {
+            glm::vec3& contact = manifold.m_contacts[i];
 
-        glm::vec3 pointOnPlane = obbA.getCenter() + (axis * dist);
+            float currentProj = glm::dot(contact, axis);
+            contact += axis * (planeProj - currentProj);
 
-        for (auto i = manifold.m_contacts.size() - 1; i > 0; --i) {
-            glm::vec3 contact = manifold.m_contacts[i];
-
-            manifold.m_contacts[i] = contact + axis * glm::dot(pointOnPlane - contact, axis);
-
-            for (auto j = manifold.m_contacts.size() - 1; j > i; --j) {
+            for (int j = (int)manifold.m_contacts.size() - 1; j > i; --j) {
                 auto dif = manifold.m_contacts[j] - manifold.m_contacts[i];
-                if (glm::dot(dif, dif) < 0.00001f) {
+                if (glm::dot(dif, dif) < 0.001f) {
                     manifold.m_contacts.erase(manifold.m_contacts.begin() + j);
                     break;
                 }
@@ -557,8 +564,6 @@ public:
         }
 
         manifold.m_colliding = true;
-        manifold.m_normal = *contactNormal;
-
         return manifold;
     }
 

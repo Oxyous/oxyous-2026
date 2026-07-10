@@ -168,7 +168,9 @@ void OGPhysicsManager::applyRotationImpulse(const OGCollisionManifold &manifold,
     float denominator = d1 + glm::dot(relativeNormal, d2 + d3);
 
     float j = (denominator != 0.0f) ? numerator / denominator : 0.0f;
-
+    if (manifold.m_contacts.size() > 0.0f && j != 0.0f) {
+        j /= (float) manifold.m_contacts.size();
+    }
     glm::vec3 impulse = relativeNormal * j;
 
     auto velA = bodyA->getVelocity();
@@ -198,7 +200,6 @@ void OGPhysicsManager::applyRotationImpulse(const OGCollisionManifold &manifold,
     denominator = d1 + glm::dot(t, d2 + d3);
 
     float jt = (denominator != 0.0f) ? numerator / denominator : 0.0f;
-
     if (Math::isClose(jt, 0.0)) return;
 
     float friction = sqrt(bodyA->getFriction() * bodyB->getFriction());

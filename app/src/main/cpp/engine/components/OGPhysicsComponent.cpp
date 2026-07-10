@@ -14,28 +14,26 @@ void OGPhysicsComponent::computeInertia() {
     }
 
     if(m_massInverse == 0.0f) {
-        m_inverseInertia = glm::mat3(1.0f);
-        m_inverseInertiaWorld = glm::mat3(1.0f);
+        m_inverseInertia = glm::mat3(0.0f);
+        m_inverseInertiaWorld = glm::mat3(0.0f);
         return;
     }
 
     const auto obb = dynamic_cast<OBBVolume *>(volume);
 
     if (obb) {
-        float fraction = 1.0f / 12.0f;
+        float fraction = 1.0f / 3.0f; // Correct for half-extents
         float x2 = obb->getExtents().x * obb->getExtents().x;
         float y2 = obb->getExtents().y * obb->getExtents().y;
         float z2 = obb->getExtents().z * obb->getExtents().z;
-        ix = ((y2 + z2) / m_massInverse) * fraction;
-        iy = ((x2 + z2) / m_massInverse) * fraction;
-        iz = ((x2 + y2) / m_massInverse) * fraction;
+        ix = (y2 + z2) * (1.0f / m_massInverse) * fraction;
+        iy = (x2 + z2) * (1.0f / m_massInverse) * fraction;
+        iz = (x2 + y2) * (1.0f / m_massInverse) * fraction;
 
         m_inverseInertia = glm::mat3(
-                ix, 0.0, 0.0,
-                0.0, iy, 0.0,
-                0.0, 0.0, iz);
-
-        m_inverseInertia = glm::inverse(m_inverseInertia);
+                1.0f / ix, 0.0, 0.0,
+                0.0, 1.0f / iy, 0.0,
+                0.0, 0.0, 1.0f / iz);
 
         glm::mat3 rot = glm::mat3_cast(m_owner->getRotation());
         m_inverseInertiaWorld = rot * m_inverseInertia * glm::transpose(rot);
@@ -47,7 +45,7 @@ void OGPhysicsComponent::computeInertia() {
         float r2 = sphere->getRadius() * sphere->getRadius();
         float i = (2.0f / 5.0f) * (1.0f / m_massInverse) * r2;
         m_inverseInertia = glm::mat3(1.0f / i);
-        m_inverseInertiaWorld = m_inverseInertia; // Sphere inertia is invariant to rotation
+        m_inverseInertiaWorld = m_inverseInertia;
         return;
     }
 }
@@ -80,6 +78,9 @@ void OGPhysicsComponent::integrateVelocity(float dt) {
         glm::quat deltaRotation = glm::angleAxis(angle, scaledAV / angle);
         m_owner->setRotation(glm::normalize(deltaRotation * m_owner->getRotation()));
     }
+
+    // Update world inertia for the next step/frame
+    computeInertia();
 }
 
 void OGPhysicsComponent::update(double delta) {
