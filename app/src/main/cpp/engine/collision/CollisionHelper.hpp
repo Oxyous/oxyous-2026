@@ -142,6 +142,121 @@ public:
         return a + ab * v + ac * w;
     }
 
+    /* Closest Points Between Two Segments */
+    inline static void
+    ClosestPointsBetweenSegments(const OGSegment &s1, const OGSegment &s2,
+                                 glm::vec3 &p1, glm::vec3 &p2) {
+        glm::vec3 d1 = s1.end - s1.start;
+        glm::vec3 d2 = s2.end - s2.start;
+        glm::vec3 r = s1.start - s2.start;
+        float a = glm::dot(d1, d1);
+        float e = glm::dot(d2, d2);
+        float f = glm::dot(d2, r);
+
+        float s, t;
+
+        if (a <= EPS && e <= EPS) {
+            s = t = 0.0f;
+            p1 = s1.start;
+            p2 = s2.start;
+            return;
+        }
+        if (a <= EPS) {
+            s = 0.0f;
+            t = glm::clamp(f / e, 0.0f, 1.0f);
+        } else {
+            float c = glm::dot(d1, r);
+            if (e <= EPS) {
+                t = 0.0f;
+                s = glm::clamp(-c / a, 0.0f, 1.0f);
+            } else {
+                float b = glm::dot(d1, d2);
+                float denom = a * e - b * b;
+                if (denom != 0.0f) {
+                    s = glm::clamp((b * f - c * e) / denom, 0.0f, 1.0f);
+                } else {
+                    s = 0.0f;
+                }
+                t = (b * s + f) / e;
+                if (t < 0.0f) {
+                    t = 0.0f;
+                    s = glm::clamp(-c / a, 0.0f, 1.0f);
+                } else if (t > 1.0f) {
+                    t = 1.0f;
+                    s = glm::clamp((b - c) / a, 0.0f, 1.0f);
+                }
+            }
+        }
+        p1 = s1.start + d1 * s;
+        p2 = s2.start + d2 * t;
+    }
+
+    /* Closest Points Between Segment and Triangle */
+    inline static void
+    ClosestPointsSegmentTriangle(const OGSegment &segment, const OGPolygon &poly,
+                                 glm::vec3 &pSegment, glm::vec3 &pTriangle) {
+        // 1. Test segment endpoints against triangle face
+        glm::vec3 p1 = ClosestPointOnTriangle(segment.start, poly.vertices[0], poly.vertices[1], poly.vertices[2]);
+        glm::vec3 p2 = ClosestPointOnTriangle(segment.end, poly.vertices[0], poly.vertices[1], poly.vertices[2]);
+
+        glm::vec3 v1 = p1 - segment.start;
+        glm::vec3 v2 = p2 - segment.end;
+        float d1 = glm::dot(v1, v1);
+        float d2 = glm::dot(v2, v2);
+
+        float minD2 = d1;
+        pSegment = segment.start;
+        pTriangle = p1;
+
+        if (d2 < minD2) {
+            minD2 = d2;
+            pSegment = segment.end;
+            pTriangle = p2;
+        }
+
+        // 2. Test segment against 3 triangle edges
+        OGSegment edges[3] = {
+            {poly.vertices[0], poly.vertices[1]},
+            {poly.vertices[1], poly.vertices[2]},
+            {poly.vertices[2], poly.vertices[0]}
+        };
+
+        for (int i = 0; i < 3; ++i) {
+            glm::vec3 curS, curT;
+            ClosestPointsBetweenSegments(segment, edges[i], curS, curT);
+            glm::vec3 diff = curT - curS;
+            float curD2 = glm::dot(diff, diff);
+            if (curD2 < minD2) {
+                minD2 = curD2;
+                pSegment = curS;
+                pTriangle = curT;
+            }
+        }
+    }
+
+    /** Closest Point to OBB */
+    [[nodiscard]] inline static glm::vec3
+    closestPointOnOBB(const OBBVolume &obb, const glm::vec3 &point) {
+        glm::vec3 d = point - obb.getCenter();
+        glm::vec3 q = obb.getCenter();
+
+        for (auto i = 0; i < 3; i++) {
+            auto axis = glm::mat3_cast(obb.getOrientation())[i];
+            float dist = glm::dot(d, axis);
+            dist = glm::clamp(dist, -obb.getExtents()[i], obb.getExtents()[i]);
+            q += dist * axis;
+        }
+        return q;
+    }
+
+    /** Closest Point on Segment*/
+    [[nodiscard]] inline static glm::vec3 closestPointOnSegment(const OGSegment& segment, const glm::vec3 &point) {
+        glm::vec3 ab = segment.end - segment.start;
+        float t = glm::dot(point - segment.start, ab) / glm::dot(ab, ab);
+        t = glm::clamp(t, 0.0f, 1.0f);
+        return segment.start + t * ab;
+    }
+
     /* */
     [[nodiscard]] inline static PlaneVolume getPolygonPlane(const OGPolygon &polygon) {
         PlaneVolume plane;
@@ -177,24 +292,95 @@ public:
     [[nodiscard]] inline static bool
     resolvePolygonCapsuleCollision(const OGPolygon &polygon, const CapsuleVolume &capsule,
                                    OGContact &contact) {
-        glm::vec3 closestToCapsule = ClosestPointOnTriangle(capsule.getBase(),
-                                                            polygon.vertices[0],
-                                                            polygon.vertices[1],
-                                                            polygon.vertices[2]);
-        glm::vec3 capsuleToClosest = closestToCapsule - capsule.getBase();
+        glm::vec3 pSegment, pTriangle;
+        OGSegment capsuleSeg = {capsule.getBase(), capsule.getTop()};
+        ClosestPointsSegmentTriangle(capsuleSeg, polygon, pSegment, pTriangle);
 
-        float d2 = glm::dot(capsuleToClosest, capsuleToClosest);
+        glm::vec3 segmentToTriangle = pSegment - pTriangle;
+        float d2 = glm::dot(segmentToTriangle, segmentToTriangle);
 
         if (d2 < capsule.getRadius() * capsule.getRadius()) {
             float d = sqrt(d2);
-            contact.hitPoint = closestToCapsule;
-            contact.normal = (d > 0.0f) ? -capsuleToClosest / d : -getPolygonPlane(
-                    polygon).m_normal;
+            contact.hitPoint = pTriangle;
+            contact.normal = (d > 1e-6f) ? segmentToTriangle / d : -getPolygonPlane(polygon).m_normal;
             contact.depth = capsule.getRadius() - d;
             return true;
         }
 
         return false;
+    }
+
+    /** Resolve Capsule Obb collision */
+    [[nodiscard]] inline static bool
+    resolveCapsuleObbCollision(const CapsuleVolume &capsule, const OBBVolume &obb,
+                               OGContact &contact) {
+        float bestDist2 = FLT_MAX;
+        glm::vec3 bestBoxPoint(0.0f);
+        glm::vec3 bestCapsulePoint(0.0f);
+
+        OGSegment capSeg = {capsule.getBase(), capsule.getTop()};
+
+        // 1. Check endpoints of capsule segment against OBB volume
+        glm::vec3 p[2] = {capSeg.start, capSeg.end};
+        for (int i = 0; i < 2; ++i) {
+            glm::vec3 boxP = closestPointOnOBB(obb, p[i]);
+            glm::vec3 diff = boxP - p[i];
+            float d2 = glm::dot(diff, diff);
+            if (d2 < bestDist2) {
+                bestDist2 = d2;
+                bestBoxPoint = boxP;
+                bestCapsulePoint = p[i];
+            }
+        }
+
+        // 2. Check capsule segment against 12 OBB edges
+        std::vector<OGSegment> edges;
+        computeObbEdges(obb, edges);
+        for (const auto &edge: edges) {
+            glm::vec3 pCap, pEdge;
+            ClosestPointsBetweenSegments(capSeg, edge, pCap, pEdge);
+            glm::vec3 diff = pEdge - pCap;
+            float d2 = glm::dot(diff, diff);
+            if (d2 < bestDist2) {
+                bestDist2 = d2;
+                bestBoxPoint = pEdge;
+                bestCapsulePoint = pCap;
+            }
+        }
+
+        if (bestDist2 > capsule.getRadius() * capsule.getRadius()) {
+            return false;
+        }
+
+        float dist = sqrtf(bestDist2);
+
+        // Normal should point from Capsule (A) to OBB (B)
+        if (dist > 1e-6f) {
+            contact.normal = (bestBoxPoint - bestCapsulePoint) / dist;
+        } else {
+            // Inside or touching: use OBB face normal closest to capsule center
+            glm::vec3 capCenter = (capsule.getBase() + capsule.getTop()) * 0.5f;
+            glm::vec3 d = capCenter - obb.getCenter();
+            glm::mat3 rot = glm::mat3_cast(obb.getOrientation());
+            float minDist = FLT_MAX;
+            glm::vec3 bestNormal(0, 1, 0);
+
+            for (int i = 0; i < 3; i++) {
+                glm::vec3 axis = rot[i];
+                float projection = glm::dot(d, axis);
+                float distToFace = obb.getExtents()[i] - std::abs(projection);
+                if (distToFace < minDist) {
+                    minDist = distToFace;
+                    bestNormal = (projection > 0) ? axis : -axis;
+                }
+            }
+            contact.normal = bestNormal;
+        }
+
+        contact.depth = capsule.getRadius() - dist;
+        contact.hitPoint = bestBoxPoint;
+
+        return true;
     }
 
     [[nodiscard]] inline static bool
@@ -216,8 +402,9 @@ public:
                 contact.hitPoint = closestToObb;
                 PlaneVolume plane = getPolygonPlane(polygon);
                 contact.normal =
-                glm::dot(plane.m_normal,
-                obb.getCenter() - polygon.vertices[0]) > 0.0f ? plane.m_normal : -plane.m_normal;
+                        glm::dot(plane.m_normal,
+                                 obb.getCenter() - polygon.vertices[0]) > 0.0f ? plane.m_normal
+                                                                               : -plane.m_normal;
                 contact.depth = obbRadius - d;
                 return true;
             }
@@ -652,6 +839,21 @@ public:
             }
         }
 
+        return manifold;
+    }
+
+    /***/
+    inline static OGCollisionManifold
+    resolveCollision(const CapsuleVolume& capsule, const OBBVolume& volume) {
+        OGCollisionManifold manifold{};
+        OGContact contact {};
+        if(resolveCapsuleObbCollision(capsule, volume, contact)) {
+            manifold.m_colliding = true;
+            manifold.m_contacts.push_back(contact.hitPoint);
+            manifold.m_normal = contact.normal;
+            manifold.m_depth = contact.depth;
+
+        }
         return manifold;
     }
 };

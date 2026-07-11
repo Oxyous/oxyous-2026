@@ -208,7 +208,8 @@ bool GameView::initialize() {
 
             auto collision = spawnPlayer->addComponent<OGCollisionComponent>();
 
-            collision->setVolume(std::unique_ptr<OBBVolume>(CollisionFactory::createOBB(glm::vec3(0.0,0.0,0.0), glm::vec3(0.25f,1.0f,0.25f), glm::mat3(1.0f))));
+            //collision->setVolume(std::unique_ptr<OBBVolume>(CollisionFactory::createOBB(glm::vec3(0.0,0.0,0.0), glm::vec3(0.25f,1.0f,0.25f), glm::mat3(1.0f))));
+            collision->setVolume(std::unique_ptr<CapsuleVolume>(CollisionFactory::createCapsule(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,1.0f,0.0f), 0.25f)));
 
             auto playerPhys = spawnPlayer->addComponent<OGPhysicsComponent>();
             playerPhys->setMass(0.0f);

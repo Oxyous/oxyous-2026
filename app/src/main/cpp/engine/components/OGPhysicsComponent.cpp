@@ -48,6 +48,31 @@ void OGPhysicsComponent::computeInertia() {
         m_inverseInertiaWorld = m_inverseInertia;
         return;
     }
+
+    const auto capsule = dynamic_cast<CapsuleVolume *>(volume);
+    if (capsule) {
+        float r = capsule->getRadius();
+        float h = glm::distance(capsule->getBase(), capsule->getTop());
+        float mass = 1.0f / m_massInverse;
+
+        // Approximate inertia for a capsule aligned with Y-axis
+        // Cylinder + 2 Hemispheres
+        float r2 = r * r;
+        float h2 = h * h;
+
+        // Moments of inertia
+        iy = 0.5f * mass * r2; // Longitudinal axis
+        ix = iz = mass * ( (1.0f/12.0f) * h2 + (1.0f/4.0f) * r2 ); // Transverse axes
+
+        m_inverseInertia = glm::mat3(
+                1.0f / ix, 0.0, 0.0,
+                0.0, 1.0f / iy, 0.0,
+                0.0, 0.0, 1.0f / iz);
+
+        glm::mat3 rot = glm::mat3_cast(m_owner->getRotation());
+        m_inverseInertiaWorld = rot * m_inverseInertia * glm::transpose(rot);
+        return;
+    }
 }
 
 void OGPhysicsComponent::integrateForces(float dt) {
@@ -135,6 +160,7 @@ void OGPhysicsComponent::setFriction(float friction) {
 
 void OGPhysicsComponent::setAwake(bool awake) {
     m_isAwake = awake;
+
 }
 
 void OGPhysicsComponent::initialize() {

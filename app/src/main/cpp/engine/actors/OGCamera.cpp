@@ -44,7 +44,7 @@ void OGCamera::update(double delta) {
     glm::vec3 moveDelta = -(m_forward * ENGINE->getThumbStick(THUMBSTICK_LEFT)->getActuator().y * m_speed * (float)delta);
     moveDelta -= glm::normalize(glm::cross(m_forward, m_up)) * ENGINE->getThumbStick(THUMBSTICK_LEFT)->getActuator().x * m_speed * (float)delta;
     m_position += moveDelta;
-    
+
     setTranslation(m_position);
 
     m_viewMatrix = glm::lookAt(m_position, m_position + m_forward, m_up);

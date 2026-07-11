@@ -25,7 +25,7 @@ void Engine::render() {
 
 void Engine::update(float deltaTime) {
     m_input.update(deltaTime);
-    m_camera->update(deltaTime);
+    //m_camera->update(deltaTime);
 
     if (isGameModeFly()) {
         auto camBound = m_camera->getComponent<OGCollisionComponent>();
@@ -59,6 +59,7 @@ void Engine::update(float deltaTime) {
             }
         }*/
 
+        /*
         const auto player = dynamic_cast<OGPlayerActor*>(GAME_VIEW->getActivePlayer().get());
         const auto playerCollision = player->getComponent<OGCollisionComponent>()->getCollisionVolume<OBBVolume>();
 
@@ -69,6 +70,21 @@ void Engine::update(float deltaTime) {
             OGContact contact;
 
             if (CollisionHelper::resolvePolygonObbCollision(p, *playerCollision, contact)) {
+                playerPos += contact.normal * contact.depth;
+                player->setTranslation(playerPos);
+            }
+        }*/
+
+        const auto player = dynamic_cast<OGPlayerActor*>(GAME_VIEW->getActivePlayer().get());
+        const auto playerCollision = player->getComponent<OGCollisionComponent>()->getCollisionVolume<CapsuleVolume>();
+        //playerCollision->transform(player->getTranslation(), player->getRotation());
+        glm::vec3 playerPos = player->getTranslation();
+        player->setGrounded(false, 0.0f);
+
+        for (auto &p : GAME_VIEW->getWorldPolygons()) {
+            OGContact contact;
+
+            if (CollisionHelper::resolvePolygonCapsuleCollision(p, *playerCollision, contact)) {
                 playerPos += contact.normal * contact.depth;
                 player->setTranslation(playerPos);
             }

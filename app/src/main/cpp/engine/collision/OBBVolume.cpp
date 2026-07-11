@@ -99,6 +99,10 @@ OGCollisionManifold OBBVolume::resolveCollision(IVolume *volume) {
         return CollisionHelper::resolveCollision(*this, *dynamic_cast<PlaneVolume*>(volume));
     }
 
+    if (dynamic_cast<CapsuleVolume*>(volume)) {
+        return CollisionHelper::resolveCollision(*dynamic_cast<CapsuleVolume*>(volume), *this);
+    }
+
     return OGCollisionManifold();
 }
 

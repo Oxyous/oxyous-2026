@@ -4,6 +4,7 @@
 
 #include "OGPlayerActor.hpp"
 #include "engine/Engine.hpp"
+#include "engine/components/OGCollisionComponent.hpp"
 
 OGPlayerActor::OGPlayerActor() {
     m_yaw = 0.0f;
@@ -43,7 +44,6 @@ void OGPlayerActor::update(double deltaTime) {
                         cameraRight * -ENGINE->getThumbStick(THUMBSTICK_LEFT)->getActuator().x;
 
     setTranslation(getTranslation() + moveDir * m_moveSpeed * static_cast<float>(deltaTime));
-
 
     if (glm::length(moveDir) > 0.01f) {
         float targetYaw = atan2f(moveDir.x, moveDir.z);
