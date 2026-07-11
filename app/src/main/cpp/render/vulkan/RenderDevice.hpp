@@ -37,6 +37,7 @@ public:
     virtual VkCommandPool getPrimaryCommandPool() { return m_primaryCommandPool; }
 
     /* */
+    virtual const VkPhysicalDeviceProperties& getGpuProperties() const { return m_gpuProperties; }
 
 protected:
     VkPhysicalDevice m_physicalDevice{VK_NULL_HANDLE};

@@ -33,6 +33,8 @@ public:
 
     virtual VkRenderPass getRenderPass() const { return m_renderPass; }
 
+    virtual float getGpuTime() const { return m_gpuTime; }
+
     virtual ~Renderer() = default;
 protected:
 
@@ -55,6 +57,9 @@ protected:
 
     /* Prepare Command Buffers */
     bool prepareCommandBuffers();
+
+    /* Initialize Query Pool */
+    bool initializeQueryPool();
 
     /* Recreate Swap Chain */
     void recreateSwapChain();
@@ -82,6 +87,9 @@ protected:
     bool m_graphicsInitialized{false};
     uint32_t m_currentFrame{0};
     const int MAX_FRAMES_IN_FLIGHT = 2;
+
+    VkQueryPool m_queryPool{VK_NULL_HANDLE};
+    float m_gpuTime{0.0f};
 
     CSMData m_sharedCSMData;
 };

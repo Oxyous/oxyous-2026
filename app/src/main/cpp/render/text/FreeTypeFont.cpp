@@ -170,7 +170,7 @@ void FreeTypeFont::renderString(VkCommandBuffer &cmd, const std::string &text, f
 
         GPUElementHandle handle{};
         glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(xpos + w / 2.0f, ypos + h / 2.0f, 0.0f));
+        model = glm::translate(model, glm::vec3(xpos + w / 2.0f, ypos - h / 2.0f, 0.0f));
         model = glm::scale(model, glm::vec3(w / 2.0f, h / 2.0f, 1.0f));
         handle.transform = model;
         handle.textureId = ch.textureId;
@@ -187,7 +187,6 @@ void FreeTypeFont::renderString(VkCommandBuffer &cmd, const std::string &text, f
         vkCmdDraw(cmd, static_cast<uint32_t>(4), 1, 0, 0);
 
         x += (ch.advance >> 6) * scale;
-
     }
 
 }

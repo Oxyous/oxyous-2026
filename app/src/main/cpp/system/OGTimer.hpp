@@ -32,6 +32,9 @@ public:
         return m_stopped;
     }
     int getFPS();
+
+    long long getProcessorTicks();
+
 private:
     struct timespec startTime, endTime, previousTime;
     double m_deltaTime;

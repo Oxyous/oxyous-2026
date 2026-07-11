@@ -389,31 +389,14 @@ public:
 
     [[nodiscard]] inline static bool
     resolvePolygonObbCollision(const OGPolygon &polygon, const OBBVolume &obb, OGContact &contact) {
-        // Get the closest point on the polygon to the OBB center
-        glm::vec3 closestToObb = ClosestPointOnTriangle(obb.getCenter(),
-                                                        polygon.vertices[0],
-                                                        polygon.vertices[1],
-                                                        polygon.vertices[2]);
-        glm::vec3 obbToClosest = closestToObb - obb.getCenter();
-
-        // Check if the closest point is inside the OBB
-        if (pointInsideOBB(obb, closestToObb)) {
-            float d2 = glm::dot(obbToClosest, obbToClosest);
-            float obbRadius = glm::length(obb.getExtents());
-
-            if (d2 < obbRadius * obbRadius) {
-                float d = sqrt(d2);
-                contact.hitPoint = closestToObb;
-                PlaneVolume plane = getPolygonPlane(polygon);
-                contact.normal =
-                        glm::dot(plane.m_normal,
-                                 obb.getCenter() - polygon.vertices[0]) > 0.0f ? plane.m_normal
-                                                                               : -plane.m_normal;
-                contact.depth = obbRadius - d;
-                return true;
-            }
+        auto manifold = resolveCollision(obb, polygon);
+        if (manifold.m_colliding) {
+            contact.hitPoint = manifold.m_contacts[0];
+            // resolveCollision returns OBB to Polygon, we want Polygon to OBB
+            contact.normal = -manifold.m_normal;
+            contact.depth = manifold.m_depth;
+            return true;
         }
-
         return false;
     }
 
@@ -523,21 +506,9 @@ public:
     /** Project SAT range for OBB */
     [[nodiscard]]
     inline static glm::vec2 getProjectRangeOBB(const OBBVolume &obb, const glm::vec3 &axis) {
-        glm::vec2 range(FLT_MAX, -FLT_MAX);
-        std::vector<glm::vec3> vertices;
-
-        computeObbVertices(obb, vertices);
-
-        for (int i = 0; i < 8; i++) {
-            float projection = glm::dot(vertices[i], axis);
-            if (projection < range.x) {
-                range.x = projection;
-            }
-            if (projection > range.y) {
-                range.y = projection;
-            }
-        }
-        return range;
+        float radius = projectRadius(obb, axis);
+        float centerProj = glm::dot(obb.getCenter(), axis);
+        return glm::vec2(centerProj - radius, centerProj + radius);
     }
 
     /** Test in point lies inside OBB */
@@ -858,6 +829,80 @@ public:
             manifold.m_depth = contact.depth;
 
         }
+        return manifold;
+    }
+
+    inline static OGCollisionManifold resolveCollision(const OBBVolume& obb, const OGPolygon& polygon) {
+        OGCollisionManifold manifold{};
+
+        glm::vec3 axes[13];
+        glm::mat3 rot = glm::mat3_cast(obb.getOrientation());
+        axes[0] = rot[0];
+        axes[1] = rot[1];
+        axes[2] = rot[2];
+        axes[3] = polygon.normal;
+
+        glm::vec3 edges[3] = {
+            polygon.vertices[1] - polygon.vertices[0],
+            polygon.vertices[2] - polygon.vertices[1],
+            polygon.vertices[0] - polygon.vertices[2]
+        };
+
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                axes[4 + i * 3 + j] = glm::cross(rot[i], edges[j]);
+            }
+        }
+
+        float minOverlap = FLT_MAX;
+        glm::vec3 bestAxis(0.0f);
+
+        for (const auto& axis : axes) {
+            float magSq = glm::dot(axis, axis);
+            if (magSq < 1e-6f) continue;
+            glm::vec3 n = glm::normalize(axis);
+
+            float minP, maxP;
+            getPolygonProjectedRange(polygon, n, minP, maxP);
+            glm::vec2 obbRange = getProjectRangeOBB(obb, n);
+
+            if (maxP < obbRange.x - 1e-4f || obbRange.y < minP - 1e-4f) {
+                manifold.m_colliding = false;
+                return manifold;
+            }
+
+            float overlap = std::min(maxP, obbRange.y) - std::max(minP, obbRange.x);
+            if (overlap < minOverlap) {
+                minOverlap = overlap;
+                bestAxis = (glm::dot(n, polygon.vertices[0] - obb.getCenter()) > 0) ? n : -n;
+            }
+        }
+
+        manifold.m_colliding = true;
+        manifold.m_normal = bestAxis;
+        manifold.m_depth = minOverlap;
+
+        // Manifold generation: find OBB vertices furthest in normal direction (deepest)
+        std::vector<glm::vec3> obbVertices;
+        computeObbVertices(obb, obbVertices);
+
+        float maxProj = -FLT_MAX;
+        for (const auto& v : obbVertices) {
+            float proj = glm::dot(v, bestAxis);
+            if (proj > maxProj) maxProj = proj;
+        }
+
+        for (const auto& v : obbVertices) {
+            if (glm::dot(v, bestAxis) > maxProj - 1e-3f) {
+                manifold.m_contacts.push_back(v);
+            }
+        }
+
+        // Project contact points onto the contact plane (midpoint of penetration)
+        for (auto& contact : manifold.m_contacts) {
+            contact -= bestAxis * (manifold.m_depth * 0.5f);
+        }
+
         return manifold;
     }
 

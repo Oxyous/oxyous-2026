@@ -10,6 +10,9 @@
 #include "../../../engine/ui/OGUi.hpp"
 #include "system/OGTimer.hpp"
 #include "engine/Engine.hpp"
+#include "render/vulkan/Renderer.hpp"
+#include <iomanip>
+
 
 
 void ScreenSpace::update(double delta) {
@@ -301,6 +304,41 @@ void ScreenSpace::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
     std::stringstream ss;
     ss << "FPS : " << SYS_TIMER->getFPS();
     UI->drawString(commandBuffer, ss.str(), 32.0f,32.0f, 1.0f);
+
+    ss.str("");
+    ss.clear();
+    if (ENGINE->getRenderer()) {
+        ss << "GPU : " << std::fixed << std::setprecision(2) << ENGINE->getRenderer()->getGpuTime() << " ms";
+        UI->drawString(commandBuffer, ss.str(), 32.0f, 64.0f, 1.0f);
+    }
+
+    ss.str("");
+    ss.clear();
+
+    JNIEnv* env = ENGINE->getJniEnv();
+    jclass debugClass =
+            env->FindClass("android/os/Debug");
+
+    jmethodID mid =
+            env->GetStaticMethodID(
+                    debugClass,
+                    "getNativeHeapAllocatedSize",
+                    "()J");
+
+    jlong bytes =
+            env->CallStaticLongMethod(
+                    debugClass,
+                    mid);
+
+    env->DeleteLocalRef(debugClass);
+
+    ss << "Memory: " << (bytes / (1024 * 1024)) << " MB";
+    UI->drawString(commandBuffer, ss.str(), 32.0f,120.0f, 1.0f);
+
+    ss.clear();
+
+    ss << "CPU Time " << SYS_TIMER->getProcessorTicks();
+    UI->drawString(commandBuffer, ss.str(), 32.0f,160.0f, 1.0f);
 
     vkCmdEndRenderPass(commandBuffer);
 }

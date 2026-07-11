@@ -148,6 +148,10 @@ bool Renderer::initialize(ANativeWindow *window) {
         return false;
     }
 
+    if (!initializeQueryPool()) {
+        aout << "Warning: Failed to initialize query pool, GPU timing will be unavailable" << std::endl;
+    }
+
     if (!GPU_RESOURCES->initialize()) {
         aout << "Error: Failed to initialize GPU resources" << std::endl;
         return false;
@@ -348,6 +352,11 @@ void Renderer::destroy() {
 
     vkDeviceWaitIdle(device);
 
+    if (m_queryPool != VK_NULL_HANDLE) {
+        vkDestroyQueryPool(device, m_queryPool, nullptr);
+        m_queryPool = VK_NULL_HANDLE;
+    }
+
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         vkDestroySemaphore(device, m_presentCompleteSemaphores[i], nullptr);
         vkDestroySemaphore(device, m_renderCompleteSemaphores[i], nullptr);
@@ -420,6 +429,16 @@ void Renderer::render() {
         return;
     }
 
+    // Fetch timestamp results for the frame that just finished
+    if (m_queryPool != VK_NULL_HANDLE) {
+        uint64_t timestamps[2];
+        VkResult res = vkGetQueryPoolResults(device, m_queryPool, m_currentFrame * 2, 2, sizeof(timestamps), timestamps, sizeof(uint64_t), VK_QUERY_RESULT_64_BIT);
+        if (res == VK_SUCCESS) {
+            float timestampPeriod = RENDER_DEVICE->getGpuProperties().limits.timestampPeriod;
+            m_gpuTime = (float)(timestamps[1] - timestamps[0]) * timestampPeriod / 1000000.0f; // Convert to ms
+        }
+    }
+
     vkResetFences(device, 1, &m_fences[m_currentFrame]);
 
     uint32_t imageIndex = 0;
@@ -460,7 +479,16 @@ void Renderer::render() {
         return;
     }
 
+    if (m_queryPool != VK_NULL_HANDLE) {
+        vkCmdResetQueryPool(commandBuffer, m_queryPool, m_currentFrame * 2, 2);
+        vkCmdWriteTimestamp(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, m_queryPool, m_currentFrame * 2);
+    }
+
     prepareFrame(imageIndex, commandBuffer);
+
+    if (m_queryPool != VK_NULL_HANDLE) {
+        vkCmdWriteTimestamp(commandBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_queryPool, m_currentFrame * 2 + 1);
+    }
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
         aout << "Error: Failed to end command buffer" << std::endl;
@@ -643,4 +671,17 @@ void Renderer::update(double delta) {
     if (ui) {
         ui->update(delta);
     }
+}
+
+bool Renderer::initializeQueryPool() {
+    VkQueryPoolCreateInfo queryPoolInfo = {};
+    queryPoolInfo.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+    queryPoolInfo.queryType = VK_QUERY_TYPE_TIMESTAMP;
+    queryPoolInfo.queryCount = MAX_FRAMES_IN_FLIGHT * 2;
+
+    if (vkCreateQueryPool(RENDER_DEVICE->getDevice(), &queryPoolInfo, nullptr, &m_queryPool) != VK_SUCCESS) {
+        return false;
+    }
+
+    return true;
 }

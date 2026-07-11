@@ -49,6 +49,15 @@ public:
     /* Destroy Scene Graph */
     void destroy() override;
 
+    void clear() {
+        m_entities.clear();
+        m_colliders.clear();
+        m_worldPolygons.clear();
+        m_BlockingPolygons.clear();
+        m_activePlayer.reset();
+        m_bhv.reset();
+    }
+
     /* Get Entities */
     std::unordered_map<std::string, std::unique_ptr<OGEntity>> &getEntities() {
         return m_entities;
@@ -166,6 +175,8 @@ public:
 
     /** Get Possible Polygons intersection with sphere */
     void getSphereIntersectionByBHV(const SphereVolume& sphere, std::vector<OGPolygon>& polygons);
+
+    void getObbIntersectionByBHV(const OBBVolume& obb, std::vector<OGPolygon>& polygons);
 private:
     /* Temporary Collision */
     std::vector<std::shared_ptr<IVolume>> m_colliders;

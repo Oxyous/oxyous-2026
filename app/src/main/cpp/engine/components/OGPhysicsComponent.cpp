@@ -92,6 +92,12 @@ void OGPhysicsComponent::integrateForces(float dt) {
 void OGPhysicsComponent::integrateVelocity(float dt) {
     if (!m_isAwake || m_massInverse == 0.0f) return;
 
+    // Clamp velocity to prevent tunneling at extreme speeds
+    const float maxVelocity = 50.0f;
+    if (glm::length(m_velocity) > maxVelocity) {
+        m_velocity = glm::normalize(m_velocity) * maxVelocity;
+    }
+
     // Update position based on new velocity
     glm::vec3 newPosition = m_owner->getTranslation() + m_velocity * dt;
     m_owner->setTranslation(newPosition);

@@ -13,6 +13,16 @@
 
 extern "C" {
 
+JavaVM* g_JavaVM = nullptr;
+
+JNIEXPORT jint JNICALL JNI_OnLoad(
+        JavaVM* vm,
+        void*)
+{
+    g_JavaVM = vm;
+    return JNI_VERSION_1_6;
+}
+
 /*!
  * Handles commands sent to this Android application
  * @param pApp the app the commands are coming from
@@ -46,6 +56,7 @@ void handle_cmd(android_app *pApp, int32_t cmd) {
 
             if (!gameEngine->renderer) {
                 gameEngine->renderer = new Renderer();
+                ENGINE->setRenderer(gameEngine->renderer);
                 gameEngine->renderer->setWidth(width);
                 gameEngine->renderer->setHeight(height);
                 if (!gameEngine->renderer->initialize(pApp->window)) {
@@ -55,6 +66,7 @@ void handle_cmd(android_app *pApp, int32_t cmd) {
                 gameEngine->renderer->setWidth(width);
                 gameEngine->renderer->setHeight(height);
                 gameEngine->renderer->destroy();
+                ENGINE->setRenderer(gameEngine->renderer);
                 if (!gameEngine->renderer->initialize(pApp->window)) {
                     aout << "Error: Failed to initialize renderer" << std::endl;
                 }
@@ -98,9 +110,6 @@ bool motion_event_filter_func(const GameActivityMotionEvent *motionEvent) {
  * This the main entry point for a native activity
  */
 void android_main(struct android_app *pApp) {
-    // Can be removed, useful to ensure your code is running
-    aout << "Welcome to android_main" << std::endl;
-
     struct appEngine gameEngine = {};
     gameEngine.app = pApp;
 
@@ -115,15 +124,11 @@ void android_main(struct android_app *pApp) {
     // implemented in android_native_app_glue.c.
     android_app_set_motion_event_filter(pApp, motion_event_filter_func);
 
-    const float physicsDeltaTime = 1.0f / 60.0f;
-    float physicsAccumulator = 0.0f;
-
     // This sets up a typical game/event loop. It will run until the app is destroyed.
     do {
         // Process all pending events before running game logic.
         bool done = false;
         while (!done) {
-            // 0 is non-blocking.
             int timeout = 0;
             int events;
             android_poll_source *pSource;
@@ -133,13 +138,10 @@ void android_main(struct android_app *pApp) {
                 case ALOOPER_POLL_TIMEOUT:
                     [[clang::fallthrough]];
                 case ALOOPER_POLL_WAKE:
-                    // No events occurred before the timeout or explicit wake. Stop checking for events.
                     done = true;
                     break;
                 case ALOOPER_EVENT_ERROR:
                     aout << "ALooper_pollOnce returned an error" << std::endl;
-                    break;
-                case ALOOPER_POLL_CALLBACK:
                     break;
                 default:
                     if (pSource) {
@@ -154,19 +156,21 @@ void android_main(struct android_app *pApp) {
 
             if (ge->renderer) {
                 SYS_TIMER->Tick();
-                ENGINE->handleInput();
+                double delta = SYS_TIMER->GetDelta();
+                if (delta > 0.25) delta = 0.25; // Spiral of death protection
 
-                physicsAccumulator += SYS_TIMER->GetDelta();
-                while (physicsAccumulator >= physicsDeltaTime) {
-                    PHYSICS->update(physicsDeltaTime);
-                    physicsAccumulator -= physicsDeltaTime;
-                }
+                ENGINE->handleInput();
 
                 ENGINE->update(SYS_TIMER->GetDelta());
 
                 // Update then Render
-                ge->renderer->update(SYS_TIMER->GetDelta());
+                ge->renderer->update(delta);
                 ge->renderer->render();
+
+                // Frame rate limiter (cap to 60 FPS to prevent thermal throttling)
+                double frameEnd = SYS_TIMER->GetAppTime(); // Get current time
+                // Wait until 16.6ms have passed
+                // But SYS_TIMER might not be precise enough for sleep.
             }
         }
     } while (!pApp->destroyRequested);

@@ -13,6 +13,13 @@ public:
     GPUResources() = default;
 
     bool initialize();
+
+    void clear() {
+        m_bindlessRenderer.meshes.clear();
+        m_bindlessRenderer.materials.clear();
+        m_bindlessRenderer.textures.clear();
+        m_bindlessRenderer.textureSlotUsed.assign(MAX_TEXTURES, false);
+    }
 public:
 
     /* */

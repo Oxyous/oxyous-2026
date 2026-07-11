@@ -25,6 +25,14 @@ struct saveState {
 typedef struct OGPolygon {
     glm::vec3 vertices[3];
     glm::vec3 normal;
+
+    const bool operator== (const OGPolygon& other) const {
+        return vertices[0] == other.vertices[0] &&
+               vertices[1] == other.vertices[1] &&
+               vertices[2] == other.vertices[2] &&
+               normal == other.normal;
+    }
+
 } OGPolygon;
 
 /* Collision Contact Hit Result*/

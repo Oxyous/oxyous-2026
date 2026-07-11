@@ -18,31 +18,36 @@ public:
     OGPhysicsManager();
     ~OGPhysicsManager();
 
+    /** Update Physics */
     void update(float deltaTime);
-
-    OGCollisionManifold resolveCollision(const OBBVolume& obbA, const OBBVolume& obbB);
-    OGCollisionManifold resolveCollision(const OBBVolume& obb, const SphereVolume& sphere);
-    OGCollisionManifold resolveCollision(const SphereVolume& sphereA, const SphereVolume& sphereB);
 
     /** Add Actor Reference to physics system */
     void registerPhysicsActor(OGEntity* actorRef);
 
-    /** */
+    /** Start the physics simulation */
     void start();
 
-private:
-    void resolveCollisions();
-    void integrate(float deltaTime);
+    /** Integrate physics state */
+    void integrate(float delta);
 
+private:
     void updatePositionManifold(const OGCollisionManifold& manifold);
 
     void applyRotationImpulse(const OGCollisionManifold& manifold, int c);
+
+    void updateStaticPositionManifold(const OGCollisionManifold& manifold);
+
+    void applyStaticRotationImpulse(const OGCollisionManifold& manifold, int c);
 
 protected:
     float m_gravity = -9.81f;
     std::vector<OGEntity*> m_physicsActors;
     std::vector<OGCollisionManifold> m_manifolds;
-    bool m_executing = false;
+private:
+    std::thread m_thread;
+    std::atomic<bool> m_executing = false;
+
+    void run();
 };
 
 #define PHYSICS OGSingleton<OGPhysicsManager>::getInstance()

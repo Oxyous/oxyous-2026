@@ -21,6 +21,8 @@ public:
 
     virtual ~Engine() = default;
 
+    JNIEnv *getJniEnv();
+
 public:
     /* Initialize Game Engine */
     virtual bool initialize(android_app *app);
@@ -144,7 +146,16 @@ public:
         m_camera = camera;
     }
 
+    Renderer* getRenderer() { return m_renderer; }
+    void setRenderer(Renderer* renderer) { m_renderer = renderer; }
+
+    bool isExecuting(){
+        return m_isExecuting;
+    }
+
 protected:
+    bool m_isExecuting = false;
+    Renderer* m_renderer = nullptr;
     OGCamera* m_camera = nullptr;
     std::unordered_map<std::string, std::unique_ptr<IRenderPipeline>> m_pipelines;
     android_app *m_app;

@@ -126,7 +126,8 @@ BHV::intersectsRecursive(int nodeIndex, const OBBVolume &obb, std::vector<OGPoly
         auto contact = OGContact{};
         for (int i = 0; i < node.count; i++) {
             const OGPolygon &poly = polygons[indices[node.start + i]];
-            if (CollisionHelper::resolvePolygonObbCollision(poly, obb, contact)) {
+            const auto f = std::find(results.begin(), results.end(), poly);
+            if (f == results.end() && CollisionHelper::resolvePolygonObbCollision(poly, obb, contact)) {
                 results.push_back(poly);
             }
         }

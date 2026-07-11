@@ -54,7 +54,7 @@ void GameView::update(double deltaTime) {
 }
 
 bool GameView::initialize() {
-
+    clear();
     GPUTexture cubeMapTexture;
 
     /* CubeMap */
@@ -227,12 +227,12 @@ bool GameView::initialize() {
     }
 
     /** Physics Test - Ground*/
-    auto ground = addActor<OGActor>("ground-plane");
+ /*   auto ground = addActor<OGActor>("ground-plane");
     auto groundPhys = ground->addComponent<OGPhysicsComponent>();
     auto groundObb = ground->addComponent<OGCollisionComponent>();
     groundObb->setVolume(std::unique_ptr<OBBVolume>(CollisionFactory::createOBB(glm::vec3(0.0f,0.0f,0.0f), glm::vec3(50.0f, 1.0f, 50.0f), glm::mat3(1.0f))));
     ground->setTranslation(glm::vec3(0.0f, -1.0f, 0.0f));
-    groundPhys->setMass(0.0f);
+    groundPhys->setMass(0.0f);*/
 
     /** Physics test - Box */
 
@@ -261,7 +261,7 @@ bool GameView::initialize() {
 
     ENGINE->setCamera(camera);
 
-    PHYSICS->registerPhysicsActor(ground);
+    //PHYSICS->registerPhysicsActor(ground);
     PHYSICS->registerPhysicsActor(camera);
     SYS_TIMER->Start();
     PHYSICS->start();
@@ -446,4 +446,8 @@ void GameView::getCapsuleIntersectionByBHV(const CapsuleVolume &capsule,
 void
 GameView::getSphereIntersectionByBHV(const SphereVolume &sphere, std::vector<OGPolygon> &polygons) {
     m_bhv->intersects(sphere, polygons);
+}
+
+void GameView::getObbIntersectionByBHV(const OBBVolume &obb, std::vector<OGPolygon> &polygons) {
+    m_bhv->intersects(obb, polygons);
 }
