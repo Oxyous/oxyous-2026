@@ -49,6 +49,8 @@ public:
 
     void setAngularVelocity(const glm::vec3& angularVelocity);
 
+    void setAcceleration(const glm::vec3& acceleration);
+
     float getRestitution();
 
     void initialize() override;
@@ -65,6 +67,8 @@ public:
 
     void setAwake(bool awake);
 
+    bool isAwake() const { return m_isAwake; }
+
 protected:
     void computeInertia();
 private:
@@ -72,7 +76,7 @@ private:
     float m_restitution = 0.1f;
     bool m_isAwake = true;
     float m_friction = 1.0f;
-    float m_motion;
+    float m_motion = 1.0f;
     glm::mat3 m_inverseInertia;
     glm::vec3 m_acceleration;
     glm::vec3 m_lastAcceleration;

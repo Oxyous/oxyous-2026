@@ -25,25 +25,26 @@ void Engine::render() {
 
 void Engine::update(float deltaTime) {
     m_input.update(deltaTime);
-    m_camera.update(deltaTime);
+    m_camera->update(deltaTime);
 
     if (isGameModeFly()) {
-        auto camBound = m_camera.getBounds();
+        auto camBound = m_camera->getComponent<OGCollisionComponent>();
+        auto bounds = camBound->getCollisionVolume<SphereVolume>();
 
-        glm::vec3 camPos = m_camera.getTranslation();
+        glm::vec3 camPos = m_camera->getTranslation();
 
         for (auto &p: GAME_VIEW->getWorldPolygons()) {
             OGContact contact;
 
-            if (CollisionHelper::resolvePolygonSphereCollision(p, camBound, contact)) {
+            if (CollisionHelper::resolvePolygonSphereCollision(p, *bounds, contact)) {
                 // Handle collision response here
                 camPos += contact.normal * contact.depth;
-                m_camera.setTranslation(camPos);
-                camBound.setCenter(camPos);
+                m_camera->setTranslation(camPos);
+                //bounds->setCenter(camPos);
             }
         }
     } else {
-        const auto player = dynamic_cast<OGPlayerActor*>(GAME_VIEW->getActivePlayer().get());
+        /*const auto player = dynamic_cast<OGPlayerActor*>(GAME_VIEW->getActivePlayer().get());
         const auto playerCollision = player->getComponent<OGCollisionComponent>()->getCollisionVolume<CapsuleVolume>();
 
         glm::vec3 playerPos = player->getTranslation();
@@ -53,6 +54,21 @@ void Engine::update(float deltaTime) {
             OGContact contact;
 
             if (CollisionHelper::resolvePolygonCapsuleCollision(p, playerCollision->transform(playerPos, player->getRotation()), contact)) {
+                playerPos += contact.normal * contact.depth;
+                player->setTranslation(playerPos);
+            }
+        }*/
+
+        const auto player = dynamic_cast<OGPlayerActor*>(GAME_VIEW->getActivePlayer().get());
+        const auto playerCollision = player->getComponent<OGCollisionComponent>()->getCollisionVolume<OBBVolume>();
+
+        glm::vec3 playerPos = player->getTranslation();
+        player->setGrounded(false, 0.0f);
+
+        for (auto &p : GAME_VIEW->getWorldPolygons()) {
+            OGContact contact;
+
+            if (CollisionHelper::resolvePolygonObbCollision(p, *playerCollision, contact)) {
                 playerPos += contact.normal * contact.depth;
                 player->setTranslation(playerPos);
             }

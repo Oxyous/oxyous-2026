@@ -83,17 +83,17 @@ public:
             }
         }
 
-        return m_camera.getViewMatrix();
+        return m_camera->getViewMatrix();
     }
 
     glm::mat4 getCameraProjection() {
-        return m_camera.getProjectionMatrix();
+        return m_camera->getProjectionMatrix();
     }
 
     glm::vec3 getCameraPosition() {
 
         if (m_gameModeFly) {
-            return m_camera.getPosition();
+            return m_camera->getPosition();
         } else {
             const auto player = dynamic_cast<OGPlayerActor *>(GAME_VIEW->getActivePlayer().get());
             if (player) {
@@ -101,7 +101,7 @@ public:
             }
         }
 
-        return m_camera.getPosition();
+        return m_camera->getPosition();
     }
 
     void setCameraProjection(glm::mat4 projection) {
@@ -111,7 +111,7 @@ public:
                 player->setProjectionMatrix(projection);
             }
         }
-        m_camera.setProjectionMatrix(projection);
+        m_camera->setProjectionMatrix(projection);
     }
 
     void setCameraPosition(glm::vec3 position) {
@@ -121,7 +121,7 @@ public:
                 player->setTranslation(position);
             }
         }
-        m_camera.setTranslation(position);
+        m_camera->setTranslation(position);
     }
 
     void setSharedCSMData(const CSMData &data) { m_sharedCSMData = data; }
@@ -136,8 +136,16 @@ public:
 
     bool isGameModeFly() const { return m_gameModeFly; }
 
+    OGCamera* getCamera() {
+        return m_camera;
+    }
+
+    void setCamera(OGCamera* camera) {
+        m_camera = camera;
+    }
+
 protected:
-    OGCamera m_camera;
+    OGCamera* m_camera = nullptr;
     std::unordered_map<std::string, std::unique_ptr<IRenderPipeline>> m_pipelines;
     android_app *m_app;
     Input m_input;

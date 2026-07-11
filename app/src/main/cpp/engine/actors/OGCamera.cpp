@@ -4,6 +4,8 @@
 
 #include "OGCamera.hpp"
 #include "../Engine.hpp"
+#include "engine/components/OGPhysicsComponent.hpp"
+#include "engine/components/OGCollisionComponent.hpp"
 
 OGCamera::~OGCamera() {
 
@@ -13,7 +15,17 @@ void OGCamera::update(double delta) {
     if (!ENGINE->isGameModeFly())
         return;
 
-    m_position = getTranslation();
+    const auto physics = getComponent<OGPhysicsComponent>();
+    const auto collisionComp = getComponent<OGCollisionComponent>();
+
+    if (physics && collisionComp) {
+        //physics->setAcceleration(glm::vec3(0.0f, 0.0f, 0.0f));
+        auto sphere = collisionComp->getCollisionVolume<SphereVolume>();
+
+        if (sphere)
+            sphere->setCenter(getTranslation());
+    }
+
     m_yaw -= ENGINE->getThumbStick(THUMBSTICK_RIGHT)->getActuator().x * m_sensitivity;
     m_pitch -= ENGINE->getThumbStick(THUMBSTICK_RIGHT)->getActuator().y * m_sensitivity;
 
@@ -27,11 +39,13 @@ void OGCamera::update(double delta) {
     m_forward.z = sinf(glm::radians(m_yaw)) * cosf(glm::radians(m_pitch));
     m_forward = glm::normalize(m_forward);
 
-    m_position -= m_forward * ENGINE->getThumbStick(THUMBSTICK_LEFT)->getActuator().y * m_speed * (float)delta;
-    m_position -= glm::normalize(glm::cross(m_forward, m_up)) * ENGINE->getThumbStick(THUMBSTICK_LEFT)->getActuator().x * m_speed * (float)delta;
-    setTranslation(m_position);
+    m_position = getTranslation();
 
-    m_bounds.setCenter(m_position);
+    glm::vec3 moveDelta = -(m_forward * ENGINE->getThumbStick(THUMBSTICK_LEFT)->getActuator().y * m_speed * (float)delta);
+    moveDelta -= glm::normalize(glm::cross(m_forward, m_up)) * ENGINE->getThumbStick(THUMBSTICK_LEFT)->getActuator().x * m_speed * (float)delta;
+    m_position += moveDelta;
+    
+    setTranslation(m_position);
 
     m_viewMatrix = glm::lookAt(m_position, m_position + m_forward, m_up);
 }

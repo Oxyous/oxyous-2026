@@ -44,6 +44,7 @@ void OGPlayerActor::update(double deltaTime) {
 
     setTranslation(getTranslation() + moveDir * m_moveSpeed * static_cast<float>(deltaTime));
 
+
     if (glm::length(moveDir) > 0.01f) {
         float targetYaw = atan2f(moveDir.x, moveDir.z);
         setRotation(glm::vec3(0.0f, targetYaw, 0.0f));

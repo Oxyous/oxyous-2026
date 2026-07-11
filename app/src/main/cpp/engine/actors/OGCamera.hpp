@@ -11,14 +11,14 @@
 
 class OGCamera : public OGActor {
 public:
-    OGCamera(glm::vec3 position = glm::vec3(0.0f)) : OGActor(), m_position(position), m_bounds(position, 0.5f) {
+    OGCamera(glm::vec3 position = glm::vec3(0.0f)) : OGActor(), m_position(position) {
         m_position = position;
         m_up = glm::vec3(0.0f, 1.0f, 0.0f);
         m_forward = glm::vec3(0.0f);
         m_yaw = 0.0f;
         m_pitch = 0.0f;
-        m_speed = 8.0f;
-        m_sensitivity = 1.43f;
+        m_speed = 2.0f;
+        m_sensitivity = 0.5f;
         m_viewMatrix = glm::mat4(1.0f);
         m_projection = glm::mat4(1.0f);
     }
@@ -37,8 +37,6 @@ public:
 
     virtual void setProjectionMatrix(glm::mat4 projection);
 
-    virtual SphereVolume& getBounds() { return m_bounds; }
-
     bool initialize() override;
 
 protected:
@@ -51,7 +49,6 @@ protected:
     float m_sensitivity;
     glm::mat4 m_viewMatrix{};
     glm::mat4 m_projection{};
-    SphereVolume m_bounds;
 };
 
 

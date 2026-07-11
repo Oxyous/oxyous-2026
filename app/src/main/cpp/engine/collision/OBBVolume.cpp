@@ -87,6 +87,18 @@ OGCollisionManifold OBBVolume::resolveCollision(IVolume *volume) {
         return CollisionHelper::resolveCollision(*this, *dynamic_cast<OBBVolume*>(volume));
     }
 
+    if (dynamic_cast<SphereVolume*>(volume)) {
+        return CollisionHelper::resolveCollision(*this, *dynamic_cast<SphereVolume*>(volume));
+    }
+/*
+    if (dynamic_cast<AABBVolume*>(volume)) {
+        return CollisionHelper::resolveCollision(*this, *dynamic_cast<AABBVolume*>(volume));
+    }*/
+
+    if (dynamic_cast<PlaneVolume*>(volume)) {
+        return CollisionHelper::resolveCollision(*this, *dynamic_cast<PlaneVolume*>(volume));
+    }
+
     return OGCollisionManifold();
 }
 

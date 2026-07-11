@@ -197,6 +197,35 @@ public:
         return false;
     }
 
+    [[nodiscard]] inline static bool
+    resolvePolygonObbCollision(const OGPolygon &polygon, const OBBVolume &obb, OGContact &contact) {
+        // Get the closest point on the polygon to the OBB center
+        glm::vec3 closestToObb = ClosestPointOnTriangle(obb.getCenter(),
+                                                        polygon.vertices[0],
+                                                        polygon.vertices[1],
+                                                        polygon.vertices[2]);
+        glm::vec3 obbToClosest = closestToObb - obb.getCenter();
+
+        // Check if the closest point is inside the OBB
+        if (pointInsideOBB(obb, closestToObb)) {
+            float d2 = glm::dot(obbToClosest, obbToClosest);
+            float obbRadius = glm::length(obb.getExtents());
+
+            if (d2 < obbRadius * obbRadius) {
+                float d = sqrt(d2);
+                contact.hitPoint = closestToObb;
+                PlaneVolume plane = getPolygonPlane(polygon);
+                contact.normal =
+                glm::dot(plane.m_normal,
+                obb.getCenter() - polygon.vertices[0]) > 0.0f ? plane.m_normal : -plane.m_normal;
+                contact.depth = obbRadius - d;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /** Point in Triangle Polygon*/
     [[nodiscard]] inline static bool
     pointInPolygon(const glm::vec3 &point, const OGPolygon &polygon) {
@@ -404,7 +433,8 @@ public:
     }
 
     /** Clip a segment by plane */
-    inline static bool clipSegmentPlane(const OGSegment& segment, const PlaneVolume& plane, glm::vec3& intersection) {
+    inline static bool
+    clipSegmentPlane(const OGSegment &segment, const PlaneVolume &plane, glm::vec3 &intersection) {
         glm::vec3 ab = segment.end - segment.start;
         float denom = glm::dot(plane.m_normal, ab);
 
@@ -464,7 +494,8 @@ public:
     }
 
     /** Resolve Collision Between to OBB volumes */
-   inline static OGCollisionManifold resolveCollision(const OBBVolume &obbA, const OBBVolume &obbB) {
+    inline static OGCollisionManifold
+    resolveCollision(const OBBVolume &obbA, const OBBVolume &obbB) {
         OGCollisionManifold manifold{};
 
         auto aX = glm::mat3_cast(obbA.getOrientation())[0];
@@ -541,20 +572,20 @@ public:
         manifold.m_contacts.insert(manifold.m_contacts.end(), c2.begin(), c2.end());
 
         if (manifold.m_contacts.empty()) {
-             manifold.m_contacts.push_back((obbA.getCenter() + obbB.getCenter()) * 0.5f);
+            manifold.m_contacts.push_back((obbA.getCenter() + obbB.getCenter()) * 0.5f);
         }
 
         /** Project contact points onto the reference plane to ensure they are on the surface */
         auto projA = CollisionHelper::getProjectRangeOBB(obbA, axis);
         float planeProj = projA.y - manifold.m_depth * 0.5f;
 
-        for (int i = (int)manifold.m_contacts.size() - 1; i >= 0; --i) {
-            glm::vec3& contact = manifold.m_contacts[i];
+        for (int i = (int) manifold.m_contacts.size() - 1; i >= 0; --i) {
+            glm::vec3 &contact = manifold.m_contacts[i];
 
             float currentProj = glm::dot(contact, axis);
             contact += axis * (planeProj - currentProj);
 
-            for (int j = (int)manifold.m_contacts.size() - 1; j > i; --j) {
+            for (int j = (int) manifold.m_contacts.size() - 1; j > i; --j) {
                 auto dif = manifold.m_contacts[j] - manifold.m_contacts[i];
                 if (glm::dot(dif, dif) < 0.001f) {
                     manifold.m_contacts.erase(manifold.m_contacts.begin() + j);
@@ -567,6 +598,62 @@ public:
         return manifold;
     }
 
+    inline static OGCollisionManifold
+    resolveCollision(const OBBVolume &obb, const SphereVolume &sphereVolume) {
+        glm::vec3 center = obb.getCenter();
+
+        glm::mat3 rot = glm::mat3_cast(obb.getOrientation());
+        glm::vec3 localCenter = glm::transpose(rot) * (sphereVolume.getCenter() - center);
+        glm::vec3 clamped = glm::clamp(localCenter, -obb.getExtents(), obb.getExtents());
+        glm::vec3 closestPoint = center + rot * clamped;
+
+        glm::vec3 diff = sphereVolume.getCenter() - closestPoint;
+        float distanceSq = glm::dot(diff, diff);
+        float radius = sphereVolume.getRadius();
+
+        if (distanceSq < radius * radius) {
+            OGCollisionManifold manifold;
+            float distance = std::sqrt(distanceSq);
+            manifold.m_colliding = true;
+            manifold.m_normal = (distance > EPS) ? glm::normalize(diff) : glm::vec3(0, 1, 0);
+            manifold.m_depth = radius - distance;
+            manifold.m_contacts.push_back(closestPoint);
+            return manifold;
+        }
+
+        return OGCollisionManifold();
+    }
+
+/*
+    inline static OGCollisionManifold
+    resolveCollision(const OBBVolume &obb, const AABBVolume &aabb) {
+        OBBVolume obbB;
+        obbB.setCenter((aabb.getMin() + aabb.getMax()) * 0.5f);
+        obbB.setExtents((aabb.getMax() - aabb.getMin()) * 0.5f);
+        obbB.setOrientation(glm::quat(1, 0, 0, 0));
+        return resolveCollision(obb, obbB);
+    }*/
+
+    inline static OGCollisionManifold
+    resolveCollision(const OBBVolume &obb, const PlaneVolume &plane) {
+        OGCollisionManifold manifold;
+        std::vector<glm::vec3> vertices;
+        computeObbVertices(obb, vertices);
+
+        for (const auto &v: vertices) {
+            float distance = glm::dot(plane.m_normal, v) - plane.m_distance;
+            if (distance <= 0.0f) {
+                manifold.m_colliding = true;
+                if (-distance > manifold.m_depth) {
+                    manifold.m_depth = -distance;
+                    manifold.m_normal = plane.m_normal;
+                }
+                manifold.m_contacts.push_back(v);
+            }
+        }
+
+        return manifold;
+    }
 };
 
 #endif //OXYOUS_2026_COLLISIONHELPER_HPP

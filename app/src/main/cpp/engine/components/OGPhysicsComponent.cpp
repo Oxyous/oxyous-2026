@@ -85,6 +85,16 @@ void OGPhysicsComponent::integrateVelocity(float dt) {
 
 void OGPhysicsComponent::update(double delta) {
     computeInertia();
+
+    float currentMotion = glm::dot(m_velocity, m_velocity) + glm::dot(m_angularVelocity, m_angularVelocity);
+    float bias = powf(0.1f, delta);
+    m_motion = bias * m_motion + (1.0f - bias) * currentMotion;
+
+    if (m_motion <= 0.1) {
+        m_velocity = glm::vec3(0.0f);
+        m_angularVelocity = glm::vec3(0.0f);
+        setAwake(false);
+    }
 }
 
 float OGPhysicsComponent::getMass() {
@@ -153,4 +163,8 @@ void OGPhysicsComponent::setMass(float mass) {
     if (mass == 0.0f) return;
     //m_forces = GRAVITY_CONSTANT * m_massInverse;
     m_massInverse = 1.0f / mass;
+}
+
+void OGPhysicsComponent::setAcceleration(const glm::vec3 &acceleration) {
+    m_acceleration = acceleration;
 }
