@@ -10,6 +10,7 @@
 #include "collision/Collision.hpp"
 #include "input/ThumbStick.hpp"
 #include "engine/actors/OGPlayerActor.hpp"
+#include "../engine/collision/BHV.hpp"
 
 class IGameView {
 public:
@@ -122,7 +123,7 @@ public:
         }
     }
 
-    /* Get Active Player */
+    /** Get Active Player */
     std::shared_ptr<OGActor> getActivePlayer() const {
         return m_activePlayer;
     }
@@ -141,7 +142,7 @@ public:
         });
     }
 
-    /* Get View Matrix from Active Player */
+    /** Get View Matrix from Active Player */
     glm::mat4 getViewMatrix() const {
         if (m_activePlayer) {
             return dynamic_cast<OGPlayerActor *>(m_activePlayer.get())->getViewMatrix();
@@ -149,7 +150,7 @@ public:
         return glm::mat4(1.0f);
     }
 
-    /* Get Projection Matrix from Active Player */
+    /** Get Projection Matrix from Active Player */
     glm::mat4 getProjectionMatrix() const {
         if (m_activePlayer) {
             return dynamic_cast<OGPlayerActor *>(m_activePlayer.get())->getProjectionMatrix();
@@ -157,6 +158,14 @@ public:
         return glm::mat4(1.0f);
     }
 
+    /** Build BHV from polygon list */
+    void computeBHV(const std::vector<OGPolygon>& polygons);
+
+    /** Get Possible Polygon intersection */
+    void getCapsuleIntersectionByBHV(const CapsuleVolume& capsule, std::vector<OGPolygon>& polygons);
+
+    /** Get Possible Polygons intersection with sphere */
+    void getSphereIntersectionByBHV(const SphereVolume& sphere, std::vector<OGPolygon>& polygons);
 private:
     /* Temporary Collision */
     std::vector<std::shared_ptr<IVolume>> m_colliders;
@@ -165,8 +174,8 @@ private:
 
     std::vector<OGPolygon> m_worldPolygons;
     std::vector<OGPolygon> m_BlockingPolygons;
-
     std::shared_ptr<OGActor> m_activePlayer;
+    std::unique_ptr<BHV> m_bhv;
 };
 
 #define GAME_VIEW OGSingleton<GameView>::getInstance()

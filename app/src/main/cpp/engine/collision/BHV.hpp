@@ -5,7 +5,7 @@
 #ifndef OXYOUS_2026_BHV_HPP
 #define OXYOUS_2026_BHV_HPP
 
-#include <__numeric/iota.h>
+#include <numeric>
 #include "Collision.hpp"
 #include "CollisionHelper.hpp"
 
@@ -27,10 +27,22 @@ public:
 
     void build(const ::std::vector<OGPolygon> &inPolygons, int maxLeafSize = 4);
 
+    void intersects(const OBBVolume& obb, std::vector<OGPolygon>& results);
+
+    void intersects(const CapsuleVolume& capsule, std::vector<OGPolygon>& results);
+
+    void intersects(const SphereVolume& sphere, std::vector<OGPolygon>& results);
+
 private:
     int buildRecursive(int start, int end, int maxLeafSize);
 
+    void intersectsRecursive(int nodeIndex, const OBBVolume& obb, std::vector<OGPolygon>& results);
+
+    void intersectsRecursive(int nodeIndex, const CapsuleVolume& capsule, std::vector<OGPolygon>& results);
+
     bool segmentIntersectsPolygon(int nodeIndex, const glm::vec3 &a, const glm::vec3 &b, double ignoreMin, double ignoreMax, OGPolygon& polyOut);
+
+    void intersectsRecursive(int nodeIndex, const SphereVolume& sphere, std::vector<OGPolygon>& results);
 };
 
 

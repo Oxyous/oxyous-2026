@@ -196,8 +196,10 @@ public:
     ClosestPointsSegmentTriangle(const OGSegment &segment, const OGPolygon &poly,
                                  glm::vec3 &pSegment, glm::vec3 &pTriangle) {
         // 1. Test segment endpoints against triangle face
-        glm::vec3 p1 = ClosestPointOnTriangle(segment.start, poly.vertices[0], poly.vertices[1], poly.vertices[2]);
-        glm::vec3 p2 = ClosestPointOnTriangle(segment.end, poly.vertices[0], poly.vertices[1], poly.vertices[2]);
+        glm::vec3 p1 = ClosestPointOnTriangle(segment.start, poly.vertices[0], poly.vertices[1],
+                                              poly.vertices[2]);
+        glm::vec3 p2 = ClosestPointOnTriangle(segment.end, poly.vertices[0], poly.vertices[1],
+                                              poly.vertices[2]);
 
         glm::vec3 v1 = p1 - segment.start;
         glm::vec3 v2 = p2 - segment.end;
@@ -216,9 +218,9 @@ public:
 
         // 2. Test segment against 3 triangle edges
         OGSegment edges[3] = {
-            {poly.vertices[0], poly.vertices[1]},
-            {poly.vertices[1], poly.vertices[2]},
-            {poly.vertices[2], poly.vertices[0]}
+                {poly.vertices[0], poly.vertices[1]},
+                {poly.vertices[1], poly.vertices[2]},
+                {poly.vertices[2], poly.vertices[0]}
         };
 
         for (int i = 0; i < 3; ++i) {
@@ -250,7 +252,8 @@ public:
     }
 
     /** Closest Point on Segment*/
-    [[nodiscard]] inline static glm::vec3 closestPointOnSegment(const OGSegment& segment, const glm::vec3 &point) {
+    [[nodiscard]] inline static glm::vec3
+    closestPointOnSegment(const OGSegment &segment, const glm::vec3 &point) {
         glm::vec3 ab = segment.end - segment.start;
         float t = glm::dot(point - segment.start, ab) / glm::dot(ab, ab);
         t = glm::clamp(t, 0.0f, 1.0f);
@@ -302,7 +305,8 @@ public:
         if (d2 < capsule.getRadius() * capsule.getRadius()) {
             float d = sqrt(d2);
             contact.hitPoint = pTriangle;
-            contact.normal = (d > 1e-6f) ? segmentToTriangle / d : -getPolygonPlane(polygon).m_normal;
+            contact.normal = (d > 1e-6f) ? segmentToTriangle / d : -getPolygonPlane(
+                    polygon).m_normal;
             contact.depth = capsule.getRadius() - d;
             return true;
         }
@@ -844,10 +848,10 @@ public:
 
     /***/
     inline static OGCollisionManifold
-    resolveCollision(const CapsuleVolume& capsule, const OBBVolume& volume) {
+    resolveCollision(const CapsuleVolume &capsule, const OBBVolume &volume) {
         OGCollisionManifold manifold{};
-        OGContact contact {};
-        if(resolveCapsuleObbCollision(capsule, volume, contact)) {
+        OGContact contact{};
+        if (resolveCapsuleObbCollision(capsule, volume, contact)) {
             manifold.m_colliding = true;
             manifold.m_contacts.push_back(contact.hitPoint);
             manifold.m_normal = contact.normal;
@@ -855,6 +859,129 @@ public:
 
         }
         return manifold;
+    }
+
+    /** Projected Obb radius */
+    inline static float projectRadius(const OBBVolume &obb, const glm::vec3 &axis) {
+        return obb.getExtents().x * fabs(glm::dot(axis, glm::mat3_cast(obb.getOrientation())[0])) +
+               obb.getExtents().y * fabs(glm::dot(axis, glm::mat3_cast(obb.getOrientation())[1])) +
+               obb.getExtents().z * fabs(glm::dot(axis, glm::mat3_cast(obb.getOrientation())[2]));
+    }
+
+    /** Project Aabb radius */
+    inline static float projectRadius(const AABBVolume &aabb, const glm::vec3 &axis) {
+        glm::vec3 halfExtents = (aabb.getMax() - aabb.getMin()) * 0.5f;
+        return halfExtents.x * fabs(axis.x) + halfExtents.y * fabs(axis.y) +
+               halfExtents.z * fabs(axis.z);
+    }
+
+    /** Overlap Axis */
+    inline static bool
+    overlapAxis(const OBBVolume &obb, const AABBVolume &aabb, const glm::vec3 &axis) {
+        float obbRadius = projectRadius(obb, axis);
+        float aabbRadius = projectRadius(aabb, axis);
+        float distance = glm::dot(obb.getCenter() - (aabb.getMin() + aabb.getMax()) * 0.5f, axis);
+        return fabs(distance) <= obbRadius + aabbRadius;
+    }
+
+    /** OBB vs AABB*/
+    static bool obbIntersectsAabb(const OBBVolume &obb, AABBVolume aabb) {
+        glm::vec3 world[3] = {
+                {1.0f, 0.0f, 0.0f},
+                {0.0f, 1.0f, 0.0f},
+                {0.0f, 0.0f, 1.0f}
+        };
+
+        for (auto i = 0; i < 3; i++) {
+            if (!overlapAxis(obb, aabb, world[i])) {
+                return false;
+            }
+        }
+
+        for (auto i = 0; i < 3; i++) {
+            if (!overlapAxis(obb, aabb, world[i])) {
+                return false;
+            }
+        }
+
+        for (auto i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                if (!overlapAxis(obb, aabb,
+                                 glm::cross(glm::mat3_cast(obb.getOrientation())[i], world[j]))) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    /** OBB vs Polygon */
+    [[nodiscard]] inline static bool
+    obbIntersectsPolygon(const OBBVolume &obb, const OGPolygon &poly) {
+        glm::vec3 axes[13];
+        // OBB axes
+        glm::mat3 rot = glm::mat3_cast(obb.getOrientation());
+        axes[0] = rot[0];
+        axes[1] = rot[1];
+        axes[2] = rot[2];
+        // Polygon normal
+        axes[3] = poly.normal;
+        // Cross products of OBB axes and Polygon edges
+        glm::vec3 edges[3] = {
+            poly.vertices[1] - poly.vertices[0],
+            poly.vertices[2] - poly.vertices[1],
+            poly.vertices[0] - poly.vertices[2]
+        };
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                axes[4 + i * 3 + j] = glm::cross(rot[i], edges[j]);
+            }
+        }
+
+        for (const auto& axis : axes) {
+            if (glm::dot(axis, axis) < EPS) continue;
+            glm::vec3 normalizedAxis = glm::normalize(axis);
+            float minP, maxP;
+            getPolygonProjectedRange(poly, normalizedAxis, minP, maxP);
+            glm::vec2 obbRange = getProjectRangeOBB(obb, normalizedAxis);
+            if (maxP < obbRange.x || obbRange.y < minP) return false;
+        }
+        return true;
+    }
+
+    /** Capsule vs AABB */
+    [[nodiscard]] inline static bool
+    capsuleIntersectsAabb(const CapsuleVolume &capsule, const AABBVolume &aabb) {
+        OGSegment seg = {capsule.getBase(), capsule.getTop()};
+        glm::vec3 closest = {
+            glm::clamp(capsule.getBase().x, aabb.getMin().x, aabb.getMax().x),
+            glm::clamp(capsule.getBase().y, aabb.getMin().y, aabb.getMax().y),
+            glm::clamp(capsule.getBase().z, aabb.getMin().z, aabb.getMax().z)
+        };
+        // This is a simplified check; for accuracy we use the segment-AABB distance
+        // but for BVH culling, checking if the capsule's bounding sphere/AABB hits is often enough.
+        // Here we use the closest point on AABB to the capsule segment.
+        glm::vec3 p = closestPointOnSegment(seg, closest);
+        glm::vec3 diff = p - closest;
+        return glm::dot(diff, diff) <= capsule.getRadius() * capsule.getRadius();
+    }
+
+    /** Capsule vs Polygon */
+    [[nodiscard]] inline static bool
+    capsuleIntersectsPolygon(const CapsuleVolume &capsule, const OGPolygon &poly) {
+        glm::vec3 pSegment, pTriangle;
+        OGSegment capsuleSeg = {capsule.getBase(), capsule.getTop()};
+        ClosestPointsSegmentTriangle(capsuleSeg, poly, pSegment, pTriangle);
+        glm::vec3 diff = pSegment - pTriangle;
+        return glm::dot(diff, diff) <= capsule.getRadius() * capsule.getRadius();
+    }
+
+    [[nodiscard]] inline static bool
+    sphereIntersectsAabb(const SphereVolume &sphere, const AABBVolume &aabb) {
+        glm::vec3 closest = glm::clamp(sphere.getCenter(), aabb.getMin(), aabb.getMax());
+        glm::vec3 diff = closest - sphere.getCenter();
+        float distanceSq = glm::dot(diff, diff);
+        return distanceSq <= (sphere.getRadius() * sphere.getRadius());
     }
 };
 

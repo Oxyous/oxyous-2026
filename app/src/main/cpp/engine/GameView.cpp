@@ -33,6 +33,7 @@
 #include "engine/components/OGPhysicsComponent.hpp"
 #include "engine/physics/OGPhysicsManager.hpp"
 #include "system/OGTimer.hpp"
+#include "engine/collision/BHV.hpp"
 
 void GameView::render() {
 
@@ -116,6 +117,9 @@ bool GameView::initialize() {
         aout << "Error: Failed to load scene collision!" << std::endl;
         return false;
     }
+
+    /** Build World BHV */
+    computeBHV(m_worldPolygons);
 
     /** Box Resources */
     auto boxMeshRes = RESOURCE_MANAGER->get<GPUStaticMeshResource>("box/box.osm");
@@ -425,4 +429,21 @@ bool GameView::loadSceneFile(const std::string &sceneFile) {
 
 void GameView::destroy() {
 
+}
+
+void GameView::computeBHV(const std::vector<OGPolygon> &polygons) {
+    m_bhv = std::make_unique<BHV>();
+
+    m_bhv->build(polygons, 4);
+}
+
+/** Get Possible Polygons capsule collision */
+void GameView::getCapsuleIntersectionByBHV(const CapsuleVolume &capsule,
+                                           std::vector<OGPolygon> &polygons) {
+    m_bhv->intersects(capsule, polygons);
+}
+
+void
+GameView::getSphereIntersectionByBHV(const SphereVolume &sphere, std::vector<OGPolygon> &polygons) {
+    m_bhv->intersects(sphere, polygons);
 }
