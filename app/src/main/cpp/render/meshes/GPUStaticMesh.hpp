@@ -9,6 +9,7 @@
 #include "GPUMesh.hpp"
 #include "../../DataStructures.hpp"
 #include "../../resources/ResourceManager.hpp"
+#include "engine/collision/Collision.hpp"
 
 class GPUStaticMesh: public GPUMesh {
 public:
@@ -44,8 +45,14 @@ public:
     /* */
     virtual void destroy() override;
 
+    /** get Bounds */
+    virtual AABBVolume* getBounds() {
+        return m_bounds.get();
+    }
+
 private:
     std::unique_ptr<GPUStaticMesh> m_mesh;
+    std::unique_ptr<AABBVolume> m_bounds;
 };
 
 #endif //OXYOUS_2026_GPUSTATICMESH_HPP

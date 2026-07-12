@@ -158,6 +158,30 @@ def convert_bounding_box(obj, basis_change):
         max(v.z for v in converted_corners),
     ))
     return converted_min, converted_max
+#------------------------------------------------------------
+#
+#------------------------------------------------------------
+
+def compute_aabb(vertices):
+    """
+    Computes the axis-aligned bounding box (AABB) for a list of vertices.
+    """
+    if not vertices:
+        return None, None
+
+    min_corner = mathutils.Vector((float('inf'), float('inf'), float('inf')))
+    max_corner = mathutils.Vector((float('-inf'), float('-inf'), float('-inf')))
+
+    for v in vertices:
+        min_corner.x = min(min_corner.x, v.x)
+        min_corner.y = min(min_corner.y, v.y)
+        min_corner.z = min(min_corner.z, v.z)
+
+        max_corner.x = max(max_corner.x, v.x)
+        max_corner.y = max(max_corner.y, v.y)
+        max_corner.z = max(max_corner.z, v.z)
+
+    return min_corner, max_corner
 
 # ------------------------------------------------------------
 # Mesh Export
@@ -196,6 +220,8 @@ def export_mesh(self, context, filepath, resource_key, obj):
         vertex_lookup = {}  # Maps vertex keys to their index in the vertices list
 
         export_basis = get_export_basis()
+
+        aabb_min, aabb_max = compute_aabb([v.co for v in mesh.vertices])
 
         for tri in mesh.loop_triangles:
             tri_indices = []
@@ -246,6 +272,8 @@ def export_mesh(self, context, filepath, resource_key, obj):
             # Write header
             f.write(struct.pack("i", len(vertices)))
             f.write(struct.pack("i", len(indices)))
+            f.write(struct.pack("fff", aabb_min.x, aabb_min.y, aabb_min.z))
+            f.write(struct.pack("fff", aabb_max.x, aabb_max.y, aabb_max.z))
 
             print(f"Exporting {len(vertices)} vertices and {len(indices)} indices to {filepath + resource_key}")
 

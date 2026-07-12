@@ -65,13 +65,6 @@ typedef struct OGSpriteData {
     float x, y, width, height;
 } OGSpriteData;
 
-/** Sprite Mesh */
-typedef struct OGSpriteMesh {
-    uint32_t indexCount;
-    uint32_t firstIndex;
-    uint32_t vertexCount;
-} OGSpriteMesh;
-
 /** Single Quad Instanced */
 typedef struct OGSpriteVertex {
     float x, y, u, v;

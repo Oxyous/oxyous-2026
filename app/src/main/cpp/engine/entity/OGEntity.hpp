@@ -7,11 +7,13 @@
 
 #include "OGObject.hpp"
 #include "../../includes.hpp"
+#include "../collision/Collision.hpp"
 
 #define MAX_COMPONENTS 32
 
 class OGActor;
 class OGEntity;
+class IVolume;
 
 /* Oxyous Game Component */
 class OGComponent : public OGObject {
@@ -23,19 +25,19 @@ public:
 public:
     friend class OGEntity;
 
-    /* Initialize the component */
+    /** Initialize the component */
     virtual void initialize() = 0;
 
-    /* Update the component */
+    /** Update the component */
     virtual void update(double deltaTime) = 0;
 
-    /* Destroy the component */
+    /** Destroy the component */
     virtual void destroy() = 0;
 
-    /* Render the component */
+    /** Render the component */
     virtual void render(VkCommandBuffer &commandBuffer, uint64_t currentFrame) = 0;
 
-    /* Set the owner of the component */
+    /** Set the owner of the component */
     [[nodiscard]] virtual OGEntity* getOwner() const {
         return m_owner;
     }
@@ -55,21 +57,22 @@ public:
     }
 public:
 
-    /* Get Parent of Entity */
+    /** Get Parent of Entity */
     [[nodiscard]] OGEntity* getParent() const {
         return m_parent;
     }
 
-    /* Set Parent of Entity */
+    /** Set Parent of Entity */
     void setParent(OGEntity* parent) {
         m_parent = parent;
     }
 
+    /** Set Actor Name */
     void setName(const std::string& name) {
         m_name = name;
     }
 
-    /* Add Component to Entity */
+    /** Add Component to Entity */
     template<typename T, typename... TArgs>
     T* addComponent(TArgs&&... args) {
         static_assert(std::is_base_of<OGComponent, T>::value, "T must derive from OGComponent");
@@ -85,13 +88,13 @@ public:
         return component;
     }
 
-    /* Check if Entity has Component */
+    /** Check if Entity has Component */
     template<typename T>
     bool hasComponent(){
         return m_components.find(T::GetType()) != m_components.end();
     }
 
-    /* Get Component from Entity */
+    /** Get Component from Entity */
     template<typename T>
     T* getComponent() {
         static_assert(std::is_base_of<OGComponent, T>::value, "T must derive from OGComponent");
@@ -103,7 +106,7 @@ public:
         return nullptr;
     }
 
-    /* Get All Components attached to Entity */
+    /** Get All Components attached to Entity */
     template<typename T>
     std::vector<T*> getComponents() {
         static_assert(std::is_base_of<OGComponent, T>::value, "T must derive from OGComponent");
@@ -117,14 +120,14 @@ public:
         return components;
     }
 
-    /* Remove Component from Entity */
+    /** Remove Component from Entity */
     template<typename T>
     void freeComponent(){
         static_assert(std::is_base_of<OGComponent, T>::value, "T must derive from OGComponent");
         m_components.erase(T::GetType());
     }
 
-    /* Add Child Entity */
+    /** Add Child Entity */
     template<typename T, typename... TArgs>
     T* addChild(TArgs&&... args) {
         static_assert(std::is_base_of<OGEntity, T>::value, "T must derive from OGEntity");
@@ -136,12 +139,12 @@ public:
         return child;
     }
 
-    /* Get children */
+    /** Get children */
     virtual std::vector<OGEntity*> getChildren() {
         return m_children;
     }
 
-    /* Update */
+    /** Update */
     virtual void update(double deltaTime) {
         for (auto& [type, component] : m_components) {
             component->update(deltaTime);
@@ -155,7 +158,7 @@ public:
     /** Initialize Actor */
     virtual bool initialize() = 0;
 
-    /* Get World Transform */
+    /** Get World Transform */
     virtual glm::mat4 getWorldTransform() {
         if (m_parent) {
             return m_parent->getWorldTransform() * m_translation * glm::mat4_cast(m_rotation) * m_scale;
@@ -163,12 +166,12 @@ public:
         return m_translation * glm::mat4_cast(m_rotation) * m_scale;
     }
 
-    /* Set Local Translation */
+    /** Set Local Translation */
     virtual void setTranslation(const glm::vec3& translation) {
         m_translation = glm::translate(glm::mat4(1.0f), translation);
     }
 
-    /* Set Local Rotation */
+    /** Set Local Rotation */
     virtual void setRotation(const glm::vec3& rotation) {
         m_rotation = glm::rotate(glm::mat4(1.0f), rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
         m_rotation = glm::rotate(m_rotation, rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
@@ -184,20 +187,27 @@ public:
         return glm::vec3(m_translation[3]);
     }
 
-    /* Set Local Scale */
+    /** Set Local Scale */
     virtual void setScale(const glm::vec3& scale) {
         m_scale = glm::scale(glm::mat4(1.0f), scale);
     }
 
-    /* Get Translation  */
+    /** Get Translation  */
     glm::vec3 getTranslation() const {
         return glm::vec3(m_translation[3]);
     }
 
-    /* Get Rotation */
+    /** Get Rotation */
     glm::quat getRotation() const {
         return m_rotation;
     }
+
+    /** Set Bound volume */
+    void setBounds(IVolume* bounds);
+
+    /** Get Bounds */
+    IVolume* getBounds();
+
 protected:
     std::unordered_map<ComponentID, std::unique_ptr<OGComponent>> m_components { MAX_COMPONENTS };
     OGEntity* m_parent;
@@ -208,6 +218,8 @@ protected:
     glm::mat4 m_scale{};
 
     glm::mat4 m_worldTransform{};
+
+    std::shared_ptr<IVolume> m_bounds;
 
     std::vector<OGEntity*> m_children;
 

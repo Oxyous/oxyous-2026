@@ -45,6 +45,11 @@ public:
         obb->m_orientation = orientation;
         return obb;
     }
+    
+    static inline PlaneVolume computePlaneFromPoints(const glm::vec3& p0, const glm::vec3& p1, const glm::vec3& p2) {
+        glm::vec3 n = glm::normalize(glm::cross(p1 - p0, p2 - p0));
+        return PlaneVolume(n, -glm::dot(n, p0));
+    }
 };
 
 #endif //OXYOUS_2026_COLLISIONFACTORY_HPP

@@ -336,10 +336,6 @@ void ScreenSpace::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
     UI->drawString(commandBuffer, ss.str(), 32.0f,120.0f, 1.0f);
 
     ss.clear();
-
-    ss << "CPU Time " << SYS_TIMER->getProcessorTicks();
-    UI->drawString(commandBuffer, ss.str(), 32.0f,160.0f, 1.0f);
-
     vkCmdEndRenderPass(commandBuffer);
 }
 

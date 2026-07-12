@@ -46,6 +46,14 @@ public:
     /**/
     void setMaterialIndex(uint32_t index);
 
+    /** Get Collision Volume */
+    IVolume* getCollisionVolume() {
+        if (m_mesh && m_mesh.get()) {
+            return m_mesh.get()->getBounds();
+        }
+        return nullptr;
+    }
+
 protected:
     std::shared_ptr<GPUStaticMeshResource> m_mesh;
     std::unordered_map<TEXTURE_SLOT, std::shared_ptr<GPUTextureResource>> m_textures;

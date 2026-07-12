@@ -4,6 +4,7 @@
 
 #include "GPUStaticMesh.hpp"
 #include "../vulkan/RenderFramework.hpp"
+#include "engine/collision/Collision.hpp"
 
 /* Upload Data to GPU using buffers*/
 bool
@@ -45,6 +46,29 @@ bool GPUStaticMeshResource::load(AAssetManager *assetManager, const std::vector<
     int indexCount = *(int *) dataPtr;
     dataPtr += sizeof(int);
 
+    /** Load AABB min,max */
+    float minx = *(float*) dataPtr;
+    dataPtr += sizeof(float);
+
+    float miny = *(float*) dataPtr;
+    dataPtr += sizeof(float);
+
+    float minz = *(float*)dataPtr;
+    dataPtr += sizeof(float);
+
+    float maxx = *(float*)dataPtr;
+    dataPtr += sizeof(float);
+
+    float maxy = *(float*)dataPtr;
+    dataPtr += sizeof(float);
+
+    float maxz = *(float*)dataPtr;
+    dataPtr += sizeof(float);
+
+    /** Allocate Bounds */
+    AABBVolume volume = { {minx, miny, minz}, {maxx, maxy, maxz} };
+    m_bounds = std::make_unique<AABBVolume>(volume);
+
     /* Load Vertices */
     std::vector<StaticMeshVertex> vertices(vertexCount);
     std::memcpy(vertices.data(), dataPtr, sizeof(StaticMeshVertex) * vertexCount);
@@ -70,5 +94,7 @@ GPUStaticMesh *GPUStaticMeshResource::get() {
 }
 
 void GPUStaticMeshResource::destroy() {
-
+    if (m_mesh) {
+        m_mesh.reset();
+    }
 }

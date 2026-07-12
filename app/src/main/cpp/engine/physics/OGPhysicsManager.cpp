@@ -8,6 +8,7 @@
 #include "engine/components/OGCollisionComponent.hpp"
 #include "../math/MathHelper.hpp"
 #include "engine/GameView.hpp"
+#include "engine/Engine.hpp"
 
 
 OGPhysicsManager::OGPhysicsManager() {
@@ -58,11 +59,11 @@ void OGPhysicsManager::update(float deltaTime) {
         if (physA->getMass() > 0.0f) {
             std::vector<OGPolygon> worldPolygons;
             if (auto obb = dynamic_cast<OBBVolume*>(volA)) {
-                GAME_VIEW->getObbIntersectionByBHV(*obb, worldPolygons);
+                ENGINE->getObbIntersectionByBHV(*obb, worldPolygons);
             } else if (auto sphere = dynamic_cast<SphereVolume*>(volA)) {
-                GAME_VIEW->getSphereIntersectionByBHV(*sphere, worldPolygons);
+                ENGINE->getSphereIntersectionByBHV(*sphere, worldPolygons);
             } else if (auto capsule = dynamic_cast<CapsuleVolume*>(volA)) {
-                GAME_VIEW->getCapsuleIntersectionByBHV(*capsule, worldPolygons);
+                ENGINE->getCapsuleIntersectionByBHV(*capsule, worldPolygons);
             }
 
             for (const auto& poly : worldPolygons) {
@@ -280,11 +281,11 @@ void OGPhysicsManager::integrate(float delta) {
 
         std::vector<OGPolygon> worldPolygons;
         if (auto obb = dynamic_cast<OBBVolume*>(vol)) {
-            GAME_VIEW->getObbIntersectionByBHV(*obb, worldPolygons);
+            ENGINE->getObbIntersectionByBHV(*obb, worldPolygons);
         } else if (auto sphere = dynamic_cast<SphereVolume*>(vol)) {
-            GAME_VIEW->getSphereIntersectionByBHV(*sphere, worldPolygons);
+            ENGINE->getSphereIntersectionByBHV(*sphere, worldPolygons);
         } else if (auto capsule = dynamic_cast<CapsuleVolume*>(vol)) {
-            GAME_VIEW->getCapsuleIntersectionByBHV(*capsule, worldPolygons);
+            ENGINE->getCapsuleIntersectionByBHV(*capsule, worldPolygons);
         }
 
         for (const auto &poly: worldPolygons) {

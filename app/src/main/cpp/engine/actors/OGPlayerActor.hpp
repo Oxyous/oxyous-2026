@@ -38,6 +38,7 @@ private:
     float m_pitch; // vertical rotation
     float m_distance;
     float m_sensitivity; //
+    float m_groundHeight = 0.1f;
     glm::mat4 m_viewMatrix{};
     glm::mat4 m_projectionMatrix{};
     glm::vec3 m_cameraPosition{};

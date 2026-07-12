@@ -19,6 +19,43 @@ void OGPlayerActor::update(double deltaTime) {
     if (ENGINE->isGameModeFly())
         return;
 
+   /* const auto &collision = getComponent<OGCollisionComponent>();
+    if (collision) {
+        const auto volume = collision->getCollisionVolume<CapsuleVolume>();
+        if (volume) {
+            const auto segment = OGSegment{volume->getBase() + glm::vec3(0, 0.0f, 0),
+                                           volume->getBase() - glm::vec3(0, 0.5f, 0)};
+            std::vector<OGPolygon> polygons;
+            GAME_VIEW->getSegmentIntersectionByBHV(segment, polygons);
+            if (!polygons.empty()) {
+                const auto &closestPolygon = polygons[0];
+                const auto &plane = CollisionHelper::getPolygonPlane(closestPolygon);
+                const float distanceToGround =
+                        glm::dot(plane.m_normal, volume->getBase()) - plane.m_distance;
+
+                if (distanceToGround < m_groundHeight) {
+                    setGrounded(true, volume->getBase().y - distanceToGround);
+                } else {
+                    setGrounded(false, 0.0f);
+                }
+            } else {
+                setGrounded(false, 0.0f);
+            }
+        }
+    }
+    auto physics = getComponent<OGPhysicsComponent>();
+    if (physics) {
+        if (!m_isGrounded) {
+            // Apply gravity or other physics-related updates here
+            physics->setAcceleration(glm::vec3(0.0f, -9.81f, 0.0f)); // Example: Apply gravity
+            physics->setMass(1.0f); // Example: Set mass for physics
+        }else {
+            physics->setAcceleration(glm::vec3(0.0f, 0.0f, 0.0f)); // No acceleration when grounded
+            physics->setMass(0.0f); // Example: Set mass for physics
+        }
+    }*/
+
+
     m_yaw += ENGINE->getThumbStick(THUMBSTICK_RIGHT)->getActuator().x * m_sensitivity * deltaTime;
     m_pitch -= ENGINE->getThumbStick(THUMBSTICK_RIGHT)->getActuator().y * m_sensitivity * deltaTime;
 

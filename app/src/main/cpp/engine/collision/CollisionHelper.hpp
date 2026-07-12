@@ -270,6 +270,43 @@ public:
         return plane;
     }
 
+
+    /* Get Frustum Corners */
+    [[nodiscard]] inline static std::array<glm::vec4, 8> getFrustumCornersWorldSpace(
+            const glm::mat4 &projectionMatrix,
+            const glm::mat4 &viewMatrix,
+            float nearPlane,
+            float farPlane
+    ) {
+        glm::mat4 invProj = glm::inverse(projectionMatrix);
+        glm::mat4 invView = glm::inverse(viewMatrix);
+
+        std::array<glm::vec4, 8> frustumCorners;
+        for (unsigned int i = 0; i < 8; ++i) {
+            glm::vec4 pt = invProj * glm::vec4(
+                    (i & 1) ? 1.0f : -1.0f,
+                    (i & 2) ? 1.0f : -1.0f,
+                    (i & 4) ? 1.0f : 0.0f, // ZERO_TO_ONE
+                    1.0f
+            );
+            frustumCorners[i] = pt / pt.w;
+        }
+
+        float fNear = frustumCorners[0].z;
+        float fFar  = frustumCorners[4].z;
+
+        std::array<glm::vec4, 8> subCorners;
+        for (unsigned int i = 0; i < 4; ++i) {
+            float tNear = (-nearPlane - fNear) / (fFar - fNear);
+            float tFar  = (-farPlane - fNear) / (fFar - fNear);
+
+            subCorners[i]   = invView * glm::mix(frustumCorners[i], frustumCorners[i+4], tNear);
+            subCorners[i+4] = invView * glm::mix(frustumCorners[i], frustumCorners[i+4], tFar);
+        }
+
+        return subCorners;
+    }
+
     /* */
     [[nodiscard]] inline static bool
     resolvePolygonSphereCollision(const OGPolygon &polygon, const SphereVolume &sphereVolume,

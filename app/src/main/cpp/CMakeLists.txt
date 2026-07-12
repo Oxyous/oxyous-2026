@@ -10,14 +10,17 @@ project("oxyous_2026")
 add_library(oxyous_2026 SHARED
         main.cpp
         engine/algorithms/AStar.cpp
+        engine/algorithms/OGBVH.cpp
+        engine/entity/OGEntity.cpp
         engine/actors/OGActor.cpp
         engine/actors/OGCharacter.cpp
+        engine/collision/Frustum.cpp
         engine/collision/PlaneVolume.cpp
         engine/collision/AABBVolume.cpp
         engine/collision/SphereVolume.cpp
         engine/collision/CapsuleVolume.cpp
         engine/collision/OBBVolume.cpp
-        engine/collision/BHV.cpp
+        engine/collision/BVH.cpp
         engine/input/Input.cpp
         engine/input/ThumbStick.cpp
         engine/elements/OGElement.cpp

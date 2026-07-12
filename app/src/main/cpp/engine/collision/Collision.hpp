@@ -7,6 +7,7 @@
 
 #include "../../includes.hpp"
 #include "../../DataStructures.hpp"
+#include "engine/entity/OGEntity.hpp"
 
 class PlaneVolume;
 class SphereVolume;
@@ -15,7 +16,9 @@ class CapsuleVolume;
 class OBBVolume;
 class Ray;
 class RaycastHit;
+class Frustum;
 class OGCollisionManifold;
+class OGEntity;
 
 class IVolume {
 public:
@@ -44,6 +47,12 @@ public:
 
     /** Transform Volume */
     virtual void transform(const glm::mat4& transform) = 0;
+
+    [[nodiscard]] OGEntity* getOwner() const { return m_owner; }
+    void setOwner(OGEntity* owner) { m_owner = owner; }
+
+protected:
+    OGEntity* m_owner = nullptr;
 };
 
 /* Plane Volume */
@@ -188,6 +197,11 @@ public:
         m_min = glm::min(m_min, volume.getMin());
         m_max = glm::max(m_max, volume.getMax());
     }
+
+    glm::vec3 getCentroid() {
+        return (m_max + m_min) * 0.5f;
+    }
+
 public:
     /* Intersect Ray with Volume */
     bool intersect(const Ray& ray, RaycastHit& hit) const override;
@@ -256,7 +270,7 @@ public:
     glm::quat m_orientation;
 };
 
-/*  */
+/**  */
 class Ray
 {
 public:
@@ -269,6 +283,8 @@ public:
     glm::vec3 m_direction;
 };
 
+
+/**  */
 class RaycastHit{
 public:
     friend class CollisionFactory;
@@ -279,6 +295,30 @@ public:
     glm::vec3 m_position;
     glm::vec3 m_normal;
     float m_distance;
+};
+
+class Frustum
+{
+public:
+    Frustum() = default;
+    ~Frustum() = default;
+
+    /** Initialize frustum planes from a view-projection matrix */
+    void update(const glm::mat4& projection, const glm::mat4& view, float nearPlane = 0.1f, float FarPlane = 10000.0f);
+
+    /** Check if an AABB is inside or intersecting the frustum */
+    [[nodiscard]] bool intersects(const AABBVolume& aabb) const;
+
+    /** Check if an OBB is inside or intersecting the frustum */
+    [[nodiscard]] bool intersects(const OBBVolume& obb) const;
+
+    /** Check if a Sphere is inside or intersecting the frustum */
+    [[nodiscard]] bool intersects(const SphereVolume& sphere) const;
+
+    /** Check if a point is inside or intersecting the frustum */
+    [[nodiscard]] bool intersects(const glm::vec3& point) const;
+public:
+    PlaneVolume m_planes[6];
 };
 
 #endif //OXYOUS_2026_COLLISION_HPP

@@ -7,6 +7,7 @@
 
 #include "../../includes.hpp"
 #include "../../DataStructures.hpp"
+#include "../../engine/collision/CollisionFactory.hpp"
 
 class RenderHelper {
 public:
@@ -35,41 +36,6 @@ public:
         }
     }
 
-    /* Get Frustum Corners */
-    inline static std::array<glm::vec4, 8> getFrustumCornersWorldSpace(
-            const glm::mat4 &projectionMatrix,
-            const glm::mat4 &viewMatrix,
-            float nearPlane,
-            float farPlane
-    ) {
-        glm::mat4 invProj = glm::inverse(projectionMatrix);
-        glm::mat4 invView = glm::inverse(viewMatrix);
-
-        std::array<glm::vec4, 8> frustumCorners;
-        for (unsigned int i = 0; i < 8; ++i) {
-            glm::vec4 pt = invProj * glm::vec4(
-                    (i & 1) ? 1.0f : -1.0f,
-                    (i & 2) ? 1.0f : -1.0f,
-                    (i & 4) ? 1.0f : 0.0f, // ZERO_TO_ONE
-                    1.0f
-            );
-            frustumCorners[i] = pt / pt.w;
-        }
-
-        float fNear = frustumCorners[0].z;
-        float fFar  = frustumCorners[4].z;
-
-        std::array<glm::vec4, 8> subCorners;
-        for (unsigned int i = 0; i < 4; ++i) {
-            float tNear = (-nearPlane - fNear) / (fFar - fNear);
-            float tFar  = (-farPlane - fNear) / (fFar - fNear);
-
-            subCorners[i]   = invView * glm::mix(frustumCorners[i], frustumCorners[i+4], tNear);
-            subCorners[i+4] = invView * glm::mix(frustumCorners[i], frustumCorners[i+4], tFar);
-        }
-
-        return subCorners;
-    }
 
     /* Compute Cascade Splits */
     inline static std::array<float, 4> computeCascadeSplits(
@@ -175,7 +141,7 @@ public:
             float cascadeNear = lastSplit;
             float cascadeFar = splits[i];
 
-            auto frustumCorners = getFrustumCornersWorldSpace(projectionMatrix, viewMatrix, cascadeNear, cascadeFar);
+            auto frustumCorners = CollisionHelper::getFrustumCornersWorldSpace(projectionMatrix, viewMatrix, cascadeNear, cascadeFar);
 
             auto lightMatrix = computeCascadeLightMatrix(frustumCorners, lightDirection, shadowMapSize, true, (float)i, 4.0f);
 
@@ -186,6 +152,22 @@ public:
         }
 
         return data;
+    }
+
+    inline static std::vector<PlaneVolume> computeCascadeVolume(const glm::mat4& projection, const glm::mat4& view, float nearPlane, float farPlane) {
+        std::vector<PlaneVolume> planes (6);
+        auto corners = CollisionHelper::getFrustumCornersWorldSpace(projection, view, nearPlane, farPlane);
+
+        // Near, Far, Left, Right, Top, Bottom
+        // Corners: 0-3 are near, 4-7 are far. Order: BL, BR, TR, TL
+        planes[0] = CollisionFactory::computePlaneFromPoints(corners[0], corners[1], corners[2]); // Near
+        planes[1] = CollisionFactory::computePlaneFromPoints(corners[5], corners[4], corners[7]); // Far
+        planes[2] = CollisionFactory::computePlaneFromPoints(corners[4], corners[0], corners[3]); // Left
+        planes[3] = CollisionFactory::computePlaneFromPoints(corners[1], corners[5], corners[6]); // Right
+        planes[4] = CollisionFactory::computePlaneFromPoints(corners[3], corners[2], corners[6]); // Top
+        planes[5] = CollisionFactory::computePlaneFromPoints(corners[4], corners[5], corners[1]); // Bottom
+
+        return planes;
     }
 };
 

@@ -56,7 +56,7 @@ OGCollisionManifold CapsuleVolume::resolveCollision(IVolume *volume) {
 }
 
 void CapsuleVolume::transform(const glm::mat4 &transform) {
-    m_base = transform[3] + glm::vec4(0.0f,1.0f,0.0f, 0.0f);
+    m_base = transform[3] + glm::vec4(0.0f,m_radius,0.0f, 0.0f);
     m_top = transform[3] + glm::vec4(0.0f,2.0f,0.0f, 0.0f);
     //m_base = glm::vec3(transform * glm::vec4(m_base, 1.0f));
     //m_top = glm::vec3(transform * glm::vec4(m_top, 1.0f));

@@ -525,7 +525,6 @@ Deferred::record(VkCommandBuffer commandBuffer, uint64_t currentFrame, VkFramebu
     frame.perFrame.projection = ENGINE->getCameraProjection();
     frame.perFrame.view = ENGINE->getCameraView();
 
-
     GPU_RESOURCES->uploadFrameData(frame);
 
     /* Clear Framebuffers */
@@ -574,11 +573,31 @@ Deferred::record(VkCommandBuffer commandBuffer, uint64_t currentFrame, VkFramebu
                             m_pipelineLayout, 0, 1,
                             &GPU_RESOURCES->getBindlessSet(currentFrame), 0, nullptr);
 
+    std::vector<OGEntity*> dynamicObjects;
+    GAME_VIEW->getDynamicObjects(dynamicObjects);
+    for (auto& object: dynamicObjects) {
+        for (auto& child: object->getChildren()) {
+            if (child->getComponent<OGStaticMeshComponent>()) {
+                auto *component = child->getComponent<OGStaticMeshComponent>();
+                if (component) {
+                    component->render(commandBuffer, currentFrame);
+                }
+            }
+        }
+        if (object->getComponent<OGStaticMeshComponent>()) {
+            auto *component = object->getComponent<OGStaticMeshComponent>();
+            if (component) {
+                component->render(commandBuffer, currentFrame);
+            }
+        }
+    }
+
+
     /* Render Objects */
-    auto &staticMeshes = GAME_VIEW->getEntities();
+    auto &staticMeshes = GAME_VIEW->getVisible();
     for (auto &mesh: staticMeshes) {
 
-        for (auto& child: mesh.second->getChildren()) {
+        for (auto& child: mesh->getChildren()) {
             if (child->getComponent<OGStaticMeshComponent>()) {
                 auto *component = child->getComponent<OGStaticMeshComponent>();
                 if (component) {
@@ -587,8 +606,8 @@ Deferred::record(VkCommandBuffer commandBuffer, uint64_t currentFrame, VkFramebu
             }
         }
 
-        if (mesh.second->getComponent<OGStaticMeshComponent>()) {
-            auto *component = mesh.second->getComponent<OGStaticMeshComponent>();
+        if (mesh->getComponent<OGStaticMeshComponent>()) {
+            auto *component = mesh->getComponent<OGStaticMeshComponent>();
             if (component) {
                 component->render(commandBuffer, currentFrame);
             }

@@ -26,6 +26,15 @@ layout (location = 0) out vec4 outColor;
 
 const vec3 lightDir = normalize(vec3(0.5, 1.0, 0.5));
 const vec3 lightColor = vec3(1.5);
+const float fogDensity = 0.0035;
+
+
+vec3 applyFog(vec3 color, vec3 fogColor, vec3 worldPos)
+{
+    float distanceToCamera = length(ubo.cameraPosition.xyz - worldPos);
+    float fogAmount = 1.0 - exp(-fogDensity * distanceToCamera);
+    return mix(color, fogColor, clamp(fogAmount, 0.0, 1.0));
+}
 
 
 int getCascadeIndex(float distance)
@@ -170,10 +179,12 @@ void main()
     vec3 worldDir = normalize((ubo.invView * vec4(viewPt.xyz, 0.0)).xyz);
 
     float depth = texture(gDepth, uvCoord).r;
+    vec3 fogColor = texture(gEnvironment, worldDir).rgb;
 
     if (depth >= 1.0) {
         outColor = texture(gEnvironment, worldDir);
     }else {
-        outColor = vec4(color * shadow, 1.0);
+        vec3 litColor = color * shadow;
+        outColor = vec4(applyFog(litColor, fogColor, worldPos), 1.0);
     }
 }

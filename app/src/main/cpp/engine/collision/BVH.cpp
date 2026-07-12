@@ -2,10 +2,10 @@
 // Created by Mr Steven J Baldwin on 26/06/2026.
 //
 
-#include "BHV.hpp"
+#include "BVH.hpp"
 
 /**/
-void BHV::build(const ::std::vector<OGPolygon> &inPolygons, int maxLeafSize) {
+void BVH::build(const ::std::vector<OGPolygon> &inPolygons, int maxLeafSize) {
     this->polygons = inPolygons;
     this->indices.resize(inPolygons.size());
     std::iota(indices.begin(), indices.end(), 0);
@@ -17,7 +17,7 @@ void BHV::build(const ::std::vector<OGPolygon> &inPolygons, int maxLeafSize) {
     }
 }
 
-int BHV::buildRecursive(int start, int end, int maxLeafSize) {
+int BVH::buildRecursive(int start, int end, int maxLeafSize) {
     BHVNode node;
     AABBVolume box;
     AABBVolume centroidBox;
@@ -69,7 +69,7 @@ int BHV::buildRecursive(int start, int end, int maxLeafSize) {
 }
 
 /* Segment Intersects Polygon Volume*/
-bool BHV::segmentIntersectsPolygon(int nodeIndex, const glm::vec3 &a, const glm::vec3 &b,
+bool BVH::segmentIntersectsPolygon(int nodeIndex, const glm::vec3 &a, const glm::vec3 &b,
                                    double ignoreMin, double ignoreMax, OGPolygon& polyOut) {
     const BHVNode &node = nodes[nodeIndex];
 
@@ -102,20 +102,20 @@ bool BHV::segmentIntersectsPolygon(int nodeIndex, const glm::vec3 &a, const glm:
     return false;
 }
 
-void BHV::intersects(const OBBVolume &obb, std::vector<OGPolygon> &results) {
+void BVH::intersects(const OBBVolume &obb, std::vector<OGPolygon> &results) {
     if (root != -1) {
         intersectsRecursive(root, obb, results);
     }
 }
 
-void BHV::intersects(const CapsuleVolume &capsule, std::vector<OGPolygon> &results) {
+void BVH::intersects(const CapsuleVolume &capsule, std::vector<OGPolygon> &results) {
     if (root != -1) {
         intersectsRecursive(root, capsule, results);
     }
 }
 
 void
-BHV::intersectsRecursive(int nodeIndex, const OBBVolume &obb, std::vector<OGPolygon> &results) {
+BVH::intersectsRecursive(int nodeIndex, const OBBVolume &obb, std::vector<OGPolygon> &results) {
     const BHVNode &node = nodes[nodeIndex];
 
     if (!CollisionHelper::obbIntersectsAabb(obb, node.aabb)) {
@@ -138,7 +138,7 @@ BHV::intersectsRecursive(int nodeIndex, const OBBVolume &obb, std::vector<OGPoly
     intersectsRecursive(node.right, obb, results);
 }
 
-void BHV::intersectsRecursive(int nodeIndex, const CapsuleVolume &capsule,
+void BVH::intersectsRecursive(int nodeIndex, const CapsuleVolume &capsule,
                               std::vector<OGPolygon> &results) {
     const BHVNode &node = nodes[nodeIndex];
 
@@ -161,13 +161,13 @@ void BHV::intersectsRecursive(int nodeIndex, const CapsuleVolume &capsule,
     intersectsRecursive(node.right, capsule, results);
 }
 
-void BHV::intersects(const SphereVolume &sphere, std::vector<OGPolygon> &results) {
+void BVH::intersects(const SphereVolume &sphere, std::vector<OGPolygon> &results) {
     if (root != -1) {
         intersectsRecursive(root, sphere, results);
     }
 }
 
-void BHV::intersectsRecursive(int nodeIndex, const SphereVolume &sphere,
+void BVH::intersectsRecursive(int nodeIndex, const SphereVolume &sphere,
                               std::vector<OGPolygon> &results) {
     const BHVNode &node = nodes[nodeIndex];
 
@@ -188,4 +188,36 @@ void BHV::intersectsRecursive(int nodeIndex, const SphereVolume &sphere,
 
     intersectsRecursive(node.left, sphere, results);
     intersectsRecursive(node.right, sphere, results);
+}
+
+void BVH::intersects(const OGSegment &segment, std::vector<OGPolygon> &results) {
+    if (root != -1) {
+        OGPolygon poly;
+        if (segmentIntersectsPolygon(root, segment.start, segment.end, 0.0, 1.0, poly)) {
+            results.push_back(poly);
+        }
+    }
+}
+
+void
+BVH::intersectsRecursive(int nodeIndex, const OGSegment &segment, std::vector<OGPolygon> &results) {
+    const BHVNode &node = nodes[nodeIndex];
+
+    if (!CollisionHelper::segmentIntersectsAabb(segment.start, segment.end, node.aabb)) {
+        return;
+    }
+
+    if (node.leaf) {
+        for (int i = 0; i < node.count; i++) {
+            const OGPolygon &poly = polygons[indices[node.start + i]];
+            double t;
+            if (CollisionHelper::segmentIntersectsPolygon(segment.start, segment.end, poly, t)) {
+                results.push_back(poly);
+            }
+        }
+        return;
+    }
+
+    intersectsRecursive(node.left, segment, results);
+    intersectsRecursive(node.right, segment, results);
 }

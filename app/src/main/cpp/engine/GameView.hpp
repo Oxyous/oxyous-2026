@@ -10,7 +10,8 @@
 #include "collision/Collision.hpp"
 #include "input/ThumbStick.hpp"
 #include "engine/actors/OGPlayerActor.hpp"
-#include "../engine/collision/BHV.hpp"
+#include "../engine/collision/BVH.hpp"
+#include "engine/components/OGCollisionComponent.hpp"
 
 class IGameView {
 public:
@@ -55,7 +56,6 @@ public:
         m_worldPolygons.clear();
         m_BlockingPolygons.clear();
         m_activePlayer.reset();
-        m_bhv.reset();
     }
 
     /* Get Entities */
@@ -91,6 +91,7 @@ public:
         return (T *) m_entities[name].get();
     }
 
+    /** Get Actor by Name */
     template<typename T>
     T *getActor(const std::string &name) {
         return m_entities.find(name) != m_entities.end() ? (T *) m_entities[name].get() : nullptr;
@@ -138,7 +139,7 @@ public:
     }
 
     void setActivePlayer(OGActor *player) {
-        const auto playerActor = dynamic_cast<OGPlayerActor*>(player);
+        const auto playerActor = dynamic_cast<OGPlayerActor *>(player);
 
         if (!playerActor) {
             aout << "Error: Active player must be of type OGPlayerActor!" << std::endl;
@@ -167,26 +168,50 @@ public:
         return glm::mat4(1.0f);
     }
 
-    /** Build BHV from polygon list */
-    void computeBHV(const std::vector<OGPolygon>& polygons);
+    /** Build Static Volumes */
+    void buildStaticVolumes(std::vector<AABBVolume> &volumes) {
+        auto aabbs = getActorsWithComponent<OGCollisionComponent>();
+        for (const auto& aabb : aabbs) {
+            const auto& vol = aabb->getComponent<OGCollisionComponent>();
+            if (vol) {
+                const auto& bounds = vol->getCollisionVolume<AABBVolume>();
+                if (bounds){
+                    volumes.push_back(*bounds);
+                }
+            }
+        }
+    }
 
-    /** Get Possible Polygon intersection */
-    void getCapsuleIntersectionByBHV(const CapsuleVolume& capsule, std::vector<OGPolygon>& polygons);
+    /** Get Dynamic Objects */
+    void getDynamicObjects(std::vector<OGEntity*>& objects) {
+        auto coll = getActorsWithComponent<OGCollisionComponent>();
+        for (const auto& entity : coll) {
+            const auto& vol = entity->getComponent<OGCollisionComponent>();
+            if (vol) {
+                const auto& bounds = vol->getCollisionVolume<AABBVolume>();
+                if (!bounds){
+                    objects.push_back(entity);
+                }
+            }
+        }
+    }
 
-    /** Get Possible Polygons intersection with sphere */
-    void getSphereIntersectionByBHV(const SphereVolume& sphere, std::vector<OGPolygon>& polygons);
+    /** Get Visible Entities */
+    std::vector<OGEntity *>& getVisible(){
+        return m_visibleEntities;
+    }
 
-    void getObbIntersectionByBHV(const OBBVolume& obb, std::vector<OGPolygon>& polygons);
 private:
     /* Temporary Collision */
     std::vector<std::shared_ptr<IVolume>> m_colliders;
 
     std::unordered_map<std::string, std::unique_ptr<OGEntity>> m_entities;
+    std::vector<OGEntity *> m_visibleEntities;
 
     std::vector<OGPolygon> m_worldPolygons;
     std::vector<OGPolygon> m_BlockingPolygons;
     std::shared_ptr<OGActor> m_activePlayer;
-    std::unique_ptr<BHV> m_bhv;
+    Frustum m_camFrustum;
 };
 
 #define GAME_VIEW OGSingleton<GameView>::getInstance()

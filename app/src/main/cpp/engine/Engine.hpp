@@ -14,6 +14,7 @@
 #include "actors/OGCamera.hpp"
 #include "../DataStructures.hpp"
 #include "GameView.hpp"
+#include "algorithms/OGBVH.hpp"
 
 class Engine {
 public:
@@ -92,6 +93,14 @@ public:
         return m_camera->getProjectionMatrix();
     }
 
+    glm::mat4 getFlyingCameraProjection() {
+        return m_camera->getProjectionMatrix();
+    }
+
+    glm::mat4 getFlyingCameraView() {
+        return m_camera->getViewMatrix();
+    }
+
     glm::vec3 getCameraPosition() {
 
         if (m_gameModeFly) {
@@ -153,6 +162,27 @@ public:
         return m_isExecuting;
     }
 
+    /** Build BVH from polygon list */
+    void computeCollisionBHV(const std::vector<OGPolygon>& polygons);
+
+    /** Get Possible Polygon intersection */
+    void getCapsuleIntersectionByBHV(const CapsuleVolume& capsule, std::vector<OGPolygon>& polygons);
+
+    /** Get Possible Polygons intersection with sphere */
+    void getSphereIntersectionByBHV(const SphereVolume& sphere, std::vector<OGPolygon>& polygons);
+
+    /** */
+    void getObbIntersectionByBHV(const OBBVolume& obb, std::vector<OGPolygon>& polygons);
+
+    /** Get Possible Polygons intersection with segment */
+    void getSegmentIntersectionByBHV(const OGSegment& segment, std::vector<OGPolygon>& polygons);
+
+    /** Build BVH Static objects*/
+    void buildStaticBVH(std::vector<AABBVolume>& primitives);
+
+    /** Get static entities intersecting with the given frustum */
+    void getStaticFrustumIntersectionByBVH(const Frustum &frustum, std::vector<AABBVolume> &entities);
+
 protected:
     bool m_isExecuting = false;
     Renderer* m_renderer = nullptr;
@@ -163,6 +193,8 @@ protected:
     CSMData m_sharedCSMData;
     uint32_t m_currentFrame = 0;
     bool m_gameModeFly = true;
+    std::unique_ptr<BVH> m_collisionBHV;
+    std::unique_ptr<OGBVH<AABBVolume>> m_staticBVH;
 };
 
 #define ENGINE OGSingleton<Engine>::getInstance()

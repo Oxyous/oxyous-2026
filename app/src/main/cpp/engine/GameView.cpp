@@ -33,23 +33,31 @@
 #include "engine/components/OGPhysicsComponent.hpp"
 #include "engine/physics/OGPhysicsManager.hpp"
 #include "system/OGTimer.hpp"
-#include "engine/collision/BHV.hpp"
+#include "engine/collision/BVH.hpp"
 
 void GameView::render() {
 
 }
 
 void GameView::update(double deltaTime) {
-    for (auto &entity: m_entities) {
+    for (const auto &entity: m_entities) {
         entity.second->update(deltaTime);
     }
-    for (auto &uiElement: UI->getElements()) {
+
+    for (const auto &uiElement: UI->getElements()) {
         uiElement->update(deltaTime);
     }
 
-    auto colliders = getActorsWithComponent<OGCollisionComponent>();
-    for (auto &c: colliders) {
-        c->update(deltaTime);
+    m_camFrustum.update(ENGINE->getFlyingCameraProjection(), ENGINE->getFlyingCameraView());
+
+    std::vector<AABBVolume> possibleVolumes;
+    ENGINE->getStaticFrustumIntersectionByBVH(m_camFrustum, possibleVolumes);
+
+    m_visibleEntities.clear();
+    for (const auto &volume : possibleVolumes) {
+        if (auto entity = volume.getOwner()) {
+            m_visibleEntities.push_back(entity);
+        }
     }
 }
 
@@ -118,8 +126,8 @@ bool GameView::initialize() {
         return false;
     }
 
-    /** Build World BHV */
-    computeBHV(m_worldPolygons);
+    /** Build World BVH */
+    ENGINE->computeCollisionBHV(m_worldPolygons);
 
     /** Box Resources */
     auto boxMeshRes = RESOURCE_MANAGER->get<GPUStaticMeshResource>("box/box.osm");
@@ -137,7 +145,7 @@ bool GameView::initialize() {
     auto movableActor = addActor<OGCharacter>("movableActor");
     auto movableMesh = movableActor->addComponent<OGStaticMeshComponent>();
     movableMesh->setMeshResource(mesh);
-    movableMesh->setMaterialIndex(0);
+    movableMesh->setMaterialIndex(boxMaterialSlot);
     movableActor->setTranslation(glm::vec3(0.0f, 2.0f, 0.0f));
 
     raycastCallback = [&](const Ray &ray, OGContact &hit) {
@@ -238,7 +246,7 @@ bool GameView::initialize() {
 
     for(int i = 0; i < 5; i++) {
         auto box = addActor<OGActor>("box-" + std::to_string(m_entities.size()+1));
-        box->setTranslation(glm::vec3(0.0f, (3.0f * (float)i) + 50.0f, 0.0f));
+        box->setTranslation(glm::vec3(0.0f, (3.0f * (float)i) + 10.0f, 0.0f));
         box->setRotation(glm::vec3(glm::radians(45.0f), glm::radians(45.0f), glm::radians(45.0f)));
         auto boxMesh = box->addComponent<OGStaticMeshComponent>();
         boxMesh->setMeshResource(boxMeshRes);
@@ -247,6 +255,7 @@ bool GameView::initialize() {
         auto boxObb = box->addComponent<OGCollisionComponent>();
         auto boxBound = CollisionFactory::createOBB(glm::vec3(0.0,0.0,0.0), glm::vec3(0.5f,0.5f,0.5f), glm::mat3(1.0f));
         boxObb->setVolume(std::unique_ptr<OBBVolume>(boxBound));
+        boxBound->setOwner(box);
         boxPhys->setMass(1.0f);
         PHYSICS->registerPhysicsActor(box);
     }
@@ -265,6 +274,10 @@ bool GameView::initialize() {
     PHYSICS->registerPhysicsActor(camera);
     SYS_TIMER->Start();
     PHYSICS->start();
+
+    std::vector<AABBVolume> staticVolumes;
+    buildStaticVolumes(staticVolumes);
+    ENGINE->buildStaticBVH(staticVolumes);
 
     return true;
 }
@@ -410,15 +423,18 @@ bool GameView::loadSceneFile(const std::string &sceneFile) {
                         maxAttr != childElem->getAttributes().end()) {
                         glm::vec3 minVec(0.0f);
                         glm::vec3 maxVec(0.0f);
+                        char del;
 
                         std::istringstream minStream(minAttr->second);
-                        minStream >> minVec.x >> minVec.y >> minVec.z;
+                        minStream >> minVec.x >> del >> minVec.y >> del >> minVec.z;
 
                         std::istringstream maxStream(maxAttr->second);
-                        maxStream >> maxVec.x >> maxVec.y >> maxVec.z;
+                        maxStream >> maxVec.x >> del >> maxVec.y >> del >> maxVec.z;
 
                         auto AabbVolume = actorScene->addComponent<OGCollisionComponent>();
                         AabbVolume->setVolume(std::make_unique<AABBVolume>(minVec, maxVec));
+
+
                     }
                 }
             }
@@ -427,27 +443,7 @@ bool GameView::loadSceneFile(const std::string &sceneFile) {
     return true;
 }
 
+
 void GameView::destroy() {
 
-}
-
-void GameView::computeBHV(const std::vector<OGPolygon> &polygons) {
-    m_bhv = std::make_unique<BHV>();
-
-    m_bhv->build(polygons, 4);
-}
-
-/** Get Possible Polygons capsule collision */
-void GameView::getCapsuleIntersectionByBHV(const CapsuleVolume &capsule,
-                                           std::vector<OGPolygon> &polygons) {
-    m_bhv->intersects(capsule, polygons);
-}
-
-void
-GameView::getSphereIntersectionByBHV(const SphereVolume &sphere, std::vector<OGPolygon> &polygons) {
-    m_bhv->intersects(sphere, polygons);
-}
-
-void GameView::getObbIntersectionByBHV(const OBBVolume &obb, std::vector<OGPolygon> &polygons) {
-    m_bhv->intersects(obb, polygons);
 }

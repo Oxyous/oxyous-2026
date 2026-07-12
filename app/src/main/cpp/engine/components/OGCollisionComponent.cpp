@@ -22,5 +22,6 @@ void OGCollisionComponent::render(VkCommandBuffer &commandBuffer, uint64_t curre
 }
 
 void OGCollisionComponent::setVolume(std::unique_ptr<IVolume> volume) {
+    volume->setOwner(getOwner());
     m_collider = std::move(volume);
 }

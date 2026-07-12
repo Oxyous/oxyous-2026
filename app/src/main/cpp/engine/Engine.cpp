@@ -34,7 +34,7 @@ void Engine::update(float deltaTime) {
 
         glm::vec3 camPos = m_camera->getTranslation();
         std::vector<OGPolygon> polygons;
-        GAME_VIEW->getSphereIntersectionByBHV(*bounds, polygons);
+        ENGINE->getSphereIntersectionByBHV(*bounds, polygons);
 
         for (auto &p: polygons) {
             OGContact contact;
@@ -53,7 +53,7 @@ void Engine::update(float deltaTime) {
         player->setGrounded(false, 0.0f);
 
         std::vector<OGPolygon> polygons;
-        GAME_VIEW->getCapsuleIntersectionByBHV(*playerCollision, polygons);
+        ENGINE->getCapsuleIntersectionByBHV(*playerCollision, polygons);
 
         for (auto &p: polygons) {
             OGContact contact;
@@ -96,4 +96,42 @@ JNIEnv *Engine::getJniEnv() {
         }
     }
     return env;
+}
+
+
+void Engine::computeCollisionBHV(const std::vector<OGPolygon> &polygons) {
+    m_collisionBHV = std::make_unique<BVH>();
+
+    m_collisionBHV->build(polygons, 4);
+}
+
+/** Get Possible Polygons capsule collision */
+void Engine::getCapsuleIntersectionByBHV(const CapsuleVolume &capsule,
+                                           std::vector<OGPolygon> &polygons) {
+    m_collisionBHV->intersects(capsule, polygons);
+}
+
+void
+Engine::getSphereIntersectionByBHV(const SphereVolume &sphere, std::vector<OGPolygon> &polygons) {
+    m_collisionBHV->intersects(sphere, polygons);
+}
+
+void Engine::getObbIntersectionByBHV(const OBBVolume &obb, std::vector<OGPolygon> &polygons) {
+    m_collisionBHV->intersects(obb, polygons);
+}
+
+void
+Engine::getSegmentIntersectionByBHV(const OGSegment &segment, std::vector<OGPolygon> &polygons) {
+    m_collisionBHV->intersects(segment, polygons);
+}
+
+void Engine::buildStaticBVH(std::vector<AABBVolume>& primitives) {
+    m_staticBVH = std::make_unique<OGBVH<AABBVolume>>();
+    m_staticBVH->build(primitives, 4);
+}
+
+void Engine::getStaticFrustumIntersectionByBVH(const Frustum &frustum, std::vector<AABBVolume> &entities) {
+    if (m_staticBVH) {
+        m_staticBVH->intersectsFrustum(frustum, entities);
+    }
 }
