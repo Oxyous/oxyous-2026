@@ -26,6 +26,10 @@ typedef struct OGPolygon {
     glm::vec3 vertices[3];
     glm::vec3 normal;
 
+    [[nodiscard]] glm::vec3 getCentroid() const {
+        return (vertices[0] + vertices[1] + vertices[2]) / 3.0f;
+    }
+
     const bool operator== (const OGPolygon& other) const {
         return vertices[0] == other.vertices[0] &&
                vertices[1] == other.vertices[1] &&

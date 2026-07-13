@@ -142,14 +142,8 @@ private:
     }
 
     void computeAABB(int start, int end, AABBVolume &aabb) {
-        if (start >= end) {
-            aabb.m_min = glm::vec3(0.0f);
-            aabb.m_max = glm::vec3(0.0f);
-            return;
-        }
-
-        aabb = m_primitives[indices[start]];
-        for (int i = start + 1; i < end; i++) {
+        aabb = AABBVolume();
+        for (int i = start; i < end; i++) {
             aabb.addVolume(m_primitives[indices[i]]);
         }
     }

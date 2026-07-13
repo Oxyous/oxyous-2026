@@ -198,8 +198,19 @@ public:
         m_max = glm::max(m_max, volume.getMax());
     }
 
-    glm::vec3 getCentroid() {
+    void addVolume(const OGPolygon& poly) {
+        addPoint(poly.vertices[0]);
+        addPoint(poly.vertices[1]);
+        addPoint(poly.vertices[2]);
+    }
+
+    glm::vec3 getCentroid() const {
         return (m_max + m_min) * 0.5f;
+    }
+
+    void expand(const glm::vec3& point) {
+        m_min = glm::min(m_min, point);
+        m_max = glm::max(m_max, point);
     }
 
 public:

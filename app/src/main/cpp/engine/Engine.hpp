@@ -15,6 +15,7 @@
 #include "../DataStructures.hpp"
 #include "GameView.hpp"
 #include "algorithms/OGBVH.hpp"
+#include "engine/algorithms/OGOctree.hpp"
 
 class Engine {
 public:
@@ -135,6 +136,8 @@ public:
         m_camera->setTranslation(position);
     }
 
+    Frustum getCameraFrustum();
+
     void setSharedCSMData(const CSMData &data) { m_sharedCSMData = data; }
 
     CSMData getSharedCSMData() const { return m_sharedCSMData; }
@@ -198,6 +201,24 @@ public:
     void
     getStaticIntersectionByBVH(const AABBVolume& volume, std::vector<AABBVolume>& entities);
 
+    /**  */
+    void buildLevelOctree();
+
+    /** Insert a volume into the static octree */
+    void insertStaticOctree(const AABBVolume& volume);
+
+    /** Query the octree with a frustum */
+    void queryOctreeFrustum(const Frustum& frustum, std::vector<AABBVolume>& volumes);
+
+    /** Query the octree with an AABB volume */
+    void queryOctree(const AABBVolume& volume, std::vector<AABBVolume>& volumes);
+
+    /** Update visible objects for the current frame */
+    void updateVisibleObjects();
+
+    /** Get cached visible objects for the main camera */
+    const std::vector<OGEntity*>& getCachedVisibleObjects() const { return m_visibleObjects; }
+
 protected:
     bool m_isExecuting = false;
     Renderer *m_renderer = nullptr;
@@ -211,6 +232,9 @@ protected:
     bool m_cullView = false;
     std::unique_ptr<BVH> m_collisionBHV;
     std::unique_ptr<OGBVH<AABBVolume>> m_staticBVH;
+    std::unique_ptr<OGOctree<AABBVolume>> m_staticOctree;
+
+    std::vector<OGEntity*> m_visibleObjects;
 };
 
 #define ENGINE OGSingleton<Engine>::getInstance()

@@ -133,6 +133,9 @@ bool GameView::initialize() {
     /** Build World BVH */
     ENGINE->computeCollisionBHV(m_worldPolygons);
 
+    /** Build Octree*/
+    ENGINE->buildLevelOctree();
+
     /** Box Resources */
     auto boxMeshRes = RESOURCE_MANAGER->get<GPUStaticMeshResource>("box/box.osm");
     auto boxAlbedo = RESOURCE_MANAGER->get<GPUTextureResource>("box/textures/box-diffuse.png");

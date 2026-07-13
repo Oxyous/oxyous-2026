@@ -7,6 +7,7 @@
 #include "GameView.hpp"
 #include "../engine/collision/CollisionHelper.hpp"
 #include "engine/components/OGCollisionComponent.hpp"
+#include "engine/components/OGStaticMeshComponent.hpp"
 #include "engine/physics/OGPhysicsManager.hpp"
 
 bool Engine::initialize(android_app *app) {
@@ -142,4 +143,67 @@ Engine::getStaticIntersectionByBVH(const AABBVolume &volume, std::vector<AABBVol
     if (m_staticBVH) {
         m_staticBVH->intersects(volume, entities);
     }
+}
+
+void Engine::buildLevelOctree() {
+    m_staticOctree = std::make_unique<OGOctree<AABBVolume>>();
+    std::vector<AABBVolume> volumes;
+    GAME_VIEW->buildStaticVolumes(volumes);
+    m_staticOctree->build(volumes);
+}
+
+
+void Engine::queryOctreeFrustum(const Frustum& frustum, std::vector<AABBVolume>& volumes)
+{
+    if (m_staticOctree) {
+        m_staticOctree->query(frustum, volumes);
+    }
+}
+
+void Engine::queryOctree(const AABBVolume& volume, std::vector<AABBVolume>& volumes)
+{
+    if (m_staticOctree) {
+        m_staticOctree->query(volume, volumes);
+    }
+}
+
+void Engine::updateVisibleObjects() {
+    m_visibleObjects.clear();
+    const auto frustum = getCameraFrustum();
+
+    std::vector<AABBVolume> visibleVolumes;
+    queryOctreeFrustum(frustum, visibleVolumes);
+
+    // Fallback to BVH if octree query returned nothing, so culling never blanks the whole scene.
+    if (visibleVolumes.empty()) {
+        getStaticFrustumIntersectionByBVH(frustum, visibleVolumes);
+    }
+
+    m_visibleObjects.reserve(visibleVolumes.size());
+    for (const auto &vol: visibleVolumes) {
+        if (auto *owner = vol.getOwner()) {
+            m_visibleObjects.push_back(owner);
+        }
+    }
+
+    // Final fallback: keep rendering mesh entities if culling structures return no results.
+    if (m_visibleObjects.empty()) {
+        const auto &entities = GAME_VIEW->getEntities();
+        m_visibleObjects.reserve(entities.size());
+        for (const auto &[name, entity]: entities) {
+            if (entity && entity->hasComponent<OGStaticMeshComponent>()) {
+                m_visibleObjects.push_back(entity.get());
+            }
+        }
+    }
+}
+
+Frustum Engine::getCameraFrustum() {
+    Frustum frustum;
+    if (ENGINE->isDemoCulling()) {
+        frustum.update(ENGINE->getFlyingCameraProjection(), ENGINE->getFlyingCameraView());
+    } else {
+        frustum.update(ENGINE->getCameraProjection(), ENGINE->getCameraView());
+    }
+    return frustum;
 }

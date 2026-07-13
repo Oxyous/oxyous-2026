@@ -37,7 +37,7 @@ bool AABBVolume::intersect(const PlaneVolume &plane) const {
                              extents.y * std::abs(plane.m_normal.y) +
                              extents.z * std::abs(plane.m_normal.z);
 
-    float distance = glm::dot(plane.m_normal, center) - plane.m_distance;
+    float distance = glm::dot(plane.m_normal, center) + plane.m_distance;
 
     return std::abs(distance) <= projectionRadius;
 }
@@ -47,6 +47,27 @@ OGCollisionManifold AABBVolume::resolveCollision(IVolume *volume) {
 }
 
 void AABBVolume::transform(const glm::mat4 &transform) {
+    glm::vec3 corners[8] = {
+        {m_min.x, m_min.y, m_min.z}, // 000
+        {m_max.x, m_min.y, m_min.z}, // 100
+        {m_min.x, m_max.y, m_min.z}, // 010
+        {m_max.x, m_max.y, m_min.z}, // 110
+        {m_min.x, m_min.y, m_max.z}, // 001
+        {m_max.x, m_min.y, m_max.z}, // 101
+        {m_min.x, m_max.y, m_max.z}, // 011
+        {m_max.x, m_max.y, m_max.z}  // 111
+    };
 
+    glm::vec3 newMin(FLT_MAX);
+    glm::vec3 newMax(-FLT_MAX);
+
+    for (int i = 0; i < 8; i++) {
+        glm::vec3 transformed = glm::vec3(transform * glm::vec4(corners[i], 1.0f));
+        newMin = glm::min(newMin, transformed);
+        newMax = glm::max(newMax, transformed);
+    }
+
+    m_min = newMin;
+    m_max = newMax;
 }
 

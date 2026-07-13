@@ -12,6 +12,7 @@
 #include "engine/actors/OGPlayerActor.hpp"
 #include "../engine/collision/BVH.hpp"
 #include "engine/components/OGCollisionComponent.hpp"
+#include "engine/components/OGStaticMeshComponent.hpp"
 
 class IGameView {
 public:
@@ -168,16 +169,41 @@ public:
         return glm::mat4(1.0f);
     }
 
-    /** Build Static Volumes */
+    /** Build Static Volumes for Octree Culling */
     void buildStaticVolumes(std::vector<AABBVolume> &volumes) {
-        auto aabbs = getActorsWithComponent<OGCollisionComponent>();
-        for (const auto& aabb : aabbs) {
-            const auto& vol = aabb->getComponent<OGCollisionComponent>();
-            if (vol) {
-                const auto& bounds = vol->getCollisionVolume<AABBVolume>();
-                if (bounds){
-                    volumes.push_back(*bounds);
+        for (auto const& [name, entity] : m_entities) {
+            // Only add static-ish objects (those with meshes)
+            if (entity->hasComponent<OGStaticMeshComponent>()) {
+                auto meshComp = entity->getComponent<OGStaticMeshComponent>();
+                auto colComp = entity->getComponent<OGCollisionComponent>();
+
+                AABBVolume worldAABB;
+                bool foundBounds = false;
+
+                // 1. Try explicit collision volume
+                if (colComp && colComp->getCollisionVolume<AABBVolume>()) {
+                    worldAABB = *colComp->getCollisionVolume<AABBVolume>();
+                    foundBounds = true;
                 }
+                // 2. Try mesh bounds
+                else if (auto meshBounds = meshComp->getCollisionVolume()) {
+                    if (auto aabb = dynamic_cast<AABBVolume*>(meshBounds)) {
+                        worldAABB = *aabb;
+                        foundBounds = true;
+                    }
+                }
+
+                if (!foundBounds) {
+                    // Fallback local bounds
+                    worldAABB = AABBVolume(glm::vec3(-2.0f), glm::vec3(2.0f));
+                }
+
+                // Always transform bounds to world space.
+                // Local bounds * WorldTransform = World Bounds.
+                //worldAABB.transform(entity->getWorldTransform());
+
+                worldAABB.setOwner(entity.get());
+                volumes.push_back(worldAABB);
             }
         }
     }

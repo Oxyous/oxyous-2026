@@ -645,6 +645,7 @@ void Renderer::update(double delta) {
     GAME_VIEW->update(delta);
 
     ENGINE->setCurrentFrame(m_currentFrame);
+    ENGINE->updateVisibleObjects();
 
     // Consolidated CSM Matrix Computation
     m_sharedCSMData = RenderHelper::computeCSMMatrices(

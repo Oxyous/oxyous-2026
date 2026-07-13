@@ -592,10 +592,22 @@ Deferred::record(VkCommandBuffer commandBuffer, uint64_t currentFrame, VkFramebu
         }
     }
 
+    /* Render Static Objects (using cached frustum visibility) */
+    std::vector<OGEntity *> staticRenderList;
+    const auto &visibleStaticObjects = ENGINE->getCachedVisibleObjects();
+    if (!visibleStaticObjects.empty()) {
+        staticRenderList = visibleStaticObjects;
+    } else {
+        const auto &entities = GAME_VIEW->getEntities();
+        staticRenderList.reserve(entities.size());
+        for (const auto &[name, entity]: entities) {
+            if (!entity) continue;
+            staticRenderList.push_back(entity.get());
+        }
+    }
 
-    /* Render Objects */
-    auto &staticMeshes = GAME_VIEW->getVisible();
-    for (auto &mesh: staticMeshes) {
+    for (auto &mesh: staticRenderList) {
+        if (!mesh) continue;
 
         for (auto& child: mesh->getChildren()) {
             if (child->getComponent<OGStaticMeshComponent>()) {

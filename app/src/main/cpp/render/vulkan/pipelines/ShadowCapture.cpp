@@ -602,8 +602,14 @@ void ShadowCapture::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
                                                                   ENGINE->getCameraView(),
                                                                   glm::vec3(0.5, 1.0, 0.5),
                                                                   splits[i], splits[i + 1]);
-        std::vector<AABBVolume> visibleObjects;
-        ENGINE->getStaticIntersectionByBVH(cascadeVolume, visibleObjects);
+        std::vector<AABBVolume> visibleVolumes;
+        std::vector<OGEntity*> visibleObjects;
+        ENGINE->queryOctree(cascadeVolume, visibleVolumes);
+
+        visibleObjects.reserve(visibleVolumes.size());
+        for (const auto& vol: visibleVolumes){
+            visibleObjects.push_back(vol.getOwner());
+        }
 
         VkRenderPassBeginInfo renderPassInfo{};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -637,7 +643,7 @@ void ShadowCapture::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
 
         /* Render Objects */
         for (auto &obj: visibleObjects) {
-            const auto entity = obj.getOwner();
+            const auto entity = obj;
             if (!entity) {
                 continue;
             }
@@ -660,7 +666,7 @@ void ShadowCapture::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
             }
         }
 
-        for (auto & obj: dynamicObjects) {
+        for (const auto & obj: dynamicObjects) {
             if (obj->getComponent<OGStaticMeshComponent>()) {
                 auto *component = obj->getComponent<OGStaticMeshComponent>();
                 if (component) {

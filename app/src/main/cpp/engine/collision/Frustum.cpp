@@ -8,16 +8,28 @@
 
 void Frustum::update(const glm::mat4& projection, const glm::mat4& view, float nearPlane, float farPlane)
 {
-    auto corners = CollisionHelper::getFrustumCornersWorldSpace(projection, view, nearPlane, farPlane);
+    glm::mat4 m = projection * view;
 
-    // Near, Far, Left, Right, Top, Bottom
-    // Corners: 0-3 are near, 4-7 are far. Actual Order from CollisionHelper: BL, BR, TL, TR
-    m_planes[0] = CollisionFactory::computePlaneFromPoints(corners[0], corners[2], corners[1]); // Near (BL, TL, BR -> normal -Z)
-    m_planes[1] = CollisionFactory::computePlaneFromPoints(corners[4], corners[5], corners[6]); // Far (BLF, BRF, TLF -> normal +Z)
-    m_planes[2] = CollisionFactory::computePlaneFromPoints(corners[0], corners[4], corners[6]); // Left (BL, BLF, TLF -> normal +X)
-    m_planes[3] = CollisionFactory::computePlaneFromPoints(corners[1], corners[3], corners[7]); // Right (BR, TR, TRF -> normal -X)
-    m_planes[4] = CollisionFactory::computePlaneFromPoints(corners[2], corners[6], corners[7]); // Top (TL, TLF, TRF -> normal -Y)
-    m_planes[5] = CollisionFactory::computePlaneFromPoints(corners[0], corners[1], corners[5]); // Bottom (BL, BR, BRF -> normal +Y)
+    // Gribb-Hartmann extraction
+    // Column-major: m[col][row]
+    // 0: Left, 1: Right, 2: Bottom, 3: Top, 4: Near, 5: Far
+
+    auto setup = [&](int i, float nx, float ny, float nz, float d) {
+        m_planes[i].m_normal = glm::vec3(nx, ny, nz);
+        m_planes[i].m_distance = d;
+        float l = glm::length(m_planes[i].m_normal);
+        if (l > 1e-6f) {
+            m_planes[i].m_normal /= l;
+            m_planes[i].m_distance /= l;
+        }
+    };
+
+    setup(0, m[0][3] + m[0][0], m[1][3] + m[1][0], m[2][3] + m[2][0], m[3][3] + m[3][0]); // Left
+    setup(1, m[0][3] - m[0][0], m[1][3] - m[1][0], m[2][3] - m[2][0], m[3][3] - m[3][0]); // Right
+    setup(2, m[0][3] + m[0][1], m[1][3] + m[1][1], m[2][3] + m[2][1], m[3][3] + m[3][1]); // Bottom
+    setup(3, m[0][3] - m[0][1], m[1][3] - m[1][1], m[2][3] - m[2][1], m[3][3] - m[3][1]); // Top
+    setup(4, m[0][2],           m[1][2],           m[2][2],           m[3][2]);           // Near
+    setup(5, m[0][3] - m[0][2], m[1][3] - m[1][2], m[2][3] - m[2][2], m[3][3] - m[3][2]); // Far
 }
 
 bool Frustum::intersects(const SphereVolume& sphere) const
@@ -32,12 +44,12 @@ bool Frustum::intersects(const SphereVolume& sphere) const
 
 bool Frustum::intersects(const AABBVolume &aabb) const {
     for (const auto& plane : m_planes) {
-        glm::vec3 p = aabb.getMin();
-        if (plane.m_normal.x >= 0) p.x = aabb.getMax().x;
-        if (plane.m_normal.y >= 0) p.y = aabb.getMax().y;
-        if (plane.m_normal.z >= 0) p.z = aabb.getMax().z;
+        glm::vec3 p = aabb.m_min;
+        if (plane.m_normal.x >= 0) p.x = aabb.m_max.x;
+        if (plane.m_normal.y >= 0) p.y = aabb.m_max.y;
+        if (plane.m_normal.z >= 0) p.z = aabb.m_max.z;
 
-        if (glm::dot(plane.m_normal, p) + plane.m_distance < 0) {
+        if (glm::dot(plane.m_normal, p) + plane.m_distance < 0.0f) {
             return false;
         }
     }

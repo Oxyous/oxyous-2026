@@ -17,8 +17,8 @@ public:
         m_forward = glm::vec3(0.0f);
         m_yaw = 0.0f;
         m_pitch = 0.0f;
-        m_speed = 2.0f;
-        m_sensitivity = 0.5f;
+        m_speed = 8.0f;
+        m_sensitivity = 2.0f;
         m_viewMatrix = glm::mat4(1.0f);
         m_projection = glm::mat4(1.0f);
     }

@@ -168,9 +168,9 @@ void android_main(struct android_app *pApp) {
                 // Update then Render
                 ge->renderer->update(delta);
 
-                if(currentFrame % 2 == 0) {
+                //if(currentFrame % 2 == 0) {
                     ge->renderer->render();
-                }
+                //}
                 currentFrame++;
 
                 // Frame rate limiter (cap to 60 FPS to prevent thermal throttling)
