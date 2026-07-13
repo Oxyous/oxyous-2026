@@ -23,7 +23,7 @@ class OGBVH {
 public:
     OGBVH() {}
 
-    void build(std::vector<T>& primitives, int maxLeafSize = 4) {
+    void build(std::vector<T> &primitives, int maxLeafSize = 4) {
         m_primitives = primitives;
         nodes.clear();
         indices.resize(m_primitives.size());
@@ -37,10 +37,17 @@ public:
         root = buildRecursive(0, 0, static_cast<int>(indices.size()), maxLeafSize);
     }
 
-    void intersectsFrustum(const Frustum& frustum, std::vector<T>& results) {
-        if(root != -1) {
+    void intersectsFrustum(const Frustum &frustum, std::vector<T> &results) {
+        if (root != -1) {
             intersectsRecursive(root, frustum, results);
         }
+    }
+
+    void intersects(const AABBVolume &volume, std::vector<T> &results) {
+        if (root != -1) {
+            intersectsRecursive(root, volume, results);
+        }
+
     }
 
     int getRootIndex() {
@@ -49,9 +56,8 @@ public:
 
 private:
 
-    void intersectsRecursive(int nodeIndex, const Frustum& frustum, std::vector<T>& results)
-    {
-        const auto& node = nodes[nodeIndex];
+    void intersectsRecursive(int nodeIndex, const Frustum &frustum, std::vector<T> &results) {
+        const auto &node = nodes[nodeIndex];
 
         if (!frustum.intersects(node.aabb)) {
             return;
@@ -64,6 +70,23 @@ private:
         } else {
             intersectsRecursive(node.left, frustum, results);
             intersectsRecursive(node.right, frustum, results);
+        }
+    }
+
+    void intersectsRecursive(int nodeIndex, const AABBVolume& aabb, std::vector<T> &results){
+        const auto &node = nodes[nodeIndex];
+
+        if (aabb.intersect(node.aabb) == false) {
+            return;
+        }
+
+        if (node.leaf) {
+            for (int i = 0; i < node.count; ++i) {
+                results.push_back(m_primitives[indices[node.start + i]]);
+            }
+        } else {
+            intersectsRecursive(node.left, aabb, results);
+            intersectsRecursive(node.right, aabb, results);
         }
     }
 
@@ -118,7 +141,7 @@ private:
         }
     }
 
-    void computeAABB(int start, int end, AABBVolume &aabb){
+    void computeAABB(int start, int end, AABBVolume &aabb) {
         if (start >= end) {
             aabb.m_min = glm::vec3(0.0f);
             aabb.m_max = glm::vec3(0.0f);
@@ -130,6 +153,7 @@ private:
             aabb.addVolume(m_primitives[indices[i]]);
         }
     }
+
 private:
     std::vector<OGBVHNode> nodes;
     std::vector<T> m_primitives;

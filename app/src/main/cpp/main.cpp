@@ -124,6 +124,8 @@ void android_main(struct android_app *pApp) {
     // implemented in android_native_app_glue.c.
     android_app_set_motion_event_filter(pApp, motion_event_filter_func);
 
+    long long currentFrame = 0;
+
     // This sets up a typical game/event loop. It will run until the app is destroyed.
     do {
         // Process all pending events before running game logic.
@@ -165,7 +167,11 @@ void android_main(struct android_app *pApp) {
 
                 // Update then Render
                 ge->renderer->update(delta);
-                ge->renderer->render();
+
+                if(currentFrame % 2 == 0) {
+                    ge->renderer->render();
+                }
+                currentFrame++;
 
                 // Frame rate limiter (cap to 60 FPS to prevent thermal throttling)
                 double frameEnd = SYS_TIMER->GetAppTime(); // Get current time

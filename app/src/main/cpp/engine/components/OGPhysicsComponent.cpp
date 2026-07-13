@@ -166,7 +166,8 @@ void OGPhysicsComponent::setFriction(float friction) {
 
 void OGPhysicsComponent::setAwake(bool awake) {
     m_isAwake = awake;
-
+    m_acceleration = glm::vec3(0.0f, -9.81f, 0.0f);
+    m_motion = 1.0f;
 }
 
 void OGPhysicsComponent::initialize() {

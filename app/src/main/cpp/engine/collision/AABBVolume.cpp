@@ -19,7 +19,9 @@ bool AABBVolume::intersect(const SphereVolume& sphereVolume) const {
 /* Intersect AABB with Volume */
 bool AABBVolume::intersect(const AABBVolume& aabb) const
 {
-    return true;
+    return (m_min.x <= aabb.m_max.x && m_max.x >= aabb.m_min.x) &&
+           (m_min.y <= aabb.m_max.y && m_max.y >= aabb.m_min.y) &&
+           (m_min.z <= aabb.m_max.z && m_max.z >= aabb.m_min.z);
 }
 
 /* Intersect OBB with Volume */

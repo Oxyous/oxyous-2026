@@ -43,7 +43,8 @@ bool ShadowCapture::initialize() {
     samplerInfo.compareOp = VK_COMPARE_OP_LESS;
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 
-    if (vkCreateSampler(RENDER_DEVICE->getDevice(), &samplerInfo, nullptr, &m_sampler) != VK_SUCCESS) {
+    if (vkCreateSampler(RENDER_DEVICE->getDevice(), &samplerInfo, nullptr, &m_sampler) !=
+        VK_SUCCESS) {
         aout << "Failed to create shadow sampler!" << std::endl;
         return false;
     }
@@ -98,7 +99,8 @@ bool ShadowCapture::initialize() {
     fragShaderCreateInfo.module = fragShaderModule;
     fragShaderCreateInfo.pName = "main";
 
-    VkPipelineShaderStageCreateInfo shaderStages[] = {vertexShaderStageCreateInfo, fragShaderCreateInfo };
+    VkPipelineShaderStageCreateInfo shaderStages[] = {vertexShaderStageCreateInfo,
+                                                      fragShaderCreateInfo};
 
     /* Initialize Descriptors */
     VkDescriptorSetLayoutBinding layoutBinding = {};
@@ -112,7 +114,8 @@ bool ShadowCapture::initialize() {
     layoutInfo.bindingCount = 1;
     layoutInfo.pBindings = &layoutBinding;
 
-    if (vkCreateDescriptorSetLayout(RENDER_DEVICE->getDevice(), &layoutInfo, nullptr, &m_shadowDSL) != VK_SUCCESS) {
+    if (vkCreateDescriptorSetLayout(RENDER_DEVICE->getDevice(), &layoutInfo, nullptr,
+                                    &m_shadowDSL) != VK_SUCCESS) {
         aout << "Failed to create shadow descriptor set layout!" << std::endl;
         return false;
     }
@@ -123,7 +126,7 @@ bool ShadowCapture::initialize() {
     pushConstantRange.offset = 0;
     pushConstantRange.size = sizeof(ShadowMapPushConstants);
 
-    VkDescriptorSetLayout setLayouts[] = { GPU_RESOURCES->getBindlessSetLayout(), m_shadowDSL };
+    VkDescriptorSetLayout setLayouts[] = {GPU_RESOURCES->getBindlessSetLayout(), m_shadowDSL};
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = 2;
@@ -290,8 +293,9 @@ bool ShadowCapture::initialize() {
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
     pipelineInfo.basePipelineIndex = -1;
 
-    VkResult res = vkCreateGraphicsPipelines(RENDER_DEVICE->getDevice(), VK_NULL_HANDLE, 1, &pipelineInfo,
-                                  nullptr, &m_pipeline);
+    VkResult res = vkCreateGraphicsPipelines(RENDER_DEVICE->getDevice(), VK_NULL_HANDLE, 1,
+                                             &pipelineInfo,
+                                             nullptr, &m_pipeline);
 
     /* Step 6 Destroy Shader Modules */
     vkDestroyShaderModule(RENDER_DEVICE->getDevice(), vertexShaderModule, nullptr);
@@ -304,13 +308,13 @@ bool ShadowCapture::initialize() {
     }
 
     m_uniformBuffer.initialize<CSMUBO>({
-                                       .lightProjection = {
-                                               glm::mat4(1.0f),
-                                               glm::mat4(1.0f),
-                                               glm::mat4(1.0f),
-                                               glm::mat4(1.0f)
-                                       },
-                                       .cascadeSplits = glm::vec4(1.0f)
+                                               .lightProjection = {
+                                                       glm::mat4(1.0f),
+                                                       glm::mat4(1.0f),
+                                                       glm::mat4(1.0f),
+                                                       glm::mat4(1.0f)
+                                               },
+                                               .cascadeSplits = glm::vec4(1.0f)
                                        });
 
     for (int i = 0; i < 2; i++) {
@@ -347,12 +351,12 @@ void ShadowCapture::destroy() {
         m_renderPass = VK_NULL_HANDLE;
     }
 
-    for (auto framebuffer : frameBuffers) {
+    for (auto framebuffer: frameBuffers) {
         vkDestroyFramebuffer(device, framebuffer, nullptr);
     }
     frameBuffers.clear();
 
-    for (auto imageView : imageViews) {
+    for (auto imageView: imageViews) {
         vkDestroyImageView(device, imageView, nullptr);
     }
     imageViews.clear();
@@ -504,7 +508,8 @@ bool ShadowCapture::initializeFrameBuffer() {
     shadowMapViewInfo.subresourceRange.baseArrayLayer = 0;
     shadowMapViewInfo.subresourceRange.layerCount = m_cascadeCount;
 
-    if (vkCreateImageView(RENDER_DEVICE->getDevice(), &shadowMapViewInfo, nullptr, &m_shadowMapImageView) != VK_SUCCESS) {
+    if (vkCreateImageView(RENDER_DEVICE->getDevice(), &shadowMapViewInfo, nullptr,
+                          &m_shadowMapImageView) != VK_SUCCESS) {
         aout << "Failed to create shadow map image view!" << std::endl;
         return false;
     }
@@ -562,12 +567,12 @@ void ShadowCapture::bindPipeline(VkCommandBuffer const &commandBuffer) {
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
     uint32_t currentFrame = ENGINE->getCurrentFrame();
 
-    VkDescriptorSet setsToBind[] = { GPU_RESOURCES->getBindlessSet(currentFrame), m_shadowSets[currentFrame % 2] };
+    VkDescriptorSet setsToBind[] = {GPU_RESOURCES->getBindlessSet(currentFrame),
+                                    m_shadowSets[currentFrame % 2]};
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                             m_pipelineLayout, 0, 2,
                             setsToBind, 0, nullptr);
 }
-
 
 
 void ShadowCapture::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
@@ -577,7 +582,8 @@ void ShadowCapture::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
 
     /* Bind Descriptor Sets */
-    VkDescriptorSet setsToBind[] = { GPU_RESOURCES->getBindlessSet(currentFrame), m_shadowSets[currentFrame % 2] };
+    VkDescriptorSet setsToBind[] = {GPU_RESOURCES->getBindlessSet(currentFrame),
+                                    m_shadowSets[currentFrame % 2]};
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                             m_pipelineLayout, 0, 2,
                             setsToBind, 0, nullptr);
@@ -585,7 +591,20 @@ void ShadowCapture::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
     // Fetch consolidated data
     CSMData gpuData = ENGINE->getSharedCSMData();
 
+    std::vector<OGEntity*> dynamicObjects;
+    GAME_VIEW->getDynamicObjects(dynamicObjects);
+
+    // Compute Cascade Splits
+    auto splits = RenderHelper::computeCascadeSplits(0.1f, 1000.0f, 0.98f);
+
     for (int i = 0; i < m_cascadeCount; ++i) {
+        AABBVolume cascadeVolume = RenderHelper::computeCSMBounds(ENGINE->getCameraProjection(),
+                                                                  ENGINE->getCameraView(),
+                                                                  glm::vec3(0.5, 1.0, 0.5),
+                                                                  splits[i], splits[i + 1]);
+        std::vector<AABBVolume> visibleObjects;
+        ENGINE->getStaticIntersectionByBVH(cascadeVolume, visibleObjects);
+
         VkRenderPassBeginInfo renderPassInfo{};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
         renderPassInfo.renderPass = m_renderPass;
@@ -617,22 +636,36 @@ void ShadowCapture::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
         vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
         /* Render Objects */
-        auto &staticMeshes = GAME_VIEW->getEntities();
-        for (auto &mesh: staticMeshes) {
-
-            for (auto child: mesh.second->getChildren()) {
+        for (auto &obj: visibleObjects) {
+            const auto entity = obj.getOwner();
+            if (!entity) {
+                continue;
+            }
+            for (auto child: entity->getChildren()) {
                 if (child->getComponent<OGStaticMeshComponent>()) {
                     auto *component = child->getComponent<OGStaticMeshComponent>();
                     if (component) {
-                        component->renderShadow(commandBuffer, currentFrame, m_pipelineLayout, gpuData, i);
+                        component->renderShadow(commandBuffer, currentFrame, m_pipelineLayout,
+                                                gpuData, i);
                     }
                 }
             }
 
-            if (mesh.second->getComponent<OGStaticMeshComponent>()) {
-                auto *component = mesh.second->getComponent<OGStaticMeshComponent>();
+            if (entity->getComponent<OGStaticMeshComponent>()) {
+                auto *component = entity->getComponent<OGStaticMeshComponent>();
                 if (component) {
-                    component->renderShadow(commandBuffer, currentFrame, m_pipelineLayout, gpuData, i);
+                    component->renderShadow(commandBuffer, currentFrame, m_pipelineLayout, gpuData,
+                                            i);
+                }
+            }
+        }
+
+        for (auto & obj: dynamicObjects) {
+            if (obj->getComponent<OGStaticMeshComponent>()) {
+                auto *component = obj->getComponent<OGStaticMeshComponent>();
+                if (component) {
+                    component->renderShadow(commandBuffer, currentFrame, m_pipelineLayout, gpuData,
+                                            i);
                 }
             }
         }

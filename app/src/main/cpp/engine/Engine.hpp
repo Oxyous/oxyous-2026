@@ -147,52 +147,68 @@ public:
 
     bool isGameModeFly() const { return m_gameModeFly; }
 
-    OGCamera* getCamera() {
+    void setDemoCulling(bool cull) {
+        m_cullView = cull;
+    }
+
+    bool isDemoCulling() {
+        return m_cullView;
+    }
+
+    OGCamera *getCamera() {
         return m_camera;
     }
 
-    void setCamera(OGCamera* camera) {
+    void setCamera(OGCamera *camera) {
         m_camera = camera;
     }
 
-    Renderer* getRenderer() { return m_renderer; }
-    void setRenderer(Renderer* renderer) { m_renderer = renderer; }
+    Renderer *getRenderer() { return m_renderer; }
 
-    bool isExecuting(){
+    void setRenderer(Renderer *renderer) { m_renderer = renderer; }
+
+    bool isExecuting() {
         return m_isExecuting;
     }
 
     /** Build BVH from polygon list */
-    void computeCollisionBHV(const std::vector<OGPolygon>& polygons);
+    void computeCollisionBHV(const std::vector<OGPolygon> &polygons);
 
     /** Get Possible Polygon intersection */
-    void getCapsuleIntersectionByBHV(const CapsuleVolume& capsule, std::vector<OGPolygon>& polygons);
+    void
+    getCapsuleIntersectionByBHV(const CapsuleVolume &capsule, std::vector<OGPolygon> &polygons);
 
     /** Get Possible Polygons intersection with sphere */
-    void getSphereIntersectionByBHV(const SphereVolume& sphere, std::vector<OGPolygon>& polygons);
+    void getSphereIntersectionByBHV(const SphereVolume &sphere, std::vector<OGPolygon> &polygons);
 
     /** */
-    void getObbIntersectionByBHV(const OBBVolume& obb, std::vector<OGPolygon>& polygons);
+    void getObbIntersectionByBHV(const OBBVolume &obb, std::vector<OGPolygon> &polygons);
 
     /** Get Possible Polygons intersection with segment */
-    void getSegmentIntersectionByBHV(const OGSegment& segment, std::vector<OGPolygon>& polygons);
+    void getSegmentIntersectionByBHV(const OGSegment &segment, std::vector<OGPolygon> &polygons);
 
     /** Build BVH Static objects*/
-    void buildStaticBVH(std::vector<AABBVolume>& primitives);
+    void buildStaticBVH(std::vector<AABBVolume> &primitives);
 
     /** Get static entities intersecting with the given frustum */
-    void getStaticFrustumIntersectionByBVH(const Frustum &frustum, std::vector<AABBVolume> &entities);
+    void
+    getStaticFrustumIntersectionByBVH(const Frustum &frustum, std::vector<AABBVolume> &entities);
+
+    /**  */
+    void
+    getStaticIntersectionByBVH(const AABBVolume& volume, std::vector<AABBVolume>& entities);
 
 protected:
     bool m_isExecuting = false;
-    Renderer* m_renderer = nullptr;
-    OGCamera* m_camera = nullptr;
+    Renderer *m_renderer = nullptr;
+    OGCamera *m_camera = nullptr;
     std::unordered_map<std::string, std::unique_ptr<IRenderPipeline>> m_pipelines;
     android_app *m_app;
     Input m_input;
     CSMData m_sharedCSMData;
     uint32_t m_currentFrame = 0;
     bool m_gameModeFly = true;
+    bool m_cullView = false;
     std::unique_ptr<BVH> m_collisionBHV;
     std::unique_ptr<OGBVH<AABBVolume>> m_staticBVH;
 };

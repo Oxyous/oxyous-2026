@@ -33,7 +33,7 @@ public:
     void setGrounded(bool isGrounded, float groundHeight);
 
 private:
-    float m_moveSpeed = 1.8f;
+    float m_moveSpeed = 2.8f;
     float m_yaw; // horizontal rotation
     float m_pitch; // vertical rotation
     float m_distance;

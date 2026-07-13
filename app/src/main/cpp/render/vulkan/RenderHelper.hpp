@@ -41,14 +41,12 @@ public:
     inline static std::array<float, 4> computeCascadeSplits(
             float nearPlane,
             float farPlane,
-            float lambda)
-    {
+            float lambda) {
         std::array<float, 4> splits{};
 
         const float clipRange = farPlane - nearPlane;
 
-        for (uint32_t i = 0; i < 4; ++i)
-        {
+        for (uint32_t i = 0; i < 4; ++i) {
             float p = float(i + 1) / float(4);
 
             float logSplit =
@@ -82,7 +80,9 @@ public:
 
         // 2. Calculate radius of bounding sphere
         float radius = 0.0f;
-        for (const auto &corner: frustumCorners) radius = std::max(radius, glm::length(glm::vec3(corner) - center));
+        for (const auto &corner: frustumCorners)
+            radius = std::max(radius, glm::length(
+                    glm::vec3(corner) - center));
 
         // Round radius to avoid flickering as frustum shape changes
         radius = std::ceil(radius * 16.0f) / 16.0f;
@@ -97,10 +97,9 @@ public:
         // 4. Project sphere center into light-view space
         glm::vec3 centerLS = glm::vec3(rotationMatrix * glm::vec4(center, 1.0f));
 
-        if (stabilize)
-        {
+        if (stabilize) {
             // 5. Snap the center in light-view space to the texel grid
-            float texelSize = (radius * 2.0f) / (float)shadowMapSize;
+            float texelSize = (radius * 2.0f) / (float) shadowMapSize;
             centerLS.x = std::floor(centerLS.x / texelSize) * texelSize;
             centerLS.y = std::floor(centerLS.y / texelSize) * texelSize;
         }
@@ -129,21 +128,25 @@ public:
             float nearPlane,
             float farPlane,
             uint32_t shadowMapSize,
-            const glm::vec3& lightDirection
-            ) {
+            const glm::vec3 &lightDirection
+    ) {
 
         CSMData data;
         auto splits = computeCascadeSplits(nearPlane, farPlane, 0.98f);
 
         float lastSplit = nearPlane;
 
-        for(uint32_t i = 0; i < 4; ++i) {
+        for (uint32_t i = 0; i < 4; ++i) {
             float cascadeNear = lastSplit;
             float cascadeFar = splits[i];
 
-            auto frustumCorners = CollisionHelper::getFrustumCornersWorldSpace(projectionMatrix, viewMatrix, cascadeNear, cascadeFar);
+            auto frustumCorners = CollisionHelper::getFrustumCornersWorldSpace(projectionMatrix,
+                                                                               viewMatrix,
+                                                                               cascadeNear,
+                                                                               cascadeFar);
 
-            auto lightMatrix = computeCascadeLightMatrix(frustumCorners, lightDirection, shadowMapSize, true, (float)i, 4.0f);
+            auto lightMatrix = computeCascadeLightMatrix(frustumCorners, lightDirection,
+                                                         shadowMapSize, true, (float) i, 4.0f);
 
             data.lightProjection[i] = lightMatrix;
             data.cascadeSplits[i] = cascadeFar;
@@ -154,20 +157,82 @@ public:
         return data;
     }
 
-    inline static std::vector<PlaneVolume> computeCascadeVolume(const glm::mat4& projection, const glm::mat4& view, float nearPlane, float farPlane) {
-        std::vector<PlaneVolume> planes (6);
-        auto corners = CollisionHelper::getFrustumCornersWorldSpace(projection, view, nearPlane, farPlane);
+    /** Compute Cascaded Shadow Frustum planes */
+    inline static std::vector<PlaneVolume>
+    computeCascadeVolume(const glm::mat4 &projection, const glm::mat4 &view, float nearPlane,
+                         float farPlane) {
+        std::vector<PlaneVolume> planes(6);
+        auto corners = CollisionHelper::getFrustumCornersWorldSpace(projection, view, nearPlane,
+                                                                    farPlane);
 
         // Near, Far, Left, Right, Top, Bottom
         // Corners: 0-3 are near, 4-7 are far. Order: BL, BR, TR, TL
-        planes[0] = CollisionFactory::computePlaneFromPoints(corners[0], corners[1], corners[2]); // Near
-        planes[1] = CollisionFactory::computePlaneFromPoints(corners[5], corners[4], corners[7]); // Far
-        planes[2] = CollisionFactory::computePlaneFromPoints(corners[4], corners[0], corners[3]); // Left
-        planes[3] = CollisionFactory::computePlaneFromPoints(corners[1], corners[5], corners[6]); // Right
-        planes[4] = CollisionFactory::computePlaneFromPoints(corners[3], corners[2], corners[6]); // Top
-        planes[5] = CollisionFactory::computePlaneFromPoints(corners[4], corners[5], corners[1]); // Bottom
+        planes[0] = CollisionFactory::computePlaneFromPoints(corners[0], corners[1],
+                                                             corners[2]); // Near
+        planes[1] = CollisionFactory::computePlaneFromPoints(corners[5], corners[4],
+                                                             corners[7]); // Far
+        planes[2] = CollisionFactory::computePlaneFromPoints(corners[4], corners[0],
+                                                             corners[3]); // Left
+        planes[3] = CollisionFactory::computePlaneFromPoints(corners[1], corners[5],
+                                                             corners[6]); // Right
+        planes[4] = CollisionFactory::computePlaneFromPoints(corners[3], corners[2],
+                                                             corners[6]); // Top
+        planes[5] = CollisionFactory::computePlaneFromPoints(corners[4], corners[5],
+                                                             corners[1]); // Bottom
 
         return planes;
+    }
+
+    /** Compute Cascaded Shadow Frustum bounds for a specific split in World Space */
+    inline static AABBVolume
+    computeCSMBounds(const glm::mat4 &projection, const glm::mat4 &view,
+                     const glm::vec3 lightDirection, float nearPlane,
+                     float farPlane) {
+        auto frustumCorners = CollisionHelper::getFrustumCornersWorldSpace(projection, view,
+                                                                           nearPlane, farPlane);
+        glm::vec3 center = glm::vec3(0.0f);
+
+        for (const auto &corner: frustumCorners) {
+            center += glm::vec3(corner);
+        }
+        center /= 8.0f;
+
+        // Robust up vector to avoid invalid lookAt matrices when light is vertical
+        glm::vec3 lightDir = glm::normalize(lightDirection);
+        glm::vec3 up = (std::abs(lightDir.y) > 0.999f) ? glm::vec3(0, 0, 1) : glm::vec3(0, 1, 0);
+
+        // Create light view matrix centered on the frustum slice
+        glm::mat4 lightView = glm::lookAt(center - lightDir * 10.0f, center, up);
+        glm::mat4 invLightView = glm::inverse(lightView);
+
+        glm::vec3 minLS(FLT_MAX), maxLS(-FLT_MAX);
+
+        for (int i = 0; i < 8; i++) {
+            glm::vec3 cornerLS = glm::vec3(lightView * frustumCorners[i]);
+            minLS = glm::min(minLS, cornerLS);
+            maxLS = glm::max(maxLS, cornerLS);
+        }
+
+        // Extend the bounds towards the light source to include potential shadow casters
+        // In this lookAt setup, the light source is at Z=0 and frustum is at Z=-10 in light space.
+        maxLS.z += 1000.0f;
+
+        // Calculate World Space AABB from the Light Space bounds
+        glm::vec3 cornersLS[8] = {
+                {minLS.x, minLS.y, minLS.z}, {maxLS.x, minLS.y, minLS.z},
+                {minLS.x, maxLS.y, minLS.z}, {maxLS.x, maxLS.y, minLS.z},
+                {minLS.x, minLS.y, maxLS.z}, {maxLS.x, minLS.y, maxLS.z},
+                {minLS.x, maxLS.y, maxLS.z}, {maxLS.x, maxLS.y, maxLS.z}
+        };
+
+        glm::vec3 minWS(FLT_MAX), maxWS(-FLT_MAX);
+        for (int i = 0; i < 8; i++) {
+            glm::vec3 cornerWS = glm::vec3(invLightView * glm::vec4(cornersLS[i], 1.0f));
+            minWS = glm::min(minWS, cornerWS);
+            maxWS = glm::max(maxWS, cornerWS);
+        }
+
+        return AABBVolume(minWS, maxWS);
     }
 };
 

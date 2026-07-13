@@ -47,7 +47,7 @@ void Engine::update(float deltaTime) {
             }
         }
     } else {
-       const auto player = dynamic_cast<OGPlayerActor *>(GAME_VIEW->getActivePlayer().get());
+        const auto player = dynamic_cast<OGPlayerActor *>(GAME_VIEW->getActivePlayer().get());
         const auto playerCollision = player->getComponent<OGCollisionComponent>()->getCollisionVolume<CapsuleVolume>();
         glm::vec3 playerPos = player->getTranslation();
         player->setGrounded(false, 0.0f);
@@ -107,7 +107,7 @@ void Engine::computeCollisionBHV(const std::vector<OGPolygon> &polygons) {
 
 /** Get Possible Polygons capsule collision */
 void Engine::getCapsuleIntersectionByBHV(const CapsuleVolume &capsule,
-                                           std::vector<OGPolygon> &polygons) {
+                                         std::vector<OGPolygon> &polygons) {
     m_collisionBHV->intersects(capsule, polygons);
 }
 
@@ -125,13 +125,21 @@ Engine::getSegmentIntersectionByBHV(const OGSegment &segment, std::vector<OGPoly
     m_collisionBHV->intersects(segment, polygons);
 }
 
-void Engine::buildStaticBVH(std::vector<AABBVolume>& primitives) {
+void Engine::buildStaticBVH(std::vector<AABBVolume> &primitives) {
     m_staticBVH = std::make_unique<OGBVH<AABBVolume>>();
     m_staticBVH->build(primitives, 4);
 }
 
-void Engine::getStaticFrustumIntersectionByBVH(const Frustum &frustum, std::vector<AABBVolume> &entities) {
+void Engine::getStaticFrustumIntersectionByBVH(const Frustum &frustum,
+                                               std::vector<AABBVolume> &entities) {
     if (m_staticBVH) {
         m_staticBVH->intersectsFrustum(frustum, entities);
+    }
+}
+
+void
+Engine::getStaticIntersectionByBVH(const AABBVolume &volume, std::vector<AABBVolume> &entities) {
+    if (m_staticBVH) {
+        m_staticBVH->intersects(volume, entities);
     }
 }

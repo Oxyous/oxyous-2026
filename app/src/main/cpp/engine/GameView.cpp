@@ -48,13 +48,17 @@ void GameView::update(double deltaTime) {
         uiElement->update(deltaTime);
     }
 
-    m_camFrustum.update(ENGINE->getFlyingCameraProjection(), ENGINE->getFlyingCameraView());
+    if (ENGINE->isDemoCulling()) {
+        m_camFrustum.update(ENGINE->getFlyingCameraProjection(), ENGINE->getFlyingCameraView());
+    } else {
+        m_camFrustum.update(ENGINE->getCameraProjection(), ENGINE->getCameraView());
+    }
 
     std::vector<AABBVolume> possibleVolumes;
     ENGINE->getStaticFrustumIntersectionByBVH(m_camFrustum, possibleVolumes);
 
     m_visibleEntities.clear();
-    for (const auto &volume : possibleVolumes) {
+    for (const auto &volume: possibleVolumes) {
         if (auto entity = volume.getOwner()) {
             m_visibleEntities.push_back(entity);
         }
@@ -105,7 +109,7 @@ bool GameView::initialize() {
         return false;
     }
 
-    if (!UI->loadSpriteAsset("", "ui_sprites")) {
+    if (!UI->loadSpriteAsset("", "sprite-ui")) {
         return false;
     }
 
@@ -190,9 +194,10 @@ bool GameView::initialize() {
             }));
 
     /** Create UI Elements Button etc*/
-    UI->addButton(new OGButton("button2", "sm-button", glm::vec2(100, 174),
+    UI->addButton(new OGButton("button2", "sm-button", glm::vec2(320, 100),
                                glm::vec2(128 * 2.5, 32 * 2.5), [&]() {
-                aout << "Button 1 clicked!" << std::endl;
+                aout << "Button 2 clicked!" << std::endl;
+                ENGINE->setDemoCulling(!ENGINE->isDemoCulling());
             }));
 
     /** Create Player Character */
@@ -204,24 +209,34 @@ bool GameView::initialize() {
 
         auto playerMeshComp = spawnPlayer->addComponent<OGStaticMeshComponent>();
         if (playerMeshComp) {
-            auto playerMeshRes = RESOURCE_MANAGER->get<GPUStaticMeshResource>("player/player-mesh.osm");
-            auto playerTextureAlbedo = RESOURCE_MANAGER->get<GPUTextureResource>("player/textures/player-demo.png");
-            auto playerTextureNormal = RESOURCE_MANAGER->get<GPUTextureResource>("player/textures/player-nm.png");
+            auto playerMeshRes = RESOURCE_MANAGER->get<GPUStaticMeshResource>(
+                    "player/player-mesh.osm");
+            auto playerTextureAlbedo = RESOURCE_MANAGER->get<GPUTextureResource>(
+                    "player/textures/player-demo.png");
+            auto playerTextureNormal = RESOURCE_MANAGER->get<GPUTextureResource>(
+                    "player/textures/player-nm.png");
 
             GPUMaterialHandle playerMaterial = {0, 0, 0, 0, 1.0f, 1.0f, 1.0f, 1.0f};
-            playerMaterial.albedoIndex = GPU_RESOURCES->registerTexture(*playerTextureAlbedo->get());
-            playerMaterial.normalIndex = GPU_RESOURCES->registerTexture(*playerTextureNormal->get());
+            playerMaterial.albedoIndex = GPU_RESOURCES->registerTexture(
+                    *playerTextureAlbedo->get());
+            playerMaterial.normalIndex = GPU_RESOURCES->registerTexture(
+                    *playerTextureNormal->get());
 
             uint32_t materialSlot = GPU_RESOURCES->registerMaterial(playerMaterial);
             playerMeshComp->setMeshResource(playerMeshRes);
             playerMeshComp->setMaterialIndex(materialSlot);
 
-            spawnPlayer->setProjectionMatrix(glm::perspective(glm::radians(60.0f), (float) SWAPCHAIN->getExtent().width / (float)  SWAPCHAIN->getExtent().width, 0.1f, 10000.0f));
+            spawnPlayer->setProjectionMatrix(glm::perspective(glm::radians(60.0f),
+                                                              (float) SWAPCHAIN->getExtent().width /
+                                                              (float) SWAPCHAIN->getExtent().width,
+                                                              0.1f, 10000.0f));
 
             auto collision = spawnPlayer->addComponent<OGCollisionComponent>();
 
             //collision->setVolume(std::unique_ptr<OBBVolume>(CollisionFactory::createOBB(glm::vec3(0.0,0.0,0.0), glm::vec3(0.25f,1.0f,0.25f), glm::mat3(1.0f))));
-            collision->setVolume(std::unique_ptr<CapsuleVolume>(CollisionFactory::createCapsule(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,1.0f,0.0f), 0.25f)));
+            collision->setVolume(std::unique_ptr<CapsuleVolume>(
+                    CollisionFactory::createCapsule(glm::vec3(0.0f, 0.0f, 0.0f),
+                                                    glm::vec3(0.0f, 1.0f, 0.0f), 0.25f)));
 
             auto playerPhys = spawnPlayer->addComponent<OGPhysicsComponent>();
             playerPhys->setMass(0.0f);
@@ -235,25 +250,26 @@ bool GameView::initialize() {
     }
 
     /** Physics Test - Ground*/
- /*   auto ground = addActor<OGActor>("ground-plane");
-    auto groundPhys = ground->addComponent<OGPhysicsComponent>();
-    auto groundObb = ground->addComponent<OGCollisionComponent>();
-    groundObb->setVolume(std::unique_ptr<OBBVolume>(CollisionFactory::createOBB(glm::vec3(0.0f,0.0f,0.0f), glm::vec3(50.0f, 1.0f, 50.0f), glm::mat3(1.0f))));
-    ground->setTranslation(glm::vec3(0.0f, -1.0f, 0.0f));
-    groundPhys->setMass(0.0f);*/
+    /*   auto ground = addActor<OGActor>("ground-plane");
+       auto groundPhys = ground->addComponent<OGPhysicsComponent>();
+       auto groundObb = ground->addComponent<OGCollisionComponent>();
+       groundObb->setVolume(std::unique_ptr<OBBVolume>(CollisionFactory::createOBB(glm::vec3(0.0f,0.0f,0.0f), glm::vec3(50.0f, 1.0f, 50.0f), glm::mat3(1.0f))));
+       ground->setTranslation(glm::vec3(0.0f, -1.0f, 0.0f));
+       groundPhys->setMass(0.0f);*/
 
     /** Physics test - Box */
 
-    for(int i = 0; i < 5; i++) {
-        auto box = addActor<OGActor>("box-" + std::to_string(m_entities.size()+1));
-        box->setTranslation(glm::vec3(0.0f, (3.0f * (float)i) + 10.0f, 0.0f));
+    for (int i = 0; i < 5; i++) {
+        auto box = addActor<OGActor>("box-" + std::to_string(m_entities.size() + 1));
+        box->setTranslation(glm::vec3(0.0f, (3.0f * (float) i) + 10.0f, 0.0f));
         box->setRotation(glm::vec3(glm::radians(45.0f), glm::radians(45.0f), glm::radians(45.0f)));
         auto boxMesh = box->addComponent<OGStaticMeshComponent>();
         boxMesh->setMeshResource(boxMeshRes);
         boxMesh->setMaterialIndex(boxMaterialSlot);
         auto boxPhys = box->addComponent<OGPhysicsComponent>();
         auto boxObb = box->addComponent<OGCollisionComponent>();
-        auto boxBound = CollisionFactory::createOBB(glm::vec3(0.0,0.0,0.0), glm::vec3(0.5f,0.5f,0.5f), glm::mat3(1.0f));
+        auto boxBound = CollisionFactory::createOBB(glm::vec3(0.0, 0.0, 0.0),
+                                                    glm::vec3(0.5f, 0.5f, 0.5f), glm::mat3(1.0f));
         boxObb->setVolume(std::unique_ptr<OBBVolume>(boxBound));
         boxBound->setOwner(box);
         boxPhys->setMass(1.0f);
@@ -262,7 +278,8 @@ bool GameView::initialize() {
 
     auto camera = addActor<OGCamera>("camera");
     auto sphere = camera->addComponent<OGCollisionComponent>();
-    sphere->setVolume(std::unique_ptr<SphereVolume>(CollisionFactory::createSphere(glm::vec3(0.0f, 0.0f, 0.0f), 0.5f)));
+    sphere->setVolume(std::unique_ptr<SphereVolume>(
+            CollisionFactory::createSphere(glm::vec3(0.0f, 0.0f, 0.0f), 0.5f)));
     auto camPhys = camera->addComponent<OGPhysicsComponent>();
     camPhys->setAcceleration(glm::vec3(0.0f, 0.0f, 0.0f));
     camPhys->setMass(0.0f);

@@ -10,7 +10,7 @@ OGPlayerActor::OGPlayerActor() {
     m_yaw = 0.0f;
     m_pitch = 0.0f;
     m_distance = 4.0f;
-    m_sensitivity = 2.25f;
+    m_sensitivity = 4.25f;
 }
 
 void OGPlayerActor::update(double deltaTime) {
