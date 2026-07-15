@@ -140,7 +140,7 @@ public:
     }
 
     /** Get children */
-    virtual std::vector<OGEntity*> getChildren() {
+    virtual const std::vector<OGEntity*>& getChildren() const {
         return m_children;
     }
 

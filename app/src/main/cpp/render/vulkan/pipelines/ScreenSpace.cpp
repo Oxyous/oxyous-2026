@@ -334,8 +334,21 @@ void ScreenSpace::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
 
     ss << "Memory: " << (bytes / (1024 * 1024)) << " MB";
     UI->drawString(commandBuffer, ss.str(), 32.0f,120.0f, 1.0f);
-
+    ss.str("");
     ss.clear();
+
+    ss << "Visible Count:" << ENGINE->getCachedVisibleObjects().size();
+    UI->drawString(commandBuffer, ss.str(), 32.0f, 152.0f, 1.0f);
+
+    ss.str("");
+    ss.clear();
+
+    ss << "Temperature:" << SYS_TIMER->getTemperature();
+    UI->drawString(commandBuffer, ss.str(), 32.0f, 1024.0f, 1.0f);
+
+    ss.str("");
+    ss.clear();
+
     vkCmdEndRenderPass(commandBuffer);
 }
 

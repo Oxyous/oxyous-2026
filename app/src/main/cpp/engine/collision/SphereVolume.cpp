@@ -72,14 +72,6 @@ bool SphereVolume::intersect(const OBBVolume &obb) const {
     return distanceSquared <= (m_radius * m_radius);
 }
 
-void SphereVolume::setCenter(glm::vec3 newCenter) {
-    m_center = newCenter;
-}
-
-void SphereVolume::setRadius(float radius) {
-    m_radius = radius;
-}
-
 OGCollisionManifold SphereVolume::resolveCollision(IVolume *volume) {
     return OGCollisionManifold();
 }

@@ -46,6 +46,9 @@ void OGPhysicsManager::update(float deltaTime) {
 
             if (physA->getMass() == 0.0f && physB->getMass() == 0.0f) continue;
 
+            // Broad-phase: Fast AABB intersection check
+            if (!volA->getAABB().intersect(volB->getAABB())) continue;
+
             OGCollisionManifold manifold = volA->resolveCollision(volB);
             if (manifold.m_colliding) {
                 manifold.m_bodies[0] = physA;
@@ -456,7 +459,7 @@ void OGPhysicsManager::applyStaticRotationImpulse(const OGCollisionManifold &man
 void OGPhysicsManager::run() {
     auto lastTime = std::chrono::high_resolution_clock::now();
     float accumulator = 0.0f;
-    const float fixedDeltaTime = 0.008f; // 125Hz sub-stepping for better stability
+    const float fixedDeltaTime = 0.016f; // 60Hz sub-stepping for better stability
 
     while (m_executing) {
         auto currentTime = std::chrono::high_resolution_clock::now();

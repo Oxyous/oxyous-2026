@@ -26,12 +26,16 @@ void OGStaticMeshComponent::initialize() {
 
 void OGStaticMeshComponent::update(double deltaTime) {
     if (m_owner) {
-        glm::mat4 worldTransform = m_owner->getWorldTransform();
+        if(m_isDirty || m_owner->getWorldTransform() != m_lastUpdate) {
+            glm::mat4 worldTransform = m_owner->getWorldTransform();
+            m_lastUpdate = worldTransform;
 
-        GPUMeshHandle data = {};
-        data.model = worldTransform;
-        data.materialIndex = m_materialIndex;
-        GPU_RESOURCES->updateObject(m_objectIndex, data);
+            GPUMeshHandle data = {};
+            data.model = worldTransform;
+            data.materialIndex = m_materialIndex;
+            GPU_RESOURCES->updateObject(m_objectIndex, data);
+            m_isDirty = false;
+        }
     }
 }
 
@@ -53,6 +57,7 @@ void OGStaticMeshComponent::render(VkCommandBuffer &commandBuffer, uint64_t curr
 
 void OGStaticMeshComponent::setMaterialIndex(uint32_t index) {
     m_materialIndex = index;
+    m_isDirty = true;
 }
 
 void OGStaticMeshComponent::renderShadow(VkCommandBuffer &commandBuffer, uint64_t currentFrame, VkPipelineLayout layout, CSMData data, uint32_t cascade) {

@@ -60,6 +60,9 @@ protected:
 
     uint32_t m_objectIndex = 0xFFFFFFFF;
     uint32_t m_materialIndex = 0xFFFFFFFF;
+private:
+    bool m_isDirty = true;
+    glm::mat4 m_lastUpdate;
 };
 
 

@@ -209,15 +209,24 @@ public:
     }
 
     /** Get Dynamic Objects */
-    void getDynamicObjects(std::vector<OGEntity*>& objects) {
-        auto coll = getActorsWithComponent<OGCollisionComponent>();
-        for (const auto& entity : coll) {
-            const auto& vol = entity->getComponent<OGCollisionComponent>();
-            if (vol) {
-                const auto& bounds = vol->getCollisionVolume<AABBVolume>();
-                if (!bounds){
-                    objects.push_back(entity);
+    const std::vector<OGEntity*>& getDynamicObjects() const {
+        return m_dynamicEntities;
+    }
+
+    /** Update cached entity lists (Call this when adding/removing actors) */
+    void updateEntityCaches() {
+        m_dynamicEntities.clear();
+        m_staticEntities.clear();
+        for (auto const& [name, entity] : m_entities) {
+            auto colComp = entity->getComponent<OGCollisionComponent>();
+            if (colComp) {
+                if (colComp->getCollisionVolume<AABBVolume>()) {
+                    m_staticEntities.push_back(entity.get());
+                } else {
+                    m_dynamicEntities.push_back(entity.get());
                 }
+            } else if (entity->hasComponent<OGStaticMeshComponent>()) {
+                m_staticEntities.push_back(entity.get());
             }
         }
     }
@@ -233,6 +242,8 @@ private:
 
     std::unordered_map<std::string, std::unique_ptr<OGEntity>> m_entities;
     std::vector<OGEntity *> m_visibleEntities;
+    std::vector<OGEntity *> m_dynamicEntities;
+    std::vector<OGEntity *> m_staticEntities;
 
     std::vector<OGPolygon> m_worldPolygons;
     std::vector<OGPolygon> m_BlockingPolygons;

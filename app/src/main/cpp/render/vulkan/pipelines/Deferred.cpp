@@ -573,54 +573,31 @@ Deferred::record(VkCommandBuffer commandBuffer, uint64_t currentFrame, VkFramebu
                             m_pipelineLayout, 0, 1,
                             &GPU_RESOURCES->getBindlessSet(currentFrame), 0, nullptr);
 
-    std::vector<OGEntity*> dynamicObjects;
-    GAME_VIEW->getDynamicObjects(dynamicObjects);
-    for (auto& object: dynamicObjects) {
-        for (auto& child: object->getChildren()) {
-            if (child->getComponent<OGStaticMeshComponent>()) {
-                auto *component = child->getComponent<OGStaticMeshComponent>();
-                if (component) {
-                    component->render(commandBuffer, currentFrame);
-                }
-            }
+    for (auto* object: GAME_VIEW->getDynamicObjects()) {
+        if (!object) continue;
+
+        if (auto* component = object->getComponent<OGStaticMeshComponent>()) {
+            component->render(commandBuffer, currentFrame);
         }
-        if (object->getComponent<OGStaticMeshComponent>()) {
-            auto *component = object->getComponent<OGStaticMeshComponent>();
-            if (component) {
+
+        for (auto* child: object->getChildren()) {
+            if (auto* component = child->getComponent<OGStaticMeshComponent>()) {
                 component->render(commandBuffer, currentFrame);
             }
         }
     }
 
     /* Render Static Objects (using cached frustum visibility) */
-    std::vector<OGEntity *> staticRenderList;
     const auto &visibleStaticObjects = ENGINE->getCachedVisibleObjects();
-    if (!visibleStaticObjects.empty()) {
-        staticRenderList = visibleStaticObjects;
-    } else {
-        const auto &entities = GAME_VIEW->getEntities();
-        staticRenderList.reserve(entities.size());
-        for (const auto &[name, entity]: entities) {
-            if (!entity) continue;
-            staticRenderList.push_back(entity.get());
-        }
-    }
-
-    for (auto &mesh: staticRenderList) {
+    for (auto* mesh: visibleStaticObjects) {
         if (!mesh) continue;
 
-        for (auto& child: mesh->getChildren()) {
-            if (child->getComponent<OGStaticMeshComponent>()) {
-                auto *component = child->getComponent<OGStaticMeshComponent>();
-                if (component) {
-                    component->render(commandBuffer, currentFrame);
-                }
-            }
+        if (auto* component = mesh->getComponent<OGStaticMeshComponent>()) {
+            component->render(commandBuffer, currentFrame);
         }
 
-        if (mesh->getComponent<OGStaticMeshComponent>()) {
-            auto *component = mesh->getComponent<OGStaticMeshComponent>();
-            if (component) {
+        for (auto* child: mesh->getChildren()) {
+            if (auto* component = child->getComponent<OGStaticMeshComponent>()) {
                 component->render(commandBuffer, currentFrame);
             }
         }

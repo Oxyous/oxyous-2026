@@ -9,7 +9,6 @@
 #include "DataStructures.hpp"
 #include "engine/collision/Collision.hpp"
 #include "engine/collision/CollisionHelper.hpp"
-#include "../algorithms/OGBVH.hpp"
 
 template<typename T>
 struct OctreeNode {
@@ -22,7 +21,6 @@ struct OctreeNode {
     float halfDimension;
     std::vector<Entry> data;
     std::unique_ptr<OctreeNode<T>> children[8];
-    std::unique_ptr<OGBVH<T>> bvh;
 
     OctreeNode(glm::vec3 c, float h) : center(c), halfDimension(h) {
         for (int i = 0; i < 8; ++i) children[i] = nullptr;
@@ -31,19 +29,6 @@ struct OctreeNode {
     bool isLeaf() const {
         for (int i = 0; i < 8; ++i) if (children[i]) return false;
         return true;
-    }
-
-    void buildBVH() {
-        if (!data.empty()) {
-            bvh = std::make_unique<OGBVH<T>>();
-            std::vector<T> items;
-            items.reserve(data.size());
-            for (const auto &entry: data) items.push_back(entry.item);
-            bvh->build(items);
-        }
-        for (int i = 0; i < 8; ++i) {
-            if (children[i]) children[i]->buildBVH();
-        }
     }
 
     void insert(T item, const AABBVolume &itemAABB, int depth = 0) {
@@ -108,13 +93,9 @@ struct OctreeNode {
         glm::vec3 nodeMax = center + glm::vec3(halfDimension);
         if (!queryBox.intersect(AABBVolume(nodeMin, nodeMax))) return;
 
-        if (bvh) {
-            bvh->intersects(queryBox, results);
-        } else {
-            for (const auto &entry: data) {
-                if (queryBox.intersect(entry.aabb)) {
-                    results.push_back(entry.item);
-                }
+        for (const auto &entry: data) {
+            if (queryBox.intersect(entry.aabb)) {
+                results.push_back(entry.item);
             }
         }
 
@@ -130,13 +111,9 @@ struct OctreeNode {
 
         if (!frustum.intersects(nodeAABB)) return;
 
-        if (bvh) {
-            bvh->intersectsFrustum(frustum, results);
-        } else {
-            for (const auto &entry: data) {
-                if (frustum.intersects(entry.aabb)) {
-                    results.push_back(entry.item);
-                }
+        for (const auto &entry: data) {
+            if (frustum.intersects(entry.aabb)) {
+                results.push_back(entry.item);
             }
         }
 
@@ -189,7 +166,6 @@ public:
             root->insert(poly, CollisionHelper::PolygonBounds(poly));
         }
 
-        root->buildBVH();
     }
 
     void build(const std::vector<AABBVolume> &volumes) {
@@ -209,7 +185,6 @@ public:
             root->insert(vol, vol);
         }
 
-        root->buildBVH();
     }
 
 private:

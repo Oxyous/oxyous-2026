@@ -591,8 +591,7 @@ void ShadowCapture::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
     // Fetch consolidated data
     CSMData gpuData = ENGINE->getSharedCSMData();
 
-    std::vector<OGEntity*> dynamicObjects;
-    GAME_VIEW->getDynamicObjects(dynamicObjects);
+    GAME_VIEW->getDynamicObjects();
 
     // Compute Cascade Splits
     auto splits = RenderHelper::computeCascadeSplits(0.1f, 1000.0f, 0.98f);
@@ -641,37 +640,31 @@ void ShadowCapture::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
         vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
         vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-        /* Render Objects */
-        for (auto &obj: visibleObjects) {
-            const auto entity = obj;
-            if (!entity) {
-                continue;
-            }
-            for (auto child: entity->getChildren()) {
-                if (child->getComponent<OGStaticMeshComponent>()) {
-                    auto *component = child->getComponent<OGStaticMeshComponent>();
-                    if (component) {
-                        component->renderShadow(commandBuffer, currentFrame, m_pipelineLayout,
-                                                gpuData, i);
-                    }
-                }
+        /* Render Static Objects */
+        for (auto *obj: visibleObjects) {
+            if (!obj) continue;
+
+            if (auto *component = obj->getComponent<OGStaticMeshComponent>()) {
+                component->renderShadow(commandBuffer, currentFrame, m_pipelineLayout, gpuData, i);
             }
 
-            if (entity->getComponent<OGStaticMeshComponent>()) {
-                auto *component = entity->getComponent<OGStaticMeshComponent>();
-                if (component) {
-                    component->renderShadow(commandBuffer, currentFrame, m_pipelineLayout, gpuData,
-                                            i);
+            for (auto *child: obj->getChildren()) {
+                if (auto *component = child->getComponent<OGStaticMeshComponent>()) {
+                    component->renderShadow(commandBuffer, currentFrame, m_pipelineLayout, gpuData, i);
                 }
             }
         }
 
-        for (const auto & obj: dynamicObjects) {
-            if (obj->getComponent<OGStaticMeshComponent>()) {
-                auto *component = obj->getComponent<OGStaticMeshComponent>();
-                if (component) {
-                    component->renderShadow(commandBuffer, currentFrame, m_pipelineLayout, gpuData,
-                                            i);
+        for (auto* obj: GAME_VIEW->getDynamicObjects()) {
+            if (!obj) continue;
+
+            if (auto *component = obj->getComponent<OGStaticMeshComponent>()) {
+                component->renderShadow(commandBuffer, currentFrame, m_pipelineLayout, gpuData, i);
+            }
+
+            for (auto *child: obj->getChildren()) {
+                if (auto *component = child->getComponent<OGStaticMeshComponent>()) {
+                    component->renderShadow(commandBuffer, currentFrame, m_pipelineLayout, gpuData, i);
                 }
             }
         }

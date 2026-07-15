@@ -35,6 +35,8 @@ public:
 
     long long getProcessorTicks();
 
+    float getTemperature();
+
 private:
     struct timespec startTime, endTime, previousTime;
     double m_deltaTime;

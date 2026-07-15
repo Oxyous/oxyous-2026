@@ -106,3 +106,14 @@ long long OGTimer::getProcessorTicks() {
 
     return utime + stime;
 }
+
+float OGTimer::getTemperature() {
+    std::ifstream file("/sys/class/thermal/thermal_zone0/temp");
+    int tempMilliCelsius = 0;
+
+    if (file >> tempMilliCelsius) {
+        return tempMilliCelsius / 1000.0f;
+    }
+
+    return -1.0f;
+}

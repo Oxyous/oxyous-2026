@@ -40,8 +40,9 @@ void GameView::render() {
 }
 
 void GameView::update(double deltaTime) {
-    for (const auto &entity: m_entities) {
-        entity.second->update(deltaTime);
+
+    for (const auto entity: m_dynamicEntities) {
+        entity->update(deltaTime);
     }
 
     for (const auto &uiElement: UI->getElements()) {
@@ -54,7 +55,7 @@ void GameView::update(double deltaTime) {
         m_camFrustum.update(ENGINE->getCameraProjection(), ENGINE->getCameraView());
     }
 
-    std::vector<AABBVolume> possibleVolumes;
+    /*std::vector<AABBVolume> possibleVolumes;
     ENGINE->getStaticFrustumIntersectionByBVH(m_camFrustum, possibleVolumes);
 
     m_visibleEntities.clear();
@@ -62,7 +63,7 @@ void GameView::update(double deltaTime) {
         if (auto entity = volume.getOwner()) {
             m_visibleEntities.push_back(entity);
         }
-    }
+    }*/
 }
 
 bool GameView::initialize() {
@@ -120,7 +121,7 @@ bool GameView::initialize() {
 
     //ENGINE->setCameraPosition(glm::vec3(1.0, 1.0, 1.0));
 
-    if (!loadSceneFile("level1/scene_graph.xml")) {
+    if (!loadSceneFile("village/scene_graph.xml")) {
         aout << "Error: Failed to load scene graph!" << std::endl;
         return false;
     }
@@ -190,14 +191,14 @@ bool GameView::initialize() {
     };
 
     /** Create UI Elements Button etc*/
-    UI->addButton(new OGButton("button1", "sm-button", glm::vec2(100, 100),
+    UI->addButton(new OGButton("button1", "sm-button", glm::vec2(100, 200),
                                glm::vec2(128 * 2.5, 32 * 2.5), []() {
                 aout << "Button 1 clicked!" << std::endl;
                 ENGINE->setGameModeFly(!ENGINE->isGameModeFly());
             }));
 
     /** Create UI Elements Button etc*/
-    UI->addButton(new OGButton("button2", "sm-button", glm::vec2(320, 100),
+    UI->addButton(new OGButton("button2", "sm-button", glm::vec2(320, 500),
                                glm::vec2(128 * 2.5, 32 * 2.5), [&]() {
                 aout << "Button 2 clicked!" << std::endl;
                 ENGINE->setDemoCulling(!ENGINE->isDemoCulling());
@@ -293,11 +294,18 @@ bool GameView::initialize() {
     //PHYSICS->registerPhysicsActor(ground);
     PHYSICS->registerPhysicsActor(camera);
     SYS_TIMER->Start();
-    PHYSICS->start();
 
+    updateEntityCaches();
     std::vector<AABBVolume> staticVolumes;
     buildStaticVolumes(staticVolumes);
     ENGINE->buildStaticBVH(staticVolumes);
+
+    for(const auto& [name,entity]: m_entities) {
+        if(entity)
+            entity->update(1.0f);
+    }
+
+    PHYSICS->start();
 
     return true;
 }

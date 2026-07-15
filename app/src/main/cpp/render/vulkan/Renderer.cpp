@@ -162,6 +162,8 @@ bool Renderer::initialize(ANativeWindow *window) {
         return false;
     }
 
+    ENGINE->prepareInput();
+
     if(!GAME_VIEW->initialize()){
         aout << "Error: Failed to initialize game view" << std::endl;
         return false;
@@ -175,7 +177,7 @@ bool Renderer::initialize(ANativeWindow *window) {
     }
 
     const auto projection = glm::perspective(glm::radians(60.0f), (float) m_width / (float) m_height, 0.1f, 10000.0f);
-    ENGINE->prepareInput();
+
     ENGINE->setCameraProjection(projection);
 
     auto ui = ENGINE->getPipeline<UIRender>("user-interface");
