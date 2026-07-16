@@ -191,17 +191,32 @@ bool GameView::initialize() {
     };
 
     /** Create UI Elements Button etc*/
-    UI->addButton(new OGButton("button1", "sm-button", glm::vec2(100, 200),
+    UI->addButton(new OGButton("button1", "sm-button", glm::vec2(100, 500),
                                glm::vec2(128 * 2.5, 32 * 2.5), []() {
                 aout << "Button 1 clicked!" << std::endl;
                 ENGINE->setGameModeFly(!ENGINE->isGameModeFly());
             }));
 
     /** Create UI Elements Button etc*/
-    UI->addButton(new OGButton("button2", "sm-button", glm::vec2(320, 500),
+    UI->addButton(new OGButton("button2", "bvh-debug", glm::vec2(100, 700),
                                glm::vec2(128 * 2.5, 32 * 2.5), [&]() {
                 aout << "Button 2 clicked!" << std::endl;
                 ENGINE->setDemoCulling(!ENGINE->isDemoCulling());
+            }));
+
+    /***/
+    UI->addButton(new OGButton("button3", "bvh-debug", glm::vec2(900, 32),
+                               glm::vec2(128 * 2.5, 32 * 2.5), [&]() {
+                    auto physicsObjects = GAME_VIEW->getDynamicObjects();
+                    float i =0;
+                    for (auto obj : physicsObjects) {
+                        auto physComp = obj->getComponent<OGPhysicsComponent>();
+                        if (physComp && physComp->getMass() == 1.0f) {
+                            obj->setTranslation(glm::vec3(10.0f, 5.0f + i, 10.0f));
+                            physComp->setVelocity(glm::vec3(0.0f, 10.0f, 0.0f));
+                        }
+                        i += 5.0f;
+                    }
             }));
 
     /** Create Player Character */
@@ -263,9 +278,9 @@ bool GameView::initialize() {
 
     /** Physics test - Box */
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 25; i++) {
         auto box = addActor<OGActor>("box-" + std::to_string(m_entities.size() + 1));
-        box->setTranslation(glm::vec3(0.0f, (3.0f * (float) i) + 10.0f, 0.0f));
+        box->setTranslation(glm::vec3(10.0f, (3.0f * (float) i) + 10.0f, 10.0f));
         box->setRotation(glm::vec3(glm::radians(45.0f), glm::radians(45.0f), glm::radians(45.0f)));
         auto boxMesh = box->addComponent<OGStaticMeshComponent>();
         boxMesh->setMeshResource(boxMeshRes);

@@ -303,13 +303,13 @@ void ScreenSpace::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
 
     std::stringstream ss;
     ss << "FPS : " << SYS_TIMER->getFPS();
-    UI->drawString(commandBuffer, ss.str(), 32.0f,32.0f, 1.0f);
+    UI->drawString(commandBuffer, ss.str(), 32.0f,64.0f, 1.0f);
 
     ss.str("");
     ss.clear();
     if (ENGINE->getRenderer()) {
         ss << "GPU : " << std::fixed << std::setprecision(2) << ENGINE->getRenderer()->getGpuTime() << " ms";
-        UI->drawString(commandBuffer, ss.str(), 32.0f, 64.0f, 1.0f);
+        UI->drawString(commandBuffer, ss.str(), 32.0f, 128.0f, 1.0f);
     }
 
     ss.str("");
@@ -333,18 +333,18 @@ void ScreenSpace::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
     env->DeleteLocalRef(debugClass);
 
     ss << "Memory: " << (bytes / (1024 * 1024)) << " MB";
-    UI->drawString(commandBuffer, ss.str(), 32.0f,120.0f, 1.0f);
+    UI->drawString(commandBuffer, ss.str(), 32.0f, 192.0f, 1.0f);
     ss.str("");
     ss.clear();
 
     ss << "Visible Count:" << ENGINE->getCachedVisibleObjects().size();
-    UI->drawString(commandBuffer, ss.str(), 32.0f, 152.0f, 1.0f);
+    UI->drawString(commandBuffer, ss.str(), 32.0f, 256.0f, 1.0f);
 
     ss.str("");
     ss.clear();
 
     ss << "Temperature:" << SYS_TIMER->getTemperature();
-    UI->drawString(commandBuffer, ss.str(), 32.0f, 1024.0f, 1.0f);
+    UI->drawString(commandBuffer, ss.str(), 32.0f, 320.0f, 1.0f);
 
     ss.str("");
     ss.clear();

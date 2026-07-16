@@ -19,13 +19,11 @@ OGPhysicsManager::~OGPhysicsManager() {
 
 }
 
-void OGPhysicsManager::update(float deltaTime) {
-    if (!m_executing) return;
-
+void OGPhysicsManager::step(float deltaTime) {
     // 1. Integrate Forces
     for (auto actor : m_physicsActors) {
         auto phys = actor->getComponent<OGPhysicsComponent>();
-        if (phys) phys->integrateForces(deltaTime);
+        if (phys && phys->isAwake()) phys->integrateForces(deltaTime);
     }
 
     // 2. Detect Collisions
@@ -37,14 +35,14 @@ void OGPhysicsManager::update(float deltaTime) {
         auto colA = actorA->getComponent<OGCollisionComponent>();
         auto volA = colA->getCollisionVolume<IVolume>();
         auto physA = actorA->getComponent<OGPhysicsComponent>();
+        if (!physA) continue;
 
         for (auto j = i + 1; j < m_physicsActors.size(); ++j) {
             auto actorB = m_physicsActors[j];
             auto colB = actorB->getComponent<OGCollisionComponent>();
             auto volB = colB->getCollisionVolume<IVolume>();
             auto physB = actorB->getComponent<OGPhysicsComponent>();
-
-            if (physA->getMass() == 0.0f && physB->getMass() == 0.0f) continue;
+            if (!physB) continue;
 
             // Broad-phase: Fast AABB intersection check
             if (!volA->getAABB().intersect(volB->getAABB())) continue;
@@ -59,48 +57,46 @@ void OGPhysicsManager::update(float deltaTime) {
         }
 
         // 2.2 Dynamic-Static (Environment)
-        if (physA->getMass() > 0.0f) {
-            std::vector<OGPolygon> worldPolygons;
+        std::vector<OGPolygon> worldPolygons;
+        if (auto obb = dynamic_cast<OBBVolume*>(volA)) {
+            ENGINE->getObbIntersectionByBHV(*obb, worldPolygons);
+        } else if (auto sphere = dynamic_cast<SphereVolume*>(volA)) {
+            ENGINE->getSphereIntersectionByBHV(*sphere, worldPolygons);
+        } else if (auto capsule = dynamic_cast<CapsuleVolume*>(volA)) {
+            ENGINE->getCapsuleIntersectionByBHV(*capsule, worldPolygons);
+        }
+
+        for (const auto& poly : worldPolygons) {
+            OGCollisionManifold mStatic;
             if (auto obb = dynamic_cast<OBBVolume*>(volA)) {
-                ENGINE->getObbIntersectionByBHV(*obb, worldPolygons);
+                mStatic = CollisionHelper::resolveCollision(*obb, poly);
             } else if (auto sphere = dynamic_cast<SphereVolume*>(volA)) {
-                ENGINE->getSphereIntersectionByBHV(*sphere, worldPolygons);
+                OGContact contact;
+                if (CollisionHelper::resolvePolygonSphereCollision(poly, *sphere, contact)) {
+                    mStatic.m_colliding = true;
+                    mStatic.m_normal = -contact.normal;
+                    mStatic.m_depth = contact.depth;
+                    mStatic.m_contacts.push_back(contact.hitPoint);
+                }
             } else if (auto capsule = dynamic_cast<CapsuleVolume*>(volA)) {
-                ENGINE->getCapsuleIntersectionByBHV(*capsule, worldPolygons);
+                OGContact contact;
+                if (CollisionHelper::resolvePolygonCapsuleCollision(poly, *capsule, contact)) {
+                    mStatic.m_colliding = true;
+                    mStatic.m_normal = -contact.normal;
+                    mStatic.m_depth = contact.depth;
+                    mStatic.m_contacts.push_back(contact.hitPoint);
+                }
             }
 
-            for (const auto& poly : worldPolygons) {
-                OGCollisionManifold mStatic;
-                if (auto obb = dynamic_cast<OBBVolume*>(volA)) {
-                    mStatic = CollisionHelper::resolveCollision(*obb, poly);
-                } else if (auto sphere = dynamic_cast<SphereVolume*>(volA)) {
-                    OGContact contact;
-                    if (CollisionHelper::resolvePolygonSphereCollision(poly, *sphere, contact)) {
-                        mStatic.m_colliding = true;
-                        mStatic.m_normal = -contact.normal; // Point from Sphere to Polygon
-                        mStatic.m_depth = contact.depth;
-                        mStatic.m_contacts.push_back(contact.hitPoint);
-                    }
-                } else if (auto capsule = dynamic_cast<CapsuleVolume*>(volA)) {
-                    OGContact contact;
-                    if (CollisionHelper::resolvePolygonCapsuleCollision(poly, *capsule, contact)) {
-                        mStatic.m_colliding = true;
-                        mStatic.m_normal = -contact.normal; // Point from Capsule to Polygon
-                        mStatic.m_depth = contact.depth;
-                        mStatic.m_contacts.push_back(contact.hitPoint);
-                    }
-                }
-
-                if (mStatic.m_colliding) {
-                    mStatic.m_bodies[0] = physA;
-                    mStatic.m_bodies[1] = nullptr;
-                    m_manifolds.emplace_back(mStatic);
-                }
+            if (mStatic.m_colliding) {
+                mStatic.m_bodies[0] = physA;
+                mStatic.m_bodies[1] = nullptr;
+                m_manifolds.emplace_back(mStatic);
             }
         }
     }
 
-    // 3. Resolve Collisions (Sequential Impulses)
+    // 3. Resolve Collisions
     std::sort(m_manifolds.begin(), m_manifolds.end(),
               [](const OGCollisionManifold &a, const OGCollisionManifold &b) {
                   return a.m_depth > b.m_depth;
@@ -120,15 +116,16 @@ void OGPhysicsManager::update(float deltaTime) {
         }
     }
 
-    // 4. Integrate Velocities (Move objects)
+    // 4. Integrate Velocities
     for (auto actor : m_physicsActors) {
         auto phys = actor->getComponent<OGPhysicsComponent>();
-        if (phys) phys->integrateVelocity(deltaTime);
+        if (phys && phys->isAwake()) phys->integrateVelocity(deltaTime);
     }
 }
 
 void OGPhysicsManager::registerPhysicsActor(OGEntity *actorRef) {
     if (actorRef) {
+        std::lock_guard<std::mutex> lock(m_physicsMutex);
         m_physicsActors.push_back(actorRef);
     }
 }
@@ -139,24 +136,30 @@ void OGPhysicsManager::updatePositionManifold(const OGCollisionManifold &manifol
 
     if (!bodyA) return;
 
-    float massA = bodyA->getMass();
-    float massB = bodyB ? bodyB->getMass() : 0.0f;
-    float totalMass = massA + massB;
+    float invMassA = bodyA->getInverseMass();
+    float invMassB = bodyB ? bodyB->getInverseMass() : 0.0f;
+    float totalInvMass = invMassA + invMassB;
 
-    if (totalMass <= 0.0f) return;
-
-    float massRatioA = massA / totalMass;
-    float massRatioB = massB / totalMass;
-
-    float percent = 0.5f; // Baumgarte stabilization
+    float percent = 0.8f; // Higher stabilization to reduce sinking
     glm::vec3 correctionVector = manifold.m_normal * (manifold.m_depth * percent);
 
-    if (massA > 0.0f) {
-        bodyA->getOwner()->setTranslation(bodyA->getOwner()->getTranslation() - correctionVector * massRatioA);
-    }
-
-    if (bodyB && massB > 0.0f) {
-        bodyB->getOwner()->setTranslation(bodyB->getOwner()->getTranslation() + correctionVector * massRatioB);
+    if (totalInvMass > 0.0f) {
+        if (invMassA > 0.0f) {
+            bodyA->getOwner()->setTranslation(bodyA->getOwner()->getTranslation() - correctionVector * (invMassA / totalInvMass));
+        }
+        if (bodyB && invMassB > 0.0f) {
+            bodyB->getOwner()->setTranslation(bodyB->getOwner()->getTranslation() + correctionVector * (invMassB / totalInvMass));
+        }
+    } else {
+        // Both are infinite mass (one might be static environment)
+        if (!bodyB) {
+            // bodyA vs Static Geometry: always push bodyA out
+            bodyA->getOwner()->setTranslation(bodyA->getOwner()->getTranslation() - correctionVector);
+        } else {
+            // Infinite mass dynamic A vs Infinite mass dynamic B: push both 50/50
+            bodyA->getOwner()->setTranslation(bodyA->getOwner()->getTranslation() - correctionVector * 0.5f);
+            bodyB->getOwner()->setTranslation(bodyB->getOwner()->getTranslation() + correctionVector * 0.5f);
+        }
     }
 }
 
@@ -166,19 +169,17 @@ void OGPhysicsManager::applyRotationImpulse(const OGCollisionManifold &manifold,
 
     if (!bodyA) return;
 
-    auto massA = bodyA->getMass();
-    auto massB = bodyB ? bodyB->getMass() : 0.0f;
-    auto massSum = massA + massB;
+    auto invMassA = bodyA->getInverseMass();
+    auto invMassB = bodyB ? bodyB->getInverseMass() : 0.0f;
+    auto totalInvMass = invMassA + invMassB;
 
-    if (massSum == 0.0f) {
-        return;
-    }
+    if (totalInvMass == 0.0f) return;
 
     glm::vec3 r1 = manifold.m_contacts[c] - bodyA->getOwner()->getTranslation();
     glm::vec3 r2 = bodyB ? (manifold.m_contacts[c] - bodyB->getOwner()->getTranslation()) : glm::vec3(0.0f);
 
-    glm::mat3 i1 = bodyA->getInertiaTensor();
-    glm::mat3 i2 = bodyB ? bodyB->getInertiaTensor() : glm::mat3(0.0f);
+    glm::mat3 i1 = bodyA->getInverseInertiaWorld();
+    glm::mat3 i2 = bodyB ? bodyB->getInverseInertiaWorld() : glm::mat3(0.0f);
 
     glm::vec3 velB = bodyB ? bodyB->getVelocity() : glm::vec3(0.0f);
     glm::vec3 angB = bodyB ? bodyB->getAngularVelocity() : glm::vec3(0.0f);
@@ -187,71 +188,58 @@ void OGPhysicsManager::applyRotationImpulse(const OGCollisionManifold &manifold,
             (velB + glm::cross(angB, r2)) -
             (bodyA->getVelocity() + glm::cross(bodyA->getAngularVelocity(), r1));
 
-    glm::vec3 relativeNormal = manifold.m_normal;
-    relativeNormal = glm::normalize(relativeNormal);
+    glm::vec3 relativeNormal = glm::normalize(manifold.m_normal);
 
-    if (glm::dot(relativeVelocity, relativeNormal) > 0.0f) {
-        return;
-    }
+    if (glm::dot(relativeVelocity, relativeNormal) > 0.0f) return;
 
     float e = bodyB ? fminf(bodyA->getRestitution(), bodyB->getRestitution()) : bodyA->getRestitution();
-    if (std::abs(glm::dot(relativeVelocity, relativeNormal)) < 0.2f) {
-        e = 0.0f;
-    }
+    if (std::abs(glm::dot(relativeVelocity, relativeNormal)) < 0.2f) e = 0.0f;
 
     float numerator = (-(1.0f + e) * glm::dot(relativeVelocity, relativeNormal));
 
-    float d1 = massSum;
     glm::vec3 d2 = glm::cross(i1 * glm::cross(r1, relativeNormal), r1);
     glm::vec3 d3 = bodyB ? glm::cross(i2 * glm::cross(r2, relativeNormal), r2) : glm::vec3(0.0f);
-    float denominator = d1 + glm::dot(relativeNormal, d2 + d3);
+    float denominator = totalInvMass + glm::dot(relativeNormal, d2 + d3);
 
     float j = (denominator != 0.0f) ? numerator / denominator : 0.0f;
-    if (manifold.m_contacts.size() > 0.0f && j != 0.0f) {
-        j /= (float) manifold.m_contacts.size();
-    }
+    if (!manifold.m_contacts.empty()) j /= (float) manifold.m_contacts.size();
+
     glm::vec3 impulse = relativeNormal * j;
 
-    bodyA->setVelocity(bodyA->getVelocity() - impulse * massA);
+    bodyA->setVelocity(bodyA->getVelocity() - impulse * invMassA);
     bodyA->setAngularVelocity(bodyA->getAngularVelocity() - (i1 * glm::cross(r1, impulse)));
 
     if (bodyB) {
-        bodyB->setVelocity(bodyB->getVelocity() + impulse * massB);
+        bodyB->setVelocity(bodyB->getVelocity() + impulse * invMassB);
         bodyB->setAngularVelocity(bodyB->getAngularVelocity() + (i2 * glm::cross(r2, impulse)));
     }
 
+    // Friction
+    relativeVelocity = (bodyB ? (bodyB->getVelocity() + glm::cross(bodyB->getAngularVelocity(), r2)) : glm::vec3(0.0f)) -
+                       (bodyA->getVelocity() + glm::cross(bodyA->getAngularVelocity(), r1));
     glm::vec3 t = relativeVelocity - (relativeNormal * glm::dot(relativeVelocity, relativeNormal));
 
-    if (Math::isClose(glm::dot(t, t), 0.0f))
-        return;
+    if (glm::dot(t, t) > 1e-6f) {
+        t = glm::normalize(t);
+        numerator = -glm::dot(relativeVelocity, t);
+        d2 = glm::cross(i1 * glm::cross(r1, t), r1);
+        d3 = bodyB ? glm::cross(i2 * glm::cross(r2, t), r2) : glm::vec3(0.0f);
+        denominator = totalInvMass + glm::dot(t, d2 + d3);
 
-    t = glm::normalize(t);
+        float jt = (denominator != 0.0f) ? numerator / denominator : 0.0f;
+        if (!manifold.m_contacts.empty()) jt /= (float) manifold.m_contacts.size();
 
-    numerator = -glm::dot(relativeVelocity, t);
-    d1 = massSum;
-    d2 = glm::cross(i1 * glm::cross(r1, t), r1);
-    d3 = bodyB ? glm::cross(i2 * glm::cross(r2, t), r2) : glm::vec3(0.0f);
+        float friction = bodyB ? sqrt(bodyA->getFriction() * bodyB->getFriction()) : bodyA->getFriction();
+        jt = glm::clamp(jt, -j * friction, j * friction);
 
-    denominator = d1 + glm::dot(t, d2 + d3);
+        glm::vec3 tangentImpulse = t * jt;
+        bodyA->setVelocity(bodyA->getVelocity() - tangentImpulse * invMassA);
+        bodyA->setAngularVelocity(bodyA->getAngularVelocity() - (i1 * glm::cross(r1, tangentImpulse)));
 
-    float jt = (denominator != 0.0f) ? numerator / denominator : 0.0f;
-    if (Math::isClose(jt, 0.0)) return;
-
-    float friction = bodyB ? sqrt(bodyA->getFriction() * bodyB->getFriction()) : bodyA->getFriction();
-    if (jt > j * friction) {
-        jt = j * friction;
-    } else if (jt < -j * friction) {
-        jt = -j * friction;
-    }
-
-    glm::vec3 tangentImpulse = t * jt;
-
-    bodyA->setVelocity(bodyA->getVelocity() - tangentImpulse * massA);
-    bodyA->setAngularVelocity(bodyA->getAngularVelocity() - (i1 * glm::cross(r1, tangentImpulse)));
-
-    if (bodyB) {
-        bodyB->setVelocity(bodyB->getVelocity() + tangentImpulse * massB);
-        bodyB->setAngularVelocity(bodyB->getAngularVelocity() + (i2 * glm::cross(r2, tangentImpulse)));
+        if (bodyB) {
+            bodyB->setVelocity(bodyB->getVelocity() + tangentImpulse * invMassB);
+            bodyB->setAngularVelocity(bodyB->getAngularVelocity() + (i2 * glm::cross(r2, tangentImpulse)));
+        }
     }
 
     bodyA->setAwake(true);
@@ -263,203 +251,10 @@ void OGPhysicsManager::start() {
     m_thread = std::thread(&OGPhysicsManager::run, this);
 }
 
-void OGPhysicsManager::integrate(float delta) {
-
-    // 1. Integrate Forces
-    for (auto actor: m_physicsActors) {
-        auto phys = actor->getComponent<OGPhysicsComponent>();
-        if (phys) phys->integrateForces(delta);
-    }
-
-    // 2. Detect Collisions
-    m_manifolds.clear();
-
-    for (auto i = 0; i < m_physicsActors.size(); ++i) {
-        auto actor = m_physicsActors[i];
-        auto col = actor->getComponent<OGCollisionComponent>();
-        auto vol = col->getCollisionVolume<IVolume>();
-        auto phys = actor->getComponent<OGPhysicsComponent>();
-
-        if (phys->getMass() == 0.0f) continue;
-
-        std::vector<OGPolygon> worldPolygons;
-        if (auto obb = dynamic_cast<OBBVolume*>(vol)) {
-            ENGINE->getObbIntersectionByBHV(*obb, worldPolygons);
-        } else if (auto sphere = dynamic_cast<SphereVolume*>(vol)) {
-            ENGINE->getSphereIntersectionByBHV(*sphere, worldPolygons);
-        } else if (auto capsule = dynamic_cast<CapsuleVolume*>(vol)) {
-            ENGINE->getCapsuleIntersectionByBHV(*capsule, worldPolygons);
-        }
-
-        for (const auto &poly: worldPolygons) {
-            OGCollisionManifold mStatic;
-            if (auto obb = dynamic_cast<OBBVolume*>(vol)) {
-                mStatic = CollisionHelper::resolveCollision(*obb, poly);
-            } else if (auto sphere = dynamic_cast<SphereVolume*>(vol)) {
-                OGContact contact;
-                if (CollisionHelper::resolvePolygonSphereCollision(poly, *sphere, contact)) {
-                    mStatic.m_colliding = true;
-                    mStatic.m_normal = -contact.normal;
-                    mStatic.m_depth = contact.depth;
-                    mStatic.m_contacts.push_back(contact.hitPoint);
-                }
-            } else if (auto capsule = dynamic_cast<CapsuleVolume*>(vol)) {
-                OGContact contact;
-                if (CollisionHelper::resolvePolygonCapsuleCollision(poly, *capsule, contact)) {
-                    mStatic.m_colliding = true;
-                    mStatic.m_normal = -contact.normal;
-                    mStatic.m_depth = contact.depth;
-                    mStatic.m_contacts.push_back(contact.hitPoint);
-                }
-            }
-
-            if (mStatic.m_colliding) {
-                mStatic.m_bodies[0] = phys;
-                mStatic.m_bodies[1] = nullptr;
-                m_manifolds.emplace_back(mStatic);
-            }
-        }
-    }
-
-    // 3. Resolve Collisions (Position then Impulses)
-    std::sort(m_manifolds.begin(), m_manifolds.end(),
-              [](const OGCollisionManifold &a, const OGCollisionManifold &b) {
-                  return a.m_depth > b.m_depth;
-              });
-
-    for (const auto& m : m_manifolds) {
-        if (m.m_bodies[1] == nullptr) {
-            updateStaticPositionManifold(m);
-        }
-    }
-
-    for (int i = 0; i < 8; i++) {
-        for (auto &m: m_manifolds) {
-            if (m.m_bodies[1] == nullptr) {
-                for (size_t k = 0; k < m.m_contacts.size(); k++) {
-                    applyStaticRotationImpulse(m, (int) k);
-                }
-            }
-        }
-    }
-
-    // 4. Integrate Velocities (Move objects)
-    for (auto actor: m_physicsActors) {
-        auto phys = actor->getComponent<OGPhysicsComponent>();
-        if (phys) phys->integrateVelocity(delta);
-    }
-}
-
-void OGPhysicsManager::updateStaticPositionManifold(const OGCollisionManifold &manifold) {
-    auto bodyA = manifold.m_bodies[0];
-
-    if (!bodyA) {
-        return;
-    }
-
-    float totalMass = bodyA->getMass();
-
-    if (totalMass <= 0.0f) {
-        return;
-    }
-
-    float massRatioA = bodyA->getMass() / totalMass;
-
-    float percent = 0.5f; // Baumgarte stabilization
-    glm::vec3 correctionVector = manifold.m_normal * (manifold.m_depth * percent);
-
-    if (bodyA->getMass() > 0.0f) {
-        glm::vec3 newPositionA =
-                bodyA->getOwner()->getTranslation() - correctionVector * massRatioA;
-        bodyA->getOwner()->setTranslation(newPositionA);
-    }
-}
-
-void OGPhysicsManager::applyStaticRotationImpulse(const OGCollisionManifold &manifold, int c) {
-    auto bodyA = manifold.m_bodies[0];
-
-    auto massA = manifold.m_bodies[0]->getMass();
-
-    if (massA == 0.0f) {
-        return;
-    }
-
-    glm::vec3 r1 = manifold.m_contacts[c] - bodyA->getOwner()->getTranslation();
-
-    glm::mat3 i1 = bodyA->getInertiaTensor();
-
-    glm::vec3 relativeVelocity =
-            -(bodyA->getVelocity() + glm::cross(bodyA->getAngularVelocity(), r1));
-
-    glm::vec3 relativeNormal = manifold.m_normal;
-    relativeNormal = glm::normalize(relativeNormal);
-
-    if (glm::dot(relativeVelocity, relativeNormal) > 0.0f) {
-        return;
-    }
-
-    float e = bodyA->getRestitution();
-    if (std::abs(glm::dot(relativeVelocity, relativeNormal)) < 0.2f) {
-        e = 0.0f;
-    }
-
-    float numerator = (-(1.0f + e) * glm::dot(relativeVelocity, relativeNormal));
-
-    float d1 = massA;
-    glm::vec3 d2 = glm::cross(i1 * glm::cross(r1, relativeNormal), r1);
-    float denominator = d1 + glm::dot(relativeNormal, d2);
-
-    float j = (denominator != 0.0f) ? numerator / denominator : 0.0f;
-
-    glm::vec3 impulse = relativeNormal * j;
-
-    auto velA = bodyA->getVelocity();
-    auto angA = bodyA->getAngularVelocity();
-
-    bodyA->setVelocity(velA - impulse * massA);
-    bodyA->setAngularVelocity(angA - (i1 * glm::cross(r1, impulse)));
-
-    glm::vec3 relativeVelocityAfterImpulse =
-            -(bodyA->getVelocity() + glm::cross(bodyA->getAngularVelocity(), r1));
-
-    glm::vec3 t = relativeVelocityAfterImpulse - (relativeNormal * glm::dot(relativeVelocityAfterImpulse, relativeNormal));
-
-    if (Math::isClose(glm::dot(t, t), 0.0f))
-        return;
-
-    t = glm::normalize(t);
-
-    numerator = -glm::dot(relativeVelocityAfterImpulse, t);
-    d1 = massA;
-    d2 = glm::cross(i1 * glm::cross(r1, t), r1);
-
-    denominator = d1 + glm::dot(t, d2);
-
-    float jt = (denominator != 0.0f) ? numerator / denominator : 0.0f;
-    if (Math::isClose(jt, 0.0)) return;
-
-    float friction = bodyA->getFriction(); // Static geometry friction assumed 1.0 or handled by body
-    if (jt > j * friction) {
-        jt = j * friction;
-    } else if (jt < -j * friction) {
-        jt = -j * friction;
-    }
-
-    glm::vec3 tangentImpulse = t * jt;
-
-    velA = bodyA->getVelocity();
-    angA = bodyA->getAngularVelocity();
-
-    bodyA->setVelocity(velA - tangentImpulse * massA);
-    bodyA->setAngularVelocity(angA - (i1 * glm::cross(r1, tangentImpulse)));
-
-    bodyA->setAwake(true);
-}
-
 void OGPhysicsManager::run() {
     auto lastTime = std::chrono::high_resolution_clock::now();
     float accumulator = 0.0f;
-    const float fixedDeltaTime = 0.016f; // 60Hz sub-stepping for better stability
+    const float fixedDeltaTime = 0.0078125f;
 
     while (m_executing) {
         auto currentTime = std::chrono::high_resolution_clock::now();
@@ -467,13 +262,15 @@ void OGPhysicsManager::run() {
         lastTime = currentTime;
 
         float frameTime = elapsed.count();
-        if (frameTime > 0.25f) frameTime = 0.25f; // Cap to avoid "spiral of death"
+        if (frameTime > 0.25f) frameTime = 0.25f;
 
         accumulator += frameTime;
 
         while (accumulator >= fixedDeltaTime) {
-            integrate(fixedDeltaTime);
-            update(fixedDeltaTime);
+            {
+                std::lock_guard<std::mutex> lock(m_physicsMutex);
+                step(fixedDeltaTime);
+            }
             accumulator -= fixedDeltaTime;
         }
 

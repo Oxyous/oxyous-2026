@@ -7,6 +7,9 @@
 
 #include <vector>
 #include <memory>
+#include <thread>
+#include <atomic>
+#include <mutex>
 #include "OGCollisionManifold.hpp"
 #include "../../system/OGSingleton.hpp"
 
@@ -28,21 +31,18 @@ public:
     void start();
 
     /** Integrate physics state */
-    void integrate(float delta);
+    void step(float delta);
 
 private:
     void updatePositionManifold(const OGCollisionManifold& manifold);
 
     void applyRotationImpulse(const OGCollisionManifold& manifold, int c);
 
-    void updateStaticPositionManifold(const OGCollisionManifold& manifold);
-
-    void applyStaticRotationImpulse(const OGCollisionManifold& manifold, int c);
-
 protected:
     float m_gravity = -9.81f;
     std::vector<OGEntity*> m_physicsActors;
     std::vector<OGCollisionManifold> m_manifolds;
+    std::mutex m_physicsMutex;
 private:
     std::thread m_thread;
     std::atomic<bool> m_executing = false;
