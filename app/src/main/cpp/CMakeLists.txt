@@ -28,6 +28,8 @@ add_library(oxyous_2026 SHARED
         engine/elements/ScreenSpaceRenderer.cpp
         engine/physics/OGPhysicsManager.cpp
         engine/physics/OGCollisionManifold.cpp
+        engine/animation/OGAnimationManager.cpp
+        engine/animation/OGAnimController.cpp
         engine/GameView.cpp
         engine/Engine.cpp
         engine/GPUResources.cpp
@@ -51,6 +53,8 @@ add_library(oxyous_2026 SHARED
         render/vulkan/Swapchain.cpp
         render/vulkan/RenderDevice.cpp
         resources/ResourceManager.cpp
+        resources/GPUSkeletalMesh.cpp
+        resources/animation/OGSkeletalAnimation.cpp
         resources/GPUTextureResource.cpp
         engine/components/OGStaticMeshComponent.cpp
         AndroidOut.cpp

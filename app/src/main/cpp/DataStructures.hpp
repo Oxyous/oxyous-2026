@@ -97,7 +97,122 @@ typedef struct SpriteInstance {
     glm::vec2 uvScale;
 }SpriteInstance;
 
-/* */
+/** Animated Mesh File Header */
+typedef struct OGAnimMeshHeader
+{
+    int vertexOffset;
+    int vertexCount;
+    int faceOffset;
+    int faceCount;
+    int weightOffset;
+    int weightCount;
+    int jointOffset;
+    int jointCount;
+} OGAnimMeshHeader;
+
+/** Animated Mesh Vertex */
+typedef struct OGAnimMeshVertex
+{
+    glm::vec3 position;
+    glm::vec3 normal;
+    glm::vec2 uv;
+    glm::vec4 boneWeights;
+    glm::ivec4 boneIndices;
+    int startWeight;
+    int weightCount;
+} OGAnimMeshVertex;
+
+/** Animation Header */
+typedef struct OGAnimHeader
+{
+    int hierarchyOffset;
+    int hierarchyCount;
+    int baseFrameOffset;
+    int baseFrameCount;
+    int framesOffset;
+    int framesCount;
+    int numOfFrames;
+    int numOfJoints;
+    int animComponents;
+    float frameRate;
+} OGAnimHeader;
+
+/** Face Indices */
+typedef struct OGFace{
+    int indices[3];
+} OGFace;
+
+/** Animation Joint */
+typedef struct OGJointInfo {
+    std::string name;
+    int parentIndex;
+    int flags;
+    int startIndex;
+} OGJointInfo;
+
+/** Animation Joint */
+typedef struct OGJoint {
+    std::string name;
+    int parentIndex;
+    glm::vec3 position;
+    glm::quat orientation;
+} OGJoint;
+
+/** Animation Weight */
+typedef struct OGWeight {
+    int jointIndex;
+    float bias;
+    glm::vec3 position;
+} OGWeight;
+
+/** Animation Base Frame */
+typedef struct OGJointTransform {
+    glm::vec3 position;
+    glm::quat orientation;
+} OGJointTransform;
+
+/** Animation Frame */
+typedef struct OGAnimFrame {
+    int iFrameID;
+    std::vector<float> components;
+} OGAnimFrame;
+
+/** Skeleton Mesh */
+typedef struct OGSkeletonMesh {
+    std::vector<OGAnimMeshVertex> vertices;
+    std::vector<uint32_t> indices;
+    std::vector<OGFace> faces;
+    std::vector<OGWeight> weights;
+    std::vector<OGJoint> joints;
+} OGSkeletonMesh;
+
+/**  */
+typedef struct OGFrameSkeleton {
+    std::vector<OGJoint> joints;
+    std::vector<glm::mat4> transforms;
+}OGFrameSkeleton;
+
+typedef struct OGAnimationPose {
+    std::vector<OGJointTransform> joints;
+} OGAnimationPose;
+
+/***/
+typedef struct OGAnimationClip
+{
+    std::string name;
+    float duration;
+    float frameRate;
+    int numberFrames;
+    int numberJoints;
+
+    std::vector<OGJointInfo> joints;                // Joints infos []
+    std::vector<OGAnimationPose> frames;            // Base Frames - Joint Transforms [], position/orientation
+    std::vector<OGJointTransform> baseFrames;
+    std::vector<OGFrameSkeleton> skeletonFrames;    // Skeleton Frames, OJoint[], mat4[]
+
+}OGAnimationClip;
+
+/** Text Character Data */
 typedef struct OGChar {
     uint32_t textureId;
     uint32_t objectId;

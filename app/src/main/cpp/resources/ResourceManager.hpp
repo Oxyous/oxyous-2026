@@ -19,13 +19,13 @@ public:
     virtual ~GPUResource() = default;
 
 public:
-    /* Destroy the resource */
+    /** Destroy the resource */
     virtual void destroy() = 0;
 
-    /* Load resource from asset */
+    /** Load resource from asset */
     virtual bool load(AAssetManager *assetManager, const std::vector<uint8_t> &data) = 0;
 
-    /* Get Resource*/
+    /** Get Resource*/
     virtual T *get() = 0;
 
 protected:
@@ -38,19 +38,19 @@ public:
 
     ~ResourceManager();
 
-    /* Get Asset Manager */
+    /** Get Asset Manager */
     [[nodiscard]] virtual AAssetManager *getAssetManager() const;
 
-    /* Set Asset Manager */
+    /** Set Asset Manager */
     void setAssetManager(AAssetManager *assetManager);
 
-    /* Load Shader Binary form Assets*/
+    /** Load Shader Binary form Assets*/
     void loadShader(const std::string &fileName, std::vector<uint8_t> &data);
 
-    /* Load Scene collision */
+    /** Load Scene collision */
     bool loadSceneCollision(const std::string& assetPath, std::vector<OGPolygon>& polys);
 
-    /* Load Binary form Assets */
+    /** Load Binary form Assets */
     template<typename T>
     static bool loadBinary(const std::string &assetPath, std::vector<uint8_t> &data) {
         auto resourceAsset = AAssetManager_open(m_assetManager, assetPath.c_str(),
@@ -65,7 +65,7 @@ public:
         return true;
     }
 
-    /* Read file as string */
+    /** Read file as string */
     static bool readFileFromAssets(const std::string &assetPath, std::string& data) {
         auto resourceAsset = AAssetManager_open(m_assetManager, assetPath.c_str(), AASSET_MODE_BUFFER);
 
@@ -80,7 +80,7 @@ public:
         return true;
     }
 
-    /* Load Texture From Assets */
+    /** Load Texture From Assets */
     bool loadTextureData(const std::string &assetPath, std::vector<uint8_t>& data, uint32_t& size, uint32_t& width, uint32_t& height) {
         auto resourceAsset = AAssetManager_open(m_assetManager, assetPath.c_str(),
                                                 AASSET_MODE_BUFFER);
@@ -128,7 +128,7 @@ public:
     }
 
 public:
-    /* Load Resource from Asset */
+    /** Load Resource from Asset */
     template<typename T>
     static std::shared_ptr<T> load(const std::string &assetPath, std::vector<uint8_t> &data) {
         auto resourceAsset = AAssetManager_open(m_assetManager, assetPath.c_str(),
@@ -152,7 +152,7 @@ public:
         return resource;
     }
 
-    /* Get or fetch (load) Resource */
+    /** Get or fetch (load) Resource */
     template<typename T>
     static std::shared_ptr<T> get(const std::string &assetPath) {
         auto it = m_resources<T>.find(assetPath);

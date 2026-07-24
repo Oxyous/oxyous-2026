@@ -181,6 +181,10 @@ public:
     void
     getCapsuleIntersectionByBHV(const CapsuleVolume &capsule, std::vector<OGPolygon> &polygons);
 
+    /** Get Possible Polygon intersection */
+    void
+    getAABBIntersectionByBHV(const AABBVolume &aabb, std::vector<OGPolygon> &polygons);
+
     /** Get Possible Polygons intersection with sphere */
     void getSphereIntersectionByBHV(const SphereVolume &sphere, std::vector<OGPolygon> &polygons);
 

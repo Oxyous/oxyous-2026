@@ -36,7 +36,7 @@ public:
 private:
     void updatePositionManifold(const OGCollisionManifold& manifold);
 
-    void applyRotationImpulse(const OGCollisionManifold& manifold, int c);
+    void applyRotationImpulse(const OGCollisionManifold& manifold, int c, float dt);
 
 protected:
     float m_gravity = -9.81f;

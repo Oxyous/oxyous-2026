@@ -197,6 +197,18 @@ public:
     inline static bool isClose(const float &a, const float &b) {
         return (fabsf(a - b) <= 0.0001f);
     }
+
+    inline static void computeQuaternion(glm::quat &q) {
+        float t = 1.0f - q.x * q.x - q.y * q.y - q.z * q.z;
+
+        if (t < 0.00001f){
+            q.w = 0.0f;
+            return;
+        } else {
+            q.w = -sqrt(t);
+        }
+    }
+
     /**
     static glm::quat addScaledVector(const glm::vec3& v, const glm::quat& q, float scale) {
         glm::quat scaled = glm::quat(v.x * scale, v.y * scale, v.z * scaled, 0.0f);

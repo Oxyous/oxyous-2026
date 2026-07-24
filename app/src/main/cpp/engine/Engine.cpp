@@ -28,7 +28,6 @@ void Engine::update(float deltaTime) {
     m_input.update(deltaTime);
     //m_camera->update(deltaTime);
 
-    const float percent = 0.2f;
     if (isGameModeFly()) {
         auto camBound = m_camera->getComponent<OGCollisionComponent>();
         auto bounds = camBound->getCollisionVolume<SphereVolume>();
@@ -42,28 +41,14 @@ void Engine::update(float deltaTime) {
 
             if (CollisionHelper::resolvePolygonSphereCollision(p, *bounds, contact)) {
                 // Handle collision response here
-                camPos += contact.normal * contact.depth * percent;
+                camPos += contact.normal * contact.depth * 0.5f;
                 m_camera->setTranslation(camPos);
                 //bounds->setCenter(camPos);
             }
         }
     } else {
         const auto player = dynamic_cast<OGPlayerActor *>(GAME_VIEW->getActivePlayer().get());
-        const auto playerCollision = player->getComponent<OGCollisionComponent>()->getCollisionVolume<CapsuleVolume>();
-        glm::vec3 playerPos = player->getTranslation();
         player->setGrounded(false, 0.0f);
-
-        std::vector<OGPolygon> polygons;
-        ENGINE->getCapsuleIntersectionByBHV(*playerCollision, polygons);
-
-        for (auto &p: polygons) {
-            OGContact contact;
-
-            if (CollisionHelper::resolvePolygonCapsuleCollision(p, *playerCollision, contact)) {
-                playerPos += contact.normal * contact.depth * percent;
-                player->setTranslation(playerPos);
-            }
-        }
     }
 }
 
@@ -112,6 +97,12 @@ void Engine::getCapsuleIntersectionByBHV(const CapsuleVolume &capsule,
     m_collisionBHV->intersects(capsule, polygons);
 }
 
+
+void
+Engine::getAABBIntersectionByBHV(const AABBVolume &aabb, std::vector<OGPolygon> &polygons) {
+    m_collisionBHV->intersects(aabb, polygons);
+}
+
 void
 Engine::getSphereIntersectionByBHV(const SphereVolume &sphere, std::vector<OGPolygon> &polygons) {
     m_collisionBHV->intersects(sphere, polygons);
@@ -120,6 +111,8 @@ Engine::getSphereIntersectionByBHV(const SphereVolume &sphere, std::vector<OGPol
 void Engine::getObbIntersectionByBHV(const OBBVolume &obb, std::vector<OGPolygon> &polygons) {
     m_collisionBHV->intersects(obb, polygons);
 }
+
+
 
 void
 Engine::getSegmentIntersectionByBHV(const OGSegment &segment, std::vector<OGPolygon> &polygons) {

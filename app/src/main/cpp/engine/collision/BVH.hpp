@@ -35,10 +35,14 @@ public:
 
     void intersects(const OGSegment& segment, std::vector<OGPolygon>& results);
 
+    void intersects(const AABBVolume& aabb, std::vector<OGPolygon>& results);
+
 private:
     int buildRecursive(int start, int end, int maxLeafSize);
 
     void intersectsRecursive(int nodeIndex, const OBBVolume& obb, std::vector<OGPolygon>& results);
+
+    void intersectsRecursive(int nodeIndex, const AABBVolume& aabb, std::vector<OGPolygon>& results);
 
     void intersectsRecursive(int nodeIndex, const CapsuleVolume& capsule, std::vector<OGPolygon>& results);
 

@@ -201,3 +201,7 @@ void OGPhysicsComponent::setMass(float mass) {
 void OGPhysicsComponent::setAcceleration(const glm::vec3 &acceleration) {
     m_acceleration = acceleration;
 }
+
+void OGPhysicsComponent::setMotion(float motion) {
+    m_motion = motion;
+}

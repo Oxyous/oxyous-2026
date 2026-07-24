@@ -307,21 +307,21 @@ public:
         return subCorners;
     }
 
-    /* */
-    [[nodiscard]] inline static bool
-    resolvePolygonSphereCollision(const OGPolygon &polygon, const SphereVolume &sphereVolume,
-                                  OGContact &contact) {
+    /* Speculative Contact query for Sphere-Polygon */
+    inline static bool
+    queryPolygonSphereContact(const OGPolygon &polygon, const SphereVolume &sphereVolume,
+                              float margin, OGContact &contact) {
         glm::vec3 closestToSphere = ClosestPointOnTriangle(sphereVolume.getCenter(),
                                                            polygon.vertices[0], polygon.vertices[1],
                                                            polygon.vertices[2]);
         glm::vec3 sphereToClosest = closestToSphere - sphereVolume.getCenter();
 
         float d2 = glm::dot(sphereToClosest, sphereToClosest);
+        float d = sqrt(d2);
 
-        if (d2 < sphereVolume.getRadius() * sphereVolume.getRadius()) {
-            float d = sqrt(d2);
+        if (d < sphereVolume.getRadius() + margin) {
             contact.hitPoint = closestToSphere;
-            contact.normal = (d > 0.0f) ? -sphereToClosest / d : -getPolygonPlane(polygon).m_normal;
+            contact.normal = (d > 1e-6f) ? -sphereToClosest / d : -getPolygonPlane(polygon).m_normal;
             contact.depth = sphereVolume.getRadius() - d;
             return true;
         }
@@ -329,26 +329,38 @@ public:
         return false;
     }
 
-    [[nodiscard]] inline static bool
-    resolvePolygonCapsuleCollision(const OGPolygon &polygon, const CapsuleVolume &capsule,
-                                   OGContact &contact) {
+    /* Speculative Contact query for Capsule-Polygon */
+    inline static bool
+    queryPolygonCapsuleContact(const OGPolygon &polygon, const CapsuleVolume &capsule,
+                               float margin, OGContact &contact) {
         glm::vec3 pSegment, pTriangle;
         OGSegment capsuleSeg = {capsule.getBase(), capsule.getTop()};
         ClosestPointsSegmentTriangle(capsuleSeg, polygon, pSegment, pTriangle);
 
         glm::vec3 segmentToTriangle = pSegment - pTriangle;
         float d2 = glm::dot(segmentToTriangle, segmentToTriangle);
+        float d = sqrt(d2);
 
-        if (d2 < capsule.getRadius() * capsule.getRadius()) {
-            float d = sqrt(d2);
+        if (d < capsule.getRadius() + margin) {
             contact.hitPoint = pTriangle;
-            contact.normal = (d > 1e-6f) ? segmentToTriangle / d : -getPolygonPlane(
-                    polygon).m_normal;
+            contact.normal = (d > 1e-6f) ? segmentToTriangle / d : -getPolygonPlane(polygon).m_normal;
             contact.depth = capsule.getRadius() - d;
             return true;
         }
 
         return false;
+    }
+
+    [[nodiscard]] inline static bool
+    resolvePolygonSphereCollision(const OGPolygon &polygon, const SphereVolume &sphereVolume,
+                                  OGContact &contact) {
+        return queryPolygonSphereContact(polygon, sphereVolume, 0.0f, contact);
+    }
+
+    [[nodiscard]] inline static bool
+    resolvePolygonCapsuleCollision(const OGPolygon &polygon, const CapsuleVolume &capsule,
+                                   OGContact &contact) {
+        return queryPolygonCapsuleContact(polygon, capsule, 0.0f, contact);
     }
 
     /** Resolve Capsule Obb collision */
@@ -435,6 +447,11 @@ public:
             return true;
         }
         return false;
+    }
+
+    inline static bool resolvePolygonAabbCollision(const OGPolygon& polygon, const AABBVolume& aabb, OGContact& contact) {
+        OBBVolume obb(aabb.getCentroid(), aabb.getMax() - aabb.getMin(), glm::quat(1, 0, 0, 0));
+        return resolvePolygonObbCollision(polygon, obb, contact);
     }
 
     /** Point in Triangle Polygon*/
@@ -995,6 +1012,12 @@ public:
             }
         }
         return true;
+    }
+
+    static bool aabbIntersectsAabb(const AABBVolume& a, const AABBVolume& b) {
+        return (a.getMin().x <= b.getMax().x && a.getMax().x >= b.getMin().x) &&
+               (a.getMin().y <= b.getMax().y && a.getMax().y >= b.getMin().y) &&
+               (a.getMin().z <= b.getMax().z && a.getMax().z >= b.getMin().z);
     }
 
     /** OBB vs Polygon */

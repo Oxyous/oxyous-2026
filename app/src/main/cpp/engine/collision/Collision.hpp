@@ -51,6 +51,8 @@ public:
 
     glm::vec3 getMin() const { return m_min; }
     glm::vec3 getMax() const { return m_max; }
+    void setMin(const glm::vec3& min) { m_min = min; }
+    void setMax(const glm::vec3& max) { m_max = max; }
     void addPoint(const glm::vec3& point) { m_min = glm::min(m_min, point); m_max = glm::max(m_max, point); }
     void addVolume(const AABBVolume& volume) { m_min = glm::min(m_min, volume.getMin()); m_max = glm::max(m_max, volume.getMax()); }
     void addVolume(const struct OGPolygon& poly);

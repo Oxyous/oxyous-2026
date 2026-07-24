@@ -213,7 +213,9 @@ bool GameView::initialize() {
                         auto physComp = obj->getComponent<OGPhysicsComponent>();
                         if (physComp && physComp->getMass() == 1.0f) {
                             obj->setTranslation(glm::vec3(10.0f, 5.0f + i, 10.0f));
-                            physComp->setVelocity(glm::vec3(0.0f, 10.0f, 0.0f));
+                            physComp->setAwake(true);
+                            physComp->setVelocity(glm::vec3(0.0f, 9.81f, 0.0f));
+                            physComp->setMotion(10.0f);
                         }
                         i += 5.0f;
                     }
@@ -229,11 +231,11 @@ bool GameView::initialize() {
         auto playerMeshComp = spawnPlayer->addComponent<OGStaticMeshComponent>();
         if (playerMeshComp) {
             auto playerMeshRes = RESOURCE_MANAGER->get<GPUStaticMeshResource>(
-                    "player/player-mesh.osm");
+                    "male_character/human_male.osm");
             auto playerTextureAlbedo = RESOURCE_MANAGER->get<GPUTextureResource>(
-                    "player/textures/player-demo.png");
+                    "male_character/textures/human_male_diffuse.png");
             auto playerTextureNormal = RESOURCE_MANAGER->get<GPUTextureResource>(
-                    "player/textures/player-nm.png");
+                    "male_character/textures/human_male_nm.png");
 
             GPUMaterialHandle playerMaterial = {0, 0, 0, 0, 1.0f, 1.0f, 1.0f, 1.0f};
             playerMaterial.albedoIndex = GPU_RESOURCES->registerTexture(

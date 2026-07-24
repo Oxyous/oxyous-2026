@@ -67,6 +67,8 @@ public:
 
     void setAwake(bool awake);
 
+    void setMotion(float motion);
+
     bool isAwake() const { return m_isAwake; }
 
 protected:
