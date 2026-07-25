@@ -8,7 +8,6 @@
 
 #include "ResourceManager.hpp"
 #include "engine/math/MathHelper.hpp"
-#include "animation/OGSkeletalAnimation.hpp"
 
 class OGSkeletalMesh {
 public:
@@ -19,8 +18,32 @@ public:
         m_skeletalMesh = std::move(skeletalMesh);
     }
 
-    /** Build Bind Pose */
-    void buildBindPose(std::vector<OGJoint>& jointList);
+    void prepareMesh();
+
+    std::shared_ptr<OGSkeletonMesh> getSkeletalMesh()  {
+        return m_skeletalMesh;
+    }
+
+    const std::vector<glm::mat4>& getInverseBindPose() const {
+        return m_inverseBindPose;
+    }
+
+    std::vector<glm::mat4> getJointMatrices()  {
+        return m_jointMatrices;
+    }
+
+    GPUBuffer* getVertexBuffer() {
+        return &vertexBuffer;
+    }
+
+    GPUBuffer* getIndexBuffer() {
+        return &indexBuffer;
+    }
+
+    uint32_t* getIndexCount() {
+        return &indexCount;
+    }
+
 
 private:
     std::shared_ptr<OGSkeletonMesh> m_skeletalMesh;
@@ -28,24 +51,32 @@ private:
     std::vector<glm::mat4> m_inverseBindPose;
     std::vector<glm::mat4> m_jointMatrices;
 
-    std::shared_ptr<OGSkeletalAnimation> m_animation;
+    GPUBuffer vertexBuffer;
+    GPUBuffer indexBuffer;
+    uint32_t indexCount;
 };
 
 /** GPU Skeletal Mesh Resource */
 class GPUSkeletalMeshResource : public GPUResource<OGSkeletalMesh> {
 public:
-    GPUSkeletalMeshResource(const std::string &asset, const std::vector<uint8_t> &data)
+    GPUSkeletalMeshResource(const std::string &asset)
             : GPUResource<OGSkeletalMesh>(asset) {
         // Load the skeletal mesh from the provided data
     }
 
-    /** Get Skeletal Mesh Resource */
+/** Get Skeletal Mesh Resource */
     OGSkeletalMesh *get() override {
+        return m_skeletalMesh.get();
+    }
+
+    OGSkeletalMesh *getSkeletalMesh() {
         return m_skeletalMesh.get();
     }
 
     /** Load Skeletal Mesh Resource */
     bool load(AAssetManager *assetManager, const std::vector<uint8_t> &data) override;
+
+    void destroy() override;
 
 private:
     std::shared_ptr<OGSkeletalMesh> m_skeletalMesh;

@@ -48,7 +48,9 @@ void Engine::update(float deltaTime) {
         }
     } else {
         const auto player = dynamic_cast<OGPlayerActor *>(GAME_VIEW->getActivePlayer().get());
-        player->setGrounded(false, 0.0f);
+        if (player) {
+            player->setGrounded(false, 0.0f);
+        }
     }
 }
 
@@ -161,6 +163,7 @@ void Engine::queryOctree(const AABBVolume& volume, std::vector<AABBVolume>& volu
 }
 
 void Engine::updateVisibleObjects() {
+    std::lock_guard<std::mutex> lock(m_visibleObjectsMutex);
     m_visibleObjects.clear();
     const auto frustum = getCameraFrustum();
 

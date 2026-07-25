@@ -42,6 +42,7 @@ add_library(oxyous_2026 SHARED
         engine/actors/OGPlayerActor.cpp
         engine/components/OGCollisionComponent.cpp
         engine/components/OGPhysicsComponent.cpp
+        engine/components/OGSkeletalMeshComponent.cpp
         render/text/FreeTypeFont.cpp
         render/vulkan/pipelines/ScreenSpace.cpp
         render/vulkan/pipelines/ShadowCapture.cpp
@@ -49,12 +50,12 @@ add_library(oxyous_2026 SHARED
         render/vulkan/pipelines/PostProcess.cpp
         render/vulkan/pipelines/Deferred.cpp
         render/vulkan/pipelines/UIRender.cpp
+        render/vulkan/pipelines/SkeletalMeshPipeline.cpp
         render/vulkan/Renderer.cpp
         render/vulkan/Swapchain.cpp
         render/vulkan/RenderDevice.cpp
         resources/ResourceManager.cpp
         resources/GPUSkeletalMesh.cpp
-        resources/animation/OGSkeletalAnimation.cpp
         resources/GPUTextureResource.cpp
         engine/components/OGStaticMeshComponent.cpp
         AndroidOut.cpp

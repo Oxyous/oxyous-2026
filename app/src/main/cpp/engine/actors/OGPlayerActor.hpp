@@ -7,6 +7,7 @@
 
 
 #include "OGActor.hpp"
+#include "engine/animation/OGAnimController.hpp"
 
 class OGPlayerActor : public OGActor {
 public:
@@ -33,6 +34,8 @@ public:
     void setGrounded(bool isGrounded, float groundHeight);
 
 private:
+    OGAnimController m_animationController;
+
     float m_moveSpeed = 2.8f;
     float m_yaw; // horizontal rotation
     float m_pitch; // vertical rotation

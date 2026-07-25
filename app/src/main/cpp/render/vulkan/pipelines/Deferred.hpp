@@ -57,6 +57,12 @@ protected:
     VkFramebuffer m_frameBuffer;
     VkSampler m_sampler;
     VkCommandBuffer m_commandBuffer {VK_NULL_HANDLE};
+
+    /* Persistent Pipeline State for Child Pipelines */
+    VkViewport m_viewport;
+    VkRect2D m_scissor;
+    std::array<VkPipelineColorBlendAttachmentState, 4> m_colorBlendAttachments;
+    std::array<VkDynamicState, 2> m_dynamicStates;
 };
 
 

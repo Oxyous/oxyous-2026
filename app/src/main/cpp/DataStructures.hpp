@@ -111,16 +111,17 @@ typedef struct OGAnimMeshHeader
 } OGAnimMeshHeader;
 
 /** Animated Mesh Vertex */
-typedef struct OGAnimMeshVertex
+typedef struct OGSkeletalVertex
 {
     glm::vec3 position;
     glm::vec3 normal;
+    glm::vec4 tangent;
     glm::vec2 uv;
     glm::vec4 boneWeights;
     glm::ivec4 boneIndices;
     int startWeight;
     int weightCount;
-} OGAnimMeshVertex;
+} OGSkeletalVertex;
 
 /** Animation Header */
 typedef struct OGAnimHeader
@@ -179,11 +180,12 @@ typedef struct OGAnimFrame {
 
 /** Skeleton Mesh */
 typedef struct OGSkeletonMesh {
-    std::vector<OGAnimMeshVertex> vertices;
+    std::vector<OGSkeletalVertex> vertices;
     std::vector<uint32_t> indices;
     std::vector<OGFace> faces;
     std::vector<OGWeight> weights;
     std::vector<OGJoint> joints;
+    std::vector<OGSkeletalVertex> skinnedVertices;
 } OGSkeletonMesh;
 
 /**  */
@@ -194,11 +196,25 @@ typedef struct OGFrameSkeleton {
 
 typedef struct OGAnimationPose {
     std::vector<OGJointTransform> joints;
+    std::vector<glm::mat4> bones;
 } OGAnimationPose;
 
 /***/
 typedef struct OGAnimationClip
 {
+    OGAnimationClip(){};
+    OGAnimationClip(const OGAnimationClip& other){
+        name = other.name;
+        duration = other.duration;
+        frameRate = other.frameRate;
+        numberFrames = other.numberFrames;
+        numberJoints = other.numberJoints;
+        joints = other.joints;
+        frames = other.frames;
+        baseFrames = other.baseFrames;
+        skeletonFrames = other.skeletonFrames;
+    };
+
     std::string name;
     float duration;
     float frameRate;
@@ -358,7 +374,7 @@ typedef struct GPUMaterialHandle {
 typedef struct GPUMeshHandle {
     glm::mat4 model;
     uint32_t materialIndex;
-    uint32_t pad0;
+    uint32_t boneIndex;
     uint32_t pad1;
     uint32_t pad2;
 } GPUMeshHandle;
@@ -380,10 +396,12 @@ typedef struct FrameData {
     VkFence fence = VK_NULL_HANDLE;
 
     VkDescriptorSet bindlessSet = VK_NULL_HANDLE;
+    VkDescriptorSet boneSet = VK_NULL_HANDLE;
 
     GPUBuffer meshBuffer;
     GPUBuffer materialBuffer;
     GPUBuffer perFrameBuffer;
+    GPUBuffer boneBuffer;
 
     PerFrameUBO perFrame;
 
@@ -393,6 +411,7 @@ typedef struct FrameData {
 typedef struct BindlessRenderer {
     VkDescriptorPool bindlessPool = VK_NULL_HANDLE;
     VkDescriptorSetLayout bindlessSetLayout = VK_NULL_HANDLE;
+    VkDescriptorSetLayout boneSetLayout = VK_NULL_HANDLE;
 
     VkPipeline pipeline = VK_NULL_HANDLE;
     VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
@@ -403,6 +422,7 @@ typedef struct BindlessRenderer {
     std::vector<GPUMaterialHandle> materials;
     std::vector<GPUTextureHandle> textures;
     std::vector<GPUMeshHandle> meshes;
+    std::vector<glm::mat4> bones;
     std::vector<bool> textureSlotUsed;
 } BindlessRenderer;
 
@@ -426,6 +446,7 @@ typedef struct ScreenElements {
     VkFence fence = VK_NULL_HANDLE;
 
     VkDescriptorSet bindlessSet = VK_NULL_HANDLE;
+    VkDescriptorSet boneSet = VK_NULL_HANDLE;
 
     GPUBuffer meshBuffer;
     GPUBuffer perFrameBuffer;

@@ -99,6 +99,7 @@ public:
         }
         m_device = device;
         m_descriptorPool = descriptorPool;
+        return true;
     }
 
     [[nodiscard]] VkDescriptorSet allocate(VkDescriptorSetLayout descriptorSetLayout) const {

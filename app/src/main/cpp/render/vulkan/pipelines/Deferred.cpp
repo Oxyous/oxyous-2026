@@ -10,6 +10,8 @@
 #include "../../../engine/Engine.hpp"
 #include "../../../engine/GameView.hpp"
 #include "../../../engine/GPUResources.hpp"
+#include "SkeletalMeshPipeline.hpp"
+#include "engine/components/OGSkeletalMeshComponent.hpp"
 
 Deferred::Deferred() : m_width(0), m_height(0), m_vertShaderModule(VK_NULL_HANDLE),
                        m_fragShaderModule(VK_NULL_HANDLE) {
@@ -140,101 +142,89 @@ bool Deferred::initialize() {
     attributeDescriptions[3].format = VK_FORMAT_R32G32_SFLOAT;
     attributeDescriptions[3].offset = offsetof(StaticMeshVertex, uv);
 
-    VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
-    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInputInfo.vertexBindingDescriptionCount = 1;
-    vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
-    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
-    vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+    m_vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    m_vertexInput.vertexBindingDescriptionCount = 1;
+    m_vertexInput.pVertexBindingDescriptions = &bindingDescription;
+    m_vertexInput.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+    m_vertexInput.pVertexAttributeDescriptions = attributeDescriptions.data();
 
     /* Input assembly */
-    VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
-    inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    m_inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    m_inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
     /* Viewport and Scissor */
-    VkViewport viewport{};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = (float) m_width;
-    viewport.height = (float) m_height;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
+    m_viewport.x = 0.0f;
+    m_viewport.y = 0.0f;
+    m_viewport.width = (float) m_width;
+    m_viewport.height = (float) m_height;
+    m_viewport.minDepth = 0.0f;
+    m_viewport.maxDepth = 1.0f;
 
-    VkRect2D scissor{};
-    scissor.offset = {0, 0};
-    scissor.extent = {m_width, m_height};
+    m_scissor.offset = {0, 0};
+    m_scissor.extent = {m_width, m_height};
 
-    VkPipelineViewportStateCreateInfo viewportState{};
-    viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewportState.viewportCount = 1;
-    viewportState.pViewports = &viewport;
-    viewportState.scissorCount = 1;
-    viewportState.pScissors = &scissor;
+    m_viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    m_viewportState.viewportCount = 1;
+    m_viewportState.pViewports = &m_viewport;
+    m_viewportState.scissorCount = 1;
+    m_viewportState.pScissors = &m_scissor;/* Rasterizer */
 
-    /* Rasterizer */
-    VkPipelineRasterizationStateCreateInfo rasterizer{};
-    rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    rasterizer.depthClampEnable = VK_FALSE;
-    rasterizer.rasterizerDiscardEnable = VK_FALSE;
-    rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
-    rasterizer.lineWidth = 1.0f;
-    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-    rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
-    rasterizer.depthBiasEnable = VK_FALSE;
 
-    VkPipelineMultisampleStateCreateInfo multisampling{};
-    multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multisampling.sampleShadingEnable = VK_FALSE;
-    multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-    multisampling.alphaToCoverageEnable = VK_TRUE;
+    m_rasterization.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    m_rasterization.depthClampEnable = VK_FALSE;
+    m_rasterization.rasterizerDiscardEnable = VK_FALSE;
+    m_rasterization.polygonMode = VK_POLYGON_MODE_FILL;
+    m_rasterization.lineWidth = 1.0f;
+    m_rasterization.cullMode = VK_CULL_MODE_BACK_BIT;
+    m_rasterization.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    m_rasterization.depthBiasEnable = VK_FALSE;
+
+    m_multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    m_multisampling.sampleShadingEnable = VK_FALSE;
+    m_multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    m_multisampling.alphaToCoverageEnable = VK_TRUE;
 
     /* Depth and Stencil State */
-    VkPipelineDepthStencilStateCreateInfo depthStencil{};
-    depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depthStencil.depthTestEnable = VK_TRUE;
-    depthStencil.depthWriteEnable = VK_TRUE;
-    depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
-    depthStencil.depthBoundsTestEnable = VK_FALSE;
-    depthStencil.stencilTestEnable = VK_FALSE;
+    m_depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    m_depthStencil.depthTestEnable = VK_TRUE;
+    m_depthStencil.depthWriteEnable = VK_TRUE;
+    m_depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+    m_depthStencil.depthBoundsTestEnable = VK_FALSE;
+    m_depthStencil.stencilTestEnable = VK_FALSE;
 
-    VkPipelineColorBlendAttachmentState colorBlendAttachments[4] = {};
     for (int i = 0; i < 4; ++i) {
-        colorBlendAttachments[i].colorWriteMask =
+        m_colorBlendAttachments[i].colorWriteMask =
                 VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
                 VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-        colorBlendAttachments[i].blendEnable = VK_FALSE;
+        m_colorBlendAttachments[i].blendEnable = VK_FALSE;
     }
 
-    VkPipelineColorBlendStateCreateInfo colorBlending{};
-    colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    colorBlending.logicOpEnable = VK_FALSE;
-    colorBlending.attachmentCount = 4;
-    colorBlending.pAttachments = colorBlendAttachments;
+    m_colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    m_colorBlending.logicOpEnable = VK_FALSE;
+    m_colorBlending.attachmentCount = 4;
+    m_colorBlending.pAttachments = m_colorBlendAttachments.data();
 
     /* Dynamic State */
-    VkDynamicState dynamicStates[] = {
-            VK_DYNAMIC_STATE_VIEWPORT,
-            VK_DYNAMIC_STATE_SCISSOR
-    };
-    VkPipelineDynamicStateCreateInfo dynamicState{};
-    dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    dynamicState.dynamicStateCount = 2;
-    dynamicState.pDynamicStates = dynamicStates;
+    m_dynamicStates[0] = VK_DYNAMIC_STATE_VIEWPORT;
+    m_dynamicStates[1] = VK_DYNAMIC_STATE_SCISSOR;
+
+    m_dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    m_dynamicState.dynamicStateCount = 2;
+    m_dynamicState.pDynamicStates = m_dynamicStates.data();
 
     /* Step 5 Graphics Pipeline */
     VkGraphicsPipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     pipelineInfo.stageCount = 2;
     pipelineInfo.pStages = shaderStages;
-    pipelineInfo.pVertexInputState = &vertexInputInfo;
-    pipelineInfo.pInputAssemblyState = &inputAssembly;
-    pipelineInfo.pViewportState = &viewportState;
-    pipelineInfo.pRasterizationState = &rasterizer;
-    pipelineInfo.pMultisampleState = &multisampling;
-    pipelineInfo.pDepthStencilState = &depthStencil;
-    pipelineInfo.pColorBlendState = &colorBlending;
-    pipelineInfo.pDynamicState = &dynamicState;
+    pipelineInfo.pVertexInputState = &m_vertexInput;
+    pipelineInfo.pInputAssemblyState = &m_inputAssembly;
+    pipelineInfo.pViewportState = &m_viewportState;
+    pipelineInfo.pRasterizationState = &m_rasterization;
+    pipelineInfo.pMultisampleState = &m_multisampling;
+    pipelineInfo.pDepthStencilState = &m_depthStencil;
+    pipelineInfo.pColorBlendState = &m_colorBlending;
+    pipelineInfo.pDynamicState = &m_dynamicState;
     pipelineInfo.layout = m_pipelineLayout;
     pipelineInfo.renderPass = m_renderPass;
     pipelineInfo.subpass = 0;
@@ -588,16 +578,32 @@ Deferred::record(VkCommandBuffer commandBuffer, uint64_t currentFrame, VkFramebu
     }
 
     /* Render Static Objects (using cached frustum visibility) */
-    const auto &visibleStaticObjects = ENGINE->getCachedVisibleObjects();
-    for (auto* mesh: visibleStaticObjects) {
-        if (!mesh) continue;
+    {
+        std::lock_guard<std::mutex> lock(ENGINE->getVisibleObjectsMutex());
+        const auto &visibleStaticObjects = ENGINE->getCachedVisibleObjects();
+        for (auto* mesh: visibleStaticObjects) {
+            if (!mesh) continue;
 
-        if (auto* component = mesh->getComponent<OGStaticMeshComponent>()) {
-            component->render(commandBuffer, currentFrame);
+            if (auto* component = mesh->getComponent<OGStaticMeshComponent>()) {
+                component->render(commandBuffer, currentFrame);
+            }
+
+            for (auto* child: mesh->getChildren()) {
+                if (auto* component = child->getComponent<OGStaticMeshComponent>()) {
+                    component->render(commandBuffer, currentFrame);
+                }
+            }
         }
+    }
 
-        for (auto* child: mesh->getChildren()) {
-            if (auto* component = child->getComponent<OGStaticMeshComponent>()) {
+    const auto &skinnedDeferred = ENGINE->getPipeline<SkeletalMeshPipeline>("skinned-deferred");
+    if (skinnedDeferred) {
+        skinnedDeferred->bindPipeline(commandBuffer);
+
+        const auto meshes = GAME_VIEW->getActorsWithComponent<OGSkeletalMeshComponent>();
+        for (auto* mesh: meshes) {
+            if (!mesh) continue;
+            if (auto* component = mesh->getComponent<OGSkeletalMeshComponent>()) {
                 component->render(commandBuffer, currentFrame);
             }
         }

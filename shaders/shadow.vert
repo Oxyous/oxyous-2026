@@ -22,7 +22,7 @@ struct ObjectData
 {
     mat4 model;
     uint materialIndex;
-    uint pad0;
+    uint boneIndex;
     uint pad1;
     uint pad2;
 };

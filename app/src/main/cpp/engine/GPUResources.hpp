@@ -7,6 +7,7 @@
 
 #include "../includes.hpp"
 #include "../DataStructures.hpp"
+#include <mutex>
 
 class GPUResources {
 public:
@@ -37,6 +38,9 @@ public:
     /* Update object data */
     void updateObject(uint32_t index, GPUMeshHandle object);
 
+    /* Update bone data */
+    void updateBones(uint32_t boneIndex, const std::vector<glm::mat4>& matrices);
+
     /* */
     FrameData &getFrameData(uint32_t frame);
 
@@ -46,8 +50,16 @@ public:
     /* */
     VkDescriptorSetLayout &getBindlessSetLayout();
 
+    /* */
+    VkDescriptorSetLayout &getBoneSetLayout();
+
     /**/
     VkDescriptorSet &getBindlessSet(uint32_t frame);
+
+    /**/
+    VkDescriptorSet &getBoneSet(uint32_t frame);
+
+    std::mutex& getMutex() { return m_resourceMutex; }
 
 protected:
     /* */
@@ -66,6 +78,7 @@ protected:
 protected:
     FrameData m_frameData;
     BindlessRenderer m_bindlessRenderer;
+    std::mutex m_resourceMutex;
 };
 
 #define GPU_RESOURCES OGSingleton<GPUResources>::getInstance()

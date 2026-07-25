@@ -25,6 +25,7 @@ bool GPUResources::initialize() {
 }
 
 void GPUResources::uploadFrameData(FrameData &frameData) {
+    std::lock_guard<std::mutex> lock(m_resourceMutex);
     if (!m_bindlessRenderer.meshes.empty()) {
         std::memcpy(frameData.meshBuffer.mapped, m_bindlessRenderer.meshes.data(),
                     sizeof(GPUMeshHandle) * m_bindlessRenderer.meshes.size());
@@ -35,9 +36,15 @@ void GPUResources::uploadFrameData(FrameData &frameData) {
     }
 
     std::memcpy(frameData.perFrameBuffer.mapped, &frameData.perFrame, sizeof(PerFrameUBO));
+
+    if (!m_bindlessRenderer.bones.empty()) {
+        std::memcpy(frameData.boneBuffer.mapped, m_bindlessRenderer.bones.data(),
+                    sizeof(glm::mat4) * m_bindlessRenderer.bones.size());
+    }
 }
 
 uint32_t GPUResources::registerTexture(GPUTexture texture) {
+    std::lock_guard<std::mutex> lock(m_resourceMutex);
     if (texture.descriptor.imageView == VK_NULL_HANDLE || texture.descriptor.sampler == VK_NULL_HANDLE) {
         aout << "Error: Attempted to register invalid texture in GPUResources!" << std::endl;
         return 0;
@@ -59,7 +66,7 @@ uint32_t GPUResources::registerTexture(GPUTexture texture) {
         VkWriteDescriptorSet write = {};
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         write.dstSet = dstSet;
-        write.dstBinding = 3;
+        write.dstBinding = 3; // Binding 3 is textures back again
         write.dstArrayElement = slot;
         write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         write.descriptorCount = 1;
@@ -72,20 +79,31 @@ uint32_t GPUResources::registerTexture(GPUTexture texture) {
 }
 
 uint32_t GPUResources::registerMaterial(GPUMaterialHandle material) {
+    std::lock_guard<std::mutex> lock(m_resourceMutex);
     uint32_t index = m_bindlessRenderer.materials.size();
     m_bindlessRenderer.materials.push_back(material);
     return index;
 }
 
 uint32_t GPUResources::registerObject(GPUMeshHandle object) {
+    std::lock_guard<std::mutex> lock(m_resourceMutex);
     uint32_t index = m_bindlessRenderer.meshes.size();
     m_bindlessRenderer.meshes.push_back(object);
     return index;
 }
 
 void GPUResources::updateObject(uint32_t index, GPUMeshHandle object) {
+    std::lock_guard<std::mutex> lock(m_resourceMutex);
     if (index < m_bindlessRenderer.meshes.size()) {
         m_bindlessRenderer.meshes[index] = object;
+    }
+}
+
+void GPUResources::updateBones(uint32_t boneIndex, const std::vector<glm::mat4> &matrices) {
+    std::lock_guard<std::mutex> lock(m_resourceMutex);
+    uint32_t offset = boneIndex * 100;
+    if (offset + matrices.size() <= m_bindlessRenderer.bones.size()) {
+        std::memcpy(&m_bindlessRenderer.bones[offset], matrices.data(), sizeof(glm::mat4) * matrices.size());
     }
 }
 
@@ -144,10 +162,28 @@ bool GPUResources::createBindlessDescriptors() {
     layoutInfo.pNext = &flagsInfo;
     layoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
 
-    /* Create Descriptor Set Layout */
+    /* Create Descriptor Set Layout for Set 0 */
     if (vkCreateDescriptorSetLayout(RENDER_DEVICE->getDevice(), &layoutInfo, nullptr,
                                     &m_bindlessRenderer.bindlessSetLayout) != VK_SUCCESS) {
         aout << "Failed to create descriptor set layout!" << std::endl;
+        return false;
+    }
+
+    /* Create Descriptor Set Layout for Set 1 (Bones) */
+    VkDescriptorSetLayoutBinding boneBinding{};
+    boneBinding.binding = 0;
+    boneBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    boneBinding.descriptorCount = 1;
+    boneBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+    VkDescriptorSetLayoutCreateInfo boneLayoutInfo{};
+    boneLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    boneLayoutInfo.bindingCount = 1;
+    boneLayoutInfo.pBindings = &boneBinding;
+
+    if (vkCreateDescriptorSetLayout(RENDER_DEVICE->getDevice(), &boneLayoutInfo, nullptr,
+                                    &m_bindlessRenderer.boneSetLayout) != VK_SUCCESS) {
+        aout << "Failed to create bone descriptor set layout!" << std::endl;
         return false;
     }
 
@@ -156,13 +192,13 @@ bool GPUResources::createBindlessDescriptors() {
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     poolSizes[0].descriptorCount = MAX_TEXTURES * MAX_FRAMES_IN_FLIGHT;
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSizes[1].descriptorCount = 2 * MAX_FRAMES_IN_FLIGHT;
+    poolSizes[1].descriptorCount = 3 * MAX_FRAMES_IN_FLIGHT; // Mesh, Material, Bone
     poolSizes[2].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[2].descriptorCount = 1 * MAX_FRAMES_IN_FLIGHT;
 
     VkDescriptorPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.maxSets = MAX_FRAMES_IN_FLIGHT;
+    poolInfo.maxSets = MAX_FRAMES_IN_FLIGHT * 2; // Sets for Bindless and Bones
     poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
     poolInfo.pPoolSizes = poolSizes.data();
     poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
@@ -184,10 +220,15 @@ bool GPUResources::createPipelineLayout() {
     pushConstantRange.offset = 0;
     pushConstantRange.size = sizeof(BindlessPushConstants);
 
+    VkDescriptorSetLayout setLayouts[] = {
+            m_bindlessRenderer.bindlessSetLayout,
+            m_bindlessRenderer.boneSetLayout
+    };
+
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = 1;
-    pipelineLayoutInfo.pSetLayouts = &m_bindlessRenderer.bindlessSetLayout;
+    pipelineLayoutInfo.setLayoutCount = 2;
+    pipelineLayoutInfo.pSetLayouts = setLayouts;
     pipelineLayoutInfo.pushConstantRangeCount = 1;
     pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
 
@@ -208,6 +249,9 @@ bool GPUResources::initializeFrames() {
             return false;
         }
     }
+
+    m_bindlessRenderer.bones.assign(100 * 100, glm::mat4(1.0f));
+
     return true;
 }
 
@@ -251,6 +295,12 @@ bool GPUResources::initializeFrame(FrameData &frame) {
                                   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &frame.perFrameBuffer.size,
                                   &frame.perFrameBuffer);
 
+    RenderFramework::createBuffer(sizeof(glm::mat4) * 100 * 100, // 100 objects, 100 bones each
+                                  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                  VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                  &frame.boneBuffer.size, &frame.boneBuffer);
+
     /* Allocate Descriptor Set for this frame */
     uint32_t variableCount = MAX_TEXTURES;
     VkDescriptorSetVariableDescriptorCountAllocateInfo countInfo{};
@@ -271,7 +321,18 @@ bool GPUResources::initializeFrame(FrameData &frame) {
         return false;
     }
 
-    /* Update the descriptor set with the frame buffers */
+    /* Allocate Descriptor Set for Bones (Set 1) */
+    VkDescriptorSetAllocateInfo boneDsAllocInfo{};
+    boneDsAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    boneDsAllocInfo.descriptorPool = m_bindlessRenderer.bindlessPool;
+    boneDsAllocInfo.descriptorSetCount = 1;
+    boneDsAllocInfo.pSetLayouts = &m_bindlessRenderer.boneSetLayout;
+
+    if (vkAllocateDescriptorSets(device, &boneDsAllocInfo, &frame.boneSet) != VK_SUCCESS) {
+        return false;
+    }
+
+    /* Update the bindless descriptor set (Set 0) */
     std::array<VkDescriptorBufferInfo, 3> bufferInfos = {};
     bufferInfos[0] = { .buffer = frame.meshBuffer.buffer, .offset = 0, .range = VK_WHOLE_SIZE };
     bufferInfos[1] = { .buffer = frame.materialBuffer.buffer, .offset = 0, .range = VK_WHOLE_SIZE };
@@ -289,6 +350,20 @@ bool GPUResources::initializeFrame(FrameData &frame) {
     }
 
     vkUpdateDescriptorSets(device, 3, writes.data(), 0, nullptr);
+
+    /* Update the bone descriptor set (Set 1) */
+    VkDescriptorBufferInfo boneBufferInfo = { .buffer = frame.boneBuffer.buffer, .offset = 0, .range = VK_WHOLE_SIZE };
+
+    VkWriteDescriptorSet boneWrite{};
+    boneWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    boneWrite.dstSet = frame.boneSet;
+    boneWrite.dstBinding = 0;
+    boneWrite.dstArrayElement = 0;
+    boneWrite.descriptorCount = 1;
+    boneWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    boneWrite.pBufferInfo = &boneBufferInfo;
+
+    vkUpdateDescriptorSets(device, 1, &boneWrite, 0, nullptr);
 
     return true;
 }
@@ -308,7 +383,17 @@ VkDescriptorSetLayout &GPUResources::getBindlessSetLayout() {
     return m_bindlessRenderer.bindlessSetLayout;
 }
 
+/* Bone Set Layout */
+VkDescriptorSetLayout &GPUResources::getBoneSetLayout() {
+    return m_bindlessRenderer.boneSetLayout;
+}
+
 /* Bindless Descriptor Set */
 VkDescriptorSet &GPUResources::getBindlessSet(uint32_t frame) {
     return m_bindlessRenderer.frameData[frame].bindlessSet;
+}
+
+/* Bone Descriptor Set */
+VkDescriptorSet &GPUResources::getBoneSet(uint32_t frame) {
+    return m_bindlessRenderer.frameData[frame].boneSet;
 }

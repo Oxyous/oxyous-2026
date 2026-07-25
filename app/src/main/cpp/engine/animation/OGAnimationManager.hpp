@@ -18,7 +18,7 @@ public:
     bool loadAnimation(const std::string& name, const std::string& assetPath);
 
     /** Get Animation Clip by Name */
-    OGAnimationClip* getAnimation(const std::string& name);
+    std::shared_ptr<OGAnimationClip> getAnimation(const std::string& name);
 
     /** Interpolate between two skeleton frames */
     void interlopeSkeletons(OGFrameSkeleton& outSkeleton,

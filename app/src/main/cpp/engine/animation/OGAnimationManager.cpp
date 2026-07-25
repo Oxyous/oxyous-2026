@@ -4,6 +4,7 @@
 
 #include "OGAnimationManager.hpp"
 #include "resources/ResourceManager.hpp"
+#include "../../engine/math/MathHelper.hpp"
 
 bool OGAnimationManager::loadAnimation(const std::string &name, const std::string &assetPath) {
 
@@ -106,78 +107,87 @@ bool OGAnimationManager::loadAnimation(const std::string &name, const std::strin
 
     AAsset_close(animationAsset);
 
-    m_animations[name] = std::make_shared<OGAnimationClip>(animClip);
-    m_animations[name]->getAnimationClip()->duration = 1.0f / header->frameRate;
-    m_animations[name]->getAnimationClip()->numberFrames = header->numOfFrames;
-    m_animations[name]->getAnimationClip()->numberJoints = header->numOfJoints;
-    m_animations[name]->getAnimationClip()->frameRate = header->frameRate;
+    auto clip = std::make_shared<OGAnimationClip>(animClip);
+    clip->name = name;
+    clip->duration = (float)(header->numOfFrames > 1 ? header->numOfFrames - 1 : 1) / header->frameRate;
+    clip->numberFrames = header->numOfFrames;
+    clip->numberJoints = header->numOfJoints;
+    clip->frameRate = header->frameRate;
+
+    m_animations[name] = clip;
+
+    aout << "Loaded animation: " << name << " with " << clip->skeletonFrames.size() << " frames, duration: " << clip->duration << std::endl;
 
     return true;
 }
 
-OGAnimationClip *OGAnimationManager::getAnimation(const std::string &name) {
+std::shared_ptr<OGAnimationClip> OGAnimationManager::getAnimation(const std::string &name) {
     auto it = m_animations.find(name);
 
     if (it != m_animations.end()) {
-        return it->second.get();
+        return it->second;
     }
     return nullptr;
 }
 
 void OGAnimationManager::buildFrameSkeleton(std::vector<OGFrameSkeleton> &frameSkeletons,
                                             const std::vector<OGJointInfo> &joints,
-                                            const std::vector<OGJointTransform> &baseFrames,
+                                            const std::vector<OGJointTransform> &baseFrame,
                                             const OGAnimFrame &frameData) {
     OGFrameSkeleton skeleton;
+    size_t numJoints = joints.size();
+    skeleton.joints.reserve(numJoints);
+    skeleton.transforms.resize(numJoints);
 
-    for (int i = 0; i < joints.size(); i++) {
+    for (int i = 0; i < numJoints; i++) {
         uint32_t j = 0;
 
         auto &joint = joints[i];
 
         OGJoint animJoint;
-        animJoint.position = baseFrame[i].position;
-        animJoint.orientation = baseFrame[i].orientation;
+        if (i < (int)baseFrame.size()) {
+            animJoint.position = baseFrame[i].position;
+            animJoint.orientation = baseFrame[i].orientation;
+        } else {
+            animJoint.position = glm::vec3(0.0f);
+            animJoint.orientation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+        }
         animJoint.name = joint.name;
-
         animJoint.parentIndex = joint.parentIndex;
 
-        if (joint.flags & 1) {
-            animJoint.position.x = frame.components[joint.startIndex + j++];
+        size_t componentsSize = frameData.components.size();
+        if (joint.flags & 1 && (size_t)joint.startIndex + j < componentsSize) {
+            animJoint.position.x = frameData.components[joint.startIndex + j++];
         }
 
-        if (joint.flags & 2) {
-            animJoint.position.y = frame.components[joint.startIndex + j++];
+        if (joint.flags & 2 && (size_t)joint.startIndex + j < componentsSize) {
+            animJoint.position.y = frameData.components[joint.startIndex + j++];
         }
 
-        if (joint.flags & 4) {
-            animJoint.position.z = frame.components[joint.startIndex + j++];
+        if (joint.flags & 4 && (size_t)joint.startIndex + j < componentsSize) {
+            animJoint.position.z = frameData.components[joint.startIndex + j++];
         }
 
-        if (joint.flags & 8) {
-            animJoint.orientation.x = frame.components[joint.startIndex + j++];
+        if (joint.flags & 8 && (size_t)joint.startIndex + j < componentsSize) {
+            animJoint.orientation.x = frameData.components[joint.startIndex + j++];
         }
 
-        if (joint.flags & 16) {
-            animJoint.orientation.y = frame.components[joint.startIndex + j++];
+        if (joint.flags & 16 && (size_t)joint.startIndex + j < componentsSize) {
+            animJoint.orientation.y = frameData.components[joint.startIndex + j++];
         }
 
-        if (joint.flags & 32) {
-            animJoint.orientation.z = frame.components[joint.startIndex + j++];
+        if (joint.flags & 32 && (size_t)joint.startIndex + j < componentsSize) {
+            animJoint.orientation.z = frameData.components[joint.startIndex + j++];
         }
 
         Math::computeQuaternion(animJoint.orientation);
 
-        if (animJoint.parentIndex >= 0) {
-            OGJoint &parent = skeleton.joints[animJoint.parentIndex];
-            glm::vec3 rotatedPosition = parent.orientation * animJoint.position;
-            animJoint.position = parent.position + rotatedPosition;
-            animJoint.orientation = parent.orientation * animJoint.orientation;
-
-            animJoint.orientation = glm::normalize(animJoint.orientation);
-        }
-
+        // Store as LOCAL transform (relative to parent)
         skeleton.joints.push_back(animJoint);
+
+        // Also compute a global transform for this frame if needed later,
+        // but for now we primarily want local joints for blending.
+        // We'll compute the global matrices in OGAnimController.
     }
 
     frameSkeletons.push_back(skeleton);
@@ -187,7 +197,7 @@ void OGAnimationManager::buildFrameSkeleton(std::vector<OGFrameSkeleton> &frameS
 void OGAnimationManager::interlopeSkeletons(OGFrameSkeleton &outSkeleton,
                                             const OGFrameSkeleton &skeletonA,
                                             const OGFrameSkeleton &skeletonB, float t) {
-    for (int i = 0; i < m_animationClip->numberJoints; i++) {
+    for (int i = 0; i < outSkeleton.joints.size(); i++) {
         auto &finalJoint = outSkeleton.joints[i];
         auto &finalMatrix = outSkeleton.transforms[i];
 

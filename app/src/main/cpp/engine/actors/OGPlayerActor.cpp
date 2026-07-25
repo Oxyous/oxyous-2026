@@ -5,6 +5,9 @@
 #include "OGPlayerActor.hpp"
 #include "engine/Engine.hpp"
 #include "engine/components/OGCollisionComponent.hpp"
+#include "engine/components/OGSkeletalMeshComponent.hpp"
+#include "engine/animation/OGAnimationManager.hpp"
+#include "engine/GPUResources.hpp"
 
 OGPlayerActor::OGPlayerActor() {
     m_yaw = 0.0f;
@@ -18,6 +21,37 @@ void OGPlayerActor::update(double deltaTime) {
 
     if (ENGINE->isGameModeFly())
         return;
+
+    m_animationController.update(deltaTime);
+
+    auto skeletalMeshComp = getComponent<OGSkeletalMeshComponent>();
+    if (skeletalMeshComp) {
+        // We need the hierarchy from the current animation clip
+        auto clip = m_animationController.getCurrentAnimation();
+        if (clip) {
+            std::vector<glm::mat4> globalMatrices = m_animationController.getCurrentGlobalMatrices(clip->joints);
+
+            // Multiply by inverse bind pose
+            // Note: OGSkeletalMesh stores inverse global bind poses
+            auto meshRes = skeletalMeshComp->getMeshResource();
+            if (meshRes && meshRes->getSkeletalMesh()) {
+                const auto& invBindPose = meshRes->getSkeletalMesh()->getInverseBindPose();
+                std::vector<glm::mat4> skinningMatrices(globalMatrices.size());
+
+                for (size_t i = 0; i < globalMatrices.size(); i++) {
+                    if (i < invBindPose.size()) {
+                        skinningMatrices[i] = globalMatrices[i] * invBindPose[i];
+                    } else {
+                        skinningMatrices[i] = globalMatrices[i];
+                    }
+                }
+
+                GPU_RESOURCES->updateBones(skeletalMeshComp->getBoneIndex(), skinningMatrices);
+            }
+        }
+    }
+
+
 
    /* const auto &collision = getComponent<OGCollisionComponent>();
     if (collision) {
@@ -94,6 +128,9 @@ bool OGPlayerActor::initialize() {
     if (!OGActor::initialize()) {
         return false;
     }
+    ANIMATION_MANAGER->loadAnimation("default-player", "animations/player/default.ganim");
+
+    m_animationController.playAnimation(ANIMATION_MANAGER->getAnimation("default-player"));
 
     return true;
 }

@@ -17,6 +17,8 @@
 #include "algorithms/OGBVH.hpp"
 #include "engine/algorithms/OGOctree.hpp"
 
+#include <mutex>
+
 class Engine {
 public:
     Engine() = default;
@@ -223,6 +225,8 @@ public:
     /** Get cached visible objects for the main camera */
     const std::vector<OGEntity*>& getCachedVisibleObjects() const { return m_visibleObjects; }
 
+    std::mutex& getVisibleObjectsMutex() { return m_visibleObjectsMutex; }
+
 protected:
     bool m_isExecuting = false;
     Renderer *m_renderer = nullptr;
@@ -239,6 +243,7 @@ protected:
     std::unique_ptr<OGOctree<AABBVolume>> m_staticOctree;
 
     std::vector<OGEntity*> m_visibleObjects;
+    std::mutex m_visibleObjectsMutex;
 };
 
 #define ENGINE OGSingleton<Engine>::getInstance()

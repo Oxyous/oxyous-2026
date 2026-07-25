@@ -34,6 +34,9 @@
 #include "engine/physics/OGPhysicsManager.hpp"
 #include "system/OGTimer.hpp"
 #include "engine/collision/BVH.hpp"
+#include "render/vulkan/pipelines/SkeletalMeshPipeline.hpp"
+#include "engine/components/OGSkeletalMeshComponent.hpp"
+#include "engine/animation/OGAnimationManager.hpp"
 
 void GameView::render() {
 
@@ -86,11 +89,15 @@ bool GameView::initialize() {
     /* Prepare Render Pipelines */
     const auto &deferred = ENGINE->createPipeline<Deferred>("deferred");
 
+    const auto &skinnedDeferred = ENGINE->createPipeline<SkeletalMeshPipeline>("skinned-deferred", deferred);
+
     const auto &postProcess = ENGINE->createPipeline<PostProcess>("post-process");
 
     const auto &screenSpace = ENGINE->createPipeline<ScreenSpace>("screen-space");
 
     const auto &shadowPass = ENGINE->createPipeline<ShadowCapture>("shadow-capture");
+
+    //const auto &skinnedShadow = ENGINE->createPipeline<SkeletalMeshPipeline>("skinned-shadow", shadowPass);
 
     const auto &userInterface = ENGINE->createPipeline<UIRender>("user-interface");
 
@@ -228,24 +235,17 @@ bool GameView::initialize() {
         spawnPlayer->setTranslation(glm::vec3(-2.0f, 0.0f, 2.0f));
 
 
-        auto playerMeshComp = spawnPlayer->addComponent<OGStaticMeshComponent>();
+        //auto playerMeshComp = spawnPlayer->addComponent<OGStaticMeshComponent>();
+        //if (playerMeshComp) {
+        auto playerMeshComp = spawnPlayer->addComponent<OGSkeletalMeshComponent>();
         if (playerMeshComp) {
-            auto playerMeshRes = RESOURCE_MANAGER->get<GPUStaticMeshResource>(
-                    "male_character/human_male.osm");
-            auto playerTextureAlbedo = RESOURCE_MANAGER->get<GPUTextureResource>(
-                    "male_character/textures/human_male_diffuse.png");
-            auto playerTextureNormal = RESOURCE_MANAGER->get<GPUTextureResource>(
-                    "male_character/textures/human_male_nm.png");
-
-            GPUMaterialHandle playerMaterial = {0, 0, 0, 0, 1.0f, 1.0f, 1.0f, 1.0f};
-            playerMaterial.albedoIndex = GPU_RESOURCES->registerTexture(
-                    *playerTextureAlbedo->get());
-            playerMaterial.normalIndex = GPU_RESOURCES->registerTexture(
-                    *playerTextureNormal->get());
-
-            uint32_t materialSlot = GPU_RESOURCES->registerMaterial(playerMaterial);
-            playerMeshComp->setMeshResource(playerMeshRes);
-            playerMeshComp->setMaterialIndex(materialSlot);
+            auto skeletalMesh = RESOURCE_MANAGER->get<GPUSkeletalMeshResource>("animations/player/player.gmesh");
+            if (skeletalMesh) {
+                playerMeshComp->setMeshResource(skeletalMesh);
+            } else {
+                aout << "Error: Failed to load skeletal mesh!" << std::endl;
+            }
+            playerMeshComp->setMaterialIndex(boxMaterialSlot);
 
             spawnPlayer->setProjectionMatrix(glm::perspective(glm::radians(60.0f),
                                                               (float) SWAPCHAIN->getExtent().width /
@@ -270,16 +270,7 @@ bool GameView::initialize() {
         }
     }
 
-    /** Physics Test - Ground*/
-    /*   auto ground = addActor<OGActor>("ground-plane");
-       auto groundPhys = ground->addComponent<OGPhysicsComponent>();
-       auto groundObb = ground->addComponent<OGCollisionComponent>();
-       groundObb->setVolume(std::unique_ptr<OBBVolume>(CollisionFactory::createOBB(glm::vec3(0.0f,0.0f,0.0f), glm::vec3(50.0f, 1.0f, 50.0f), glm::mat3(1.0f))));
-       ground->setTranslation(glm::vec3(0.0f, -1.0f, 0.0f));
-       groundPhys->setMass(0.0f);*/
-
     /** Physics test - Box */
-
     for (int i = 0; i < 25; i++) {
         auto box = addActor<OGActor>("box-" + std::to_string(m_entities.size() + 1));
         box->setTranslation(glm::vec3(10.0f, (3.0f * (float) i) + 10.0f, 10.0f));
