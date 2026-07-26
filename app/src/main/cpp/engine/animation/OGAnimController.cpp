@@ -181,3 +181,41 @@ void OGAnimController::playAnimation(std::shared_ptr<OGAnimationClip> clip) {
     m_blendTime = 0.0f;
     m_blendDuration = 0.2f;
 }
+
+std::vector<glm::mat4>
+OGAnimController::getBlendedGlobalMatrices(const std::vector<OGJointInfo> &hierarchy,
+                                           OGAnimationPose &pose) const {
+    size_t numJoints = pose.joints.size();
+    if (numJoints == 0) return std::vector<glm::mat4>();
+
+    std::vector<glm::mat4> globalMatrices(numJoints, glm::mat4(1.0f));
+    std::vector<bool> resolved(numJoints, false);
+
+    bool changed = true;
+    while (changed) {
+        changed = false;
+        for (size_t i = 0; i < numJoints; ++i) {
+            if (resolved[i]) continue;
+            if (i >= hierarchy.size()) {
+                resolved[i] = true;
+                changed = true;
+                continue;
+            }
+
+            int parentIdx = hierarchy[i].parentIndex;
+            if (parentIdx < 0 || (parentIdx < (int)numJoints && resolved[parentIdx])) {
+                glm::mat4 localMatrix = glm::translate(glm::mat4(1.0f), pose.joints[i].position) *
+                                        glm::mat4_cast(pose.joints[i].orientation);
+                if (parentIdx >= 0) {
+                    globalMatrices[i] = globalMatrices[parentIdx] * localMatrix;
+                } else {
+                    globalMatrices[i] = localMatrix;
+                }
+                resolved[i] = true;
+                changed = true;
+            }
+        }
+    }
+
+    return globalMatrices;
+}

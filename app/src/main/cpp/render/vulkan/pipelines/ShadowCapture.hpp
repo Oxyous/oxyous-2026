@@ -53,11 +53,15 @@ private:
     std::vector<VkFramebuffer> frameBuffers;
     VkDescriptorImageInfo m_shadowMapDescriptor;
     VkShaderModule vertexShaderModule;
+    VkShaderModule m_skinnedVertexShaderModule;
     VkShaderModule fragShaderModule;
     UniformBuffer m_uniformBuffer;
     VkDescriptorSetLayout m_shadowDSL{};
     VkDescriptorSet m_shadowSets[2]{};
+    VkDescriptorSet m_skinnedShadowSets[2]{};
     VkDescriptorPool m_descriptorPool{};
+    VkPipeline m_skinnedPipeline{};
+    VkPipelineLayout m_skinnedPipelineLayout{};
 };
 
 

@@ -12,24 +12,42 @@
 OGPlayerActor::OGPlayerActor() {
     m_yaw = 0.0f;
     m_pitch = 0.0f;
-    m_distance = 2.0f;
+    m_distance = 3.0f;
     m_sensitivity = 4.25f;
 }
 
 void OGPlayerActor::update(double deltaTime) {
     OGActor::update(deltaTime);
 
-    if (ENGINE->isGameModeFly())
-        return;
-
     m_animationController.update(deltaTime);
+
+    m_idleTime += deltaTime;
+    m_runTime += deltaTime;
+
+    if (m_idleTime > m_idleAnimation->duration) {
+        fmod(m_idleTime, m_idleAnimation->duration);
+    }
+
+    if (m_runTime > m_runAnimation->duration) {
+        fmod(m_runTime, m_runAnimation->duration);
+    }
+
+    OGAnimationPose idlePose = m_animationController.SampleAnimation(m_idleAnimation, m_idleTime);
+    OGAnimationPose runPose = m_animationController.SampleAnimation(m_runAnimation, m_runTime);
+
+    float blendFactor = m_movement / m_moveSpeed;
+
+    blendFactor = std::clamp(blendFactor, 0.0f, 1.0f);
+
+    OGAnimationPose blendPose = m_animationController.BlendPose(idlePose, runPose, blendFactor);
 
     auto skeletalMeshComp = getComponent<OGSkeletalMeshComponent>();
     if (skeletalMeshComp) {
         // We need the hierarchy from the current animation clip
-        auto clip = m_animationController.getCurrentAnimation();
+        auto clip = &blendPose;
+        auto jointInfos = m_animationController.getCurrentAnimation()->joints;
         if (clip) {
-            std::vector<glm::mat4> globalMatrices = m_animationController.getCurrentGlobalMatrices(clip->joints);
+            std::vector<glm::mat4> globalMatrices = m_animationController.getBlendedGlobalMatrices(jointInfos, *clip);
 
             // Multiply by inverse bind pose
             // Note: OGSkeletalMesh stores inverse global bind poses
@@ -50,8 +68,6 @@ void OGPlayerActor::update(double deltaTime) {
             }
         }
     }
-
-
 
    /* const auto &collision = getComponent<OGCollisionComponent>();
     if (collision) {
@@ -88,40 +104,6 @@ void OGPlayerActor::update(double deltaTime) {
             physics->setMass(0.0f); // Example: Set mass for physics
         }
     }*/
-
-
-    m_yaw += ENGINE->getThumbStick(THUMBSTICK_RIGHT)->getActuator().x * m_sensitivity * deltaTime;
-    m_pitch -= ENGINE->getThumbStick(THUMBSTICK_RIGHT)->getActuator().y * m_sensitivity * deltaTime;
-
-    m_pitch = glm::clamp(m_pitch, -glm::radians(80.0f), glm::radians(80.0f));
-
-    glm::vec3 forward;
-    forward.x = cosf(m_pitch) * sinf(m_yaw);
-    forward.y = sinf(m_pitch);
-    forward.z = cosf(m_pitch) * cosf(m_yaw);
-
-    forward = glm::normalize(forward);
-
-    glm::vec3 target = this->getTranslation() + glm::vec3(0.0, 1.8f, 0.0);
-    m_cameraPosition = target - forward * m_distance;
-
-    glm::vec3 camForward = forward;
-    camForward.y = 0;
-    camForward = glm::normalize(camForward);
-
-    glm::vec3 cameraRight = glm::normalize(glm::cross(camForward, glm::vec3(0.0, 1.0, 0.0)));
-
-    glm::vec3 moveDir = camForward * -ENGINE->getThumbStick(THUMBSTICK_LEFT)->getActuator().y +
-                        cameraRight * -ENGINE->getThumbStick(THUMBSTICK_LEFT)->getActuator().x;
-
-    setTranslation(getTranslation() + moveDir * m_moveSpeed * static_cast<float>(deltaTime));
-
-    if (glm::length(moveDir) > 0.01f) {
-        float targetYaw = atan2f(moveDir.x, moveDir.z);
-        setRotation(glm::vec3(0.0f, targetYaw, 0.0f));
-    }
-
-    m_viewMatrix = glm::lookAt(m_cameraPosition, target, glm::vec3(0.0f, 1.0f, 0.0f));
 }
 
 bool OGPlayerActor::initialize() {
@@ -129,8 +111,13 @@ bool OGPlayerActor::initialize() {
         return false;
     }
     ANIMATION_MANAGER->loadAnimation("default-player", "animations/player/default.ganim");
+    ANIMATION_MANAGER->loadAnimation("player-walk-forward", "animations/player/run-forward.ganim");
 
     m_animationController.playAnimation(ANIMATION_MANAGER->getAnimation("default-player"));
+    m_animationController.playAnimation(ANIMATION_MANAGER->getAnimation("player-walk-forward"));
+
+    m_idleAnimation = ANIMATION_MANAGER->getAnimation("default-player");
+    m_runAnimation = ANIMATION_MANAGER->getAnimation("player-walk-forward");
 
     return true;
 }
@@ -156,5 +143,47 @@ void OGPlayerActor::setGrounded(bool isGrounded, float groundHeight) {
         setTranslation(glm::vec3(getTranslation().x, groundHeight, getTranslation().z));
     }
     m_isGrounded = isGrounded;
+}
+
+void OGPlayerActor::handleInput(double deltaTime) {
+
+    if (ENGINE->isGameModeFly()) return;
+
+    m_yaw += ENGINE->getThumbStick(THUMBSTICK_RIGHT)->getActuator().x * m_sensitivity * deltaTime;
+    m_pitch -= ENGINE->getThumbStick(THUMBSTICK_RIGHT)->getActuator().y * m_sensitivity * deltaTime;
+
+    m_pitch = glm::clamp(m_pitch, -glm::radians(80.0f), glm::radians(80.0f));
+
+    glm::vec3 forward;
+    forward.x = cosf(m_pitch) * sinf(m_yaw);
+    forward.y = sinf(m_pitch);
+    forward.z = cosf(m_pitch) * cosf(m_yaw);
+
+    forward = glm::normalize(forward);
+
+    glm::vec3 target = this->getTranslation() + glm::vec3(0.0, 1.0f, 0.0);
+    m_cameraPosition = target - forward * m_distance;
+
+    glm::vec3 camForward = forward;
+    camForward.y = 0;
+    camForward = glm::normalize(camForward);
+
+    glm::vec3 cameraRight = glm::normalize(glm::cross(camForward, glm::vec3(0.0, 1.0, 0.0)));
+
+    glm::vec3 moveDir = camForward * -ENGINE->getThumbStick(THUMBSTICK_LEFT)->getActuator().y +
+                        cameraRight * -ENGINE->getThumbStick(THUMBSTICK_LEFT)->getActuator().x;
+
+    auto currentTranslation = getTranslation();
+
+    setTranslation(getTranslation() + moveDir * m_moveSpeed * static_cast<float>(deltaTime));
+
+    m_movement = glm::length(moveDir * 2.8f);
+
+    if (glm::length(moveDir) > 0.01f) {
+        float targetYaw = atan2f(moveDir.x, moveDir.z);
+        setRotation(glm::vec3(0.0f, targetYaw, 0.0f));
+    }
+
+    m_viewMatrix = glm::lookAt(m_cameraPosition, target, glm::vec3(0.0f, 1.0f, 0.0f));
 }
 

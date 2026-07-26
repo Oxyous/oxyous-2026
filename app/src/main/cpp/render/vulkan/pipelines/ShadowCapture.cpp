@@ -9,6 +9,7 @@
 #include "../../../engine/GPUResources.hpp"
 #include "../../../engine/GameView.hpp"
 #include "../../../engine/components/OGStaticMeshComponent.hpp"
+#include "../../../engine/components/OGSkeletalMeshComponent.hpp"
 #include "../RenderHelper.hpp"
 #include "../../../engine/Engine.hpp"
 
@@ -307,6 +308,107 @@ bool ShadowCapture::initialize() {
         return false;
     }
 
+    /** Step 7  Create Skinned pipeline */
+    VkDescriptorSetLayout skinnedSetLayouts[] = {
+            GPU_RESOURCES->getBindlessSetLayout(),
+            m_shadowDSL,
+            GPU_RESOURCES->getBoneSetLayout()
+    };
+
+    VkPipelineLayoutCreateInfo skinnedPipelineLayoutInfo = {};
+    skinnedPipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    skinnedPipelineLayoutInfo.setLayoutCount = 3;
+    skinnedPipelineLayoutInfo.pSetLayouts = skinnedSetLayouts;
+    skinnedPipelineLayoutInfo.pushConstantRangeCount = 1;
+    skinnedPipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
+
+    if (vkCreatePipelineLayout(RENDER_DEVICE->getDevice(), &skinnedPipelineLayoutInfo, nullptr,
+                               &m_skinnedPipelineLayout) != VK_SUCCESS) {
+        aout << "Failed to create skinned shadow pipeline layout!" << std::endl;
+        return false;
+    }
+
+    std::vector<uint8_t> vertexSkinnedShaderCode;
+
+    RESOURCE_MANAGER->loadShader("shaders/skeletal-shadow.vert.spv", vertexSkinnedShaderCode);
+
+    VkShaderModuleCreateInfo skinnedVertexShaderModuleCreateInfo{};
+    skinnedVertexShaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    skinnedVertexShaderModuleCreateInfo.codeSize = vertexSkinnedShaderCode.size();
+    skinnedVertexShaderModuleCreateInfo.pCode = reinterpret_cast<const uint32_t *>(vertexSkinnedShaderCode.data());
+    if (vkCreateShaderModule(RENDER_DEVICE->getDevice(), &skinnedVertexShaderModuleCreateInfo, nullptr,
+                             &m_skinnedVertexShaderModule) != VK_SUCCESS) {
+        aout << "Failed to create skinned vertex shader module!" << std::endl;
+        throw std::runtime_error("Failed to create skinned vertex shader module!");
+    }
+
+    VkPipelineShaderStageCreateInfo skinnedVertexShaderStageCreateInfo{};
+    skinnedVertexShaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    skinnedVertexShaderStageCreateInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    skinnedVertexShaderStageCreateInfo.module = m_skinnedVertexShaderModule;
+    skinnedVertexShaderStageCreateInfo.pName = "main";
+
+    VkPipelineShaderStageCreateInfo skinnedShaderStages[] = {skinnedVertexShaderStageCreateInfo,
+                                                      fragShaderCreateInfo};
+
+    /** Skinned Vertex Description */
+    VkVertexInputBindingDescription skinnedBindingDescription{};
+    skinnedBindingDescription.binding = 0;
+    skinnedBindingDescription.stride = sizeof(OGSkeletalVertex);
+    skinnedBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    std::array<VkVertexInputAttributeDescription, 6> skinnedAttributeDescriptions{};
+    skinnedAttributeDescriptions[0].binding = 0;
+    skinnedAttributeDescriptions[0].location = 0;
+    skinnedAttributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+    skinnedAttributeDescriptions[0].offset = offsetof(OGSkeletalVertex, position);
+
+    skinnedAttributeDescriptions[1].binding = 0;
+    skinnedAttributeDescriptions[1].location = 1;
+    skinnedAttributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+    skinnedAttributeDescriptions[1].offset = offsetof(OGSkeletalVertex, normal);
+
+    skinnedAttributeDescriptions[2].binding = 0;
+    skinnedAttributeDescriptions[2].location = 2;
+    skinnedAttributeDescriptions[2].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    skinnedAttributeDescriptions[2].offset = offsetof(OGSkeletalVertex, tangent);
+
+    skinnedAttributeDescriptions[3].binding = 0;
+    skinnedAttributeDescriptions[3].location = 3;
+    skinnedAttributeDescriptions[3].format = VK_FORMAT_R32G32_SFLOAT;
+    skinnedAttributeDescriptions[3].offset = offsetof(OGSkeletalVertex, uv);
+
+    skinnedAttributeDescriptions[4].binding = 0;
+    skinnedAttributeDescriptions[4].location = 4;
+    skinnedAttributeDescriptions[4].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    skinnedAttributeDescriptions[4].offset = offsetof(OGSkeletalVertex, boneWeights);
+
+    skinnedAttributeDescriptions[5].binding = 0;
+    skinnedAttributeDescriptions[5].location = 5;
+    skinnedAttributeDescriptions[5].format = VK_FORMAT_R32G32B32A32_SINT;
+    skinnedAttributeDescriptions[5].offset = offsetof(OGSkeletalVertex, boneIndices);
+
+    VkPipelineVertexInputStateCreateInfo skinnedVertexInputInfo{};
+    skinnedVertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    skinnedVertexInputInfo.vertexBindingDescriptionCount =  1;
+    skinnedVertexInputInfo.pVertexBindingDescriptions = &skinnedBindingDescription;
+    skinnedVertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(skinnedAttributeDescriptions.size());
+    skinnedVertexInputInfo.pVertexAttributeDescriptions = skinnedAttributeDescriptions.data();
+
+    pipelineInfo.pVertexInputState = &skinnedVertexInputInfo;
+    pipelineInfo.pStages = skinnedShaderStages;
+    pipelineInfo.layout = m_skinnedPipelineLayout;
+
+    res = vkCreateGraphicsPipelines(RENDER_DEVICE->getDevice(), VK_NULL_HANDLE, 1,
+                                    &pipelineInfo,
+                                    nullptr, &m_skinnedPipeline);
+
+    if (res != VK_SUCCESS) {
+        aout << "Failed to create graphics pipeline! Error code: " << res << std::endl;
+        m_skinnedPipeline = VK_NULL_HANDLE;
+        return false;
+    }
+
     m_uniformBuffer.initialize<CSMUBO>({
                                                .lightProjection = {
                                                        glm::mat4(1.0f),
@@ -339,6 +441,16 @@ void ShadowCapture::destroy() {
     if (m_pipeline != VK_NULL_HANDLE) {
         vkDestroyPipeline(device, m_pipeline, nullptr);
         m_pipeline = VK_NULL_HANDLE;
+    }
+
+    if (m_skinnedPipeline != VK_NULL_HANDLE) {
+        vkDestroyPipeline(device, m_skinnedPipeline, nullptr);
+        m_skinnedPipeline = VK_NULL_HANDLE;
+    }
+
+    if (m_skinnedPipelineLayout != VK_NULL_HANDLE) {
+        vkDestroyPipelineLayout(device, m_skinnedPipelineLayout, nullptr);
+        m_skinnedPipelineLayout = VK_NULL_HANDLE;
     }
 
     if (m_pipelineLayout != VK_NULL_HANDLE) {
@@ -579,15 +691,6 @@ void ShadowCapture::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
                            VkFramebuffer framebuffer) {
     if (m_pipeline == VK_NULL_HANDLE) return;
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
-
-    /* Bind Descriptor Sets */
-    VkDescriptorSet setsToBind[] = {GPU_RESOURCES->getBindlessSet(currentFrame),
-                                    m_shadowSets[currentFrame % 2]};
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            m_pipelineLayout, 0, 2,
-                            setsToBind, 0, nullptr);
-
     // Fetch consolidated data
     CSMData gpuData = ENGINE->getSharedCSMData();
 
@@ -640,33 +743,56 @@ void ShadowCapture::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
         vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
         vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
+        /* Bind Static Pipeline */
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+        VkDescriptorSet staticSets[] = {GPU_RESOURCES->getBindlessSet(currentFrame),
+                                        m_shadowSets[currentFrame % 2]};
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                m_pipelineLayout, 0, 2,
+                                staticSets, 0, nullptr);
+
         /* Render Static Objects */
-        for (auto *obj: visibleObjects) {
-            if (!obj) continue;
-
+        auto renderStatic = [&](OGEntity* obj) {
+            if (!obj) return;
             if (auto *component = obj->getComponent<OGStaticMeshComponent>()) {
                 component->renderShadow(commandBuffer, currentFrame, m_pipelineLayout, gpuData, i);
             }
-
             for (auto *child: obj->getChildren()) {
-                if (auto *component = child->getComponent<OGStaticMeshComponent>()) {
-                    component->renderShadow(commandBuffer, currentFrame, m_pipelineLayout, gpuData, i);
+                if (auto *childComp = child->getComponent<OGStaticMeshComponent>()) {
+                    childComp->renderShadow(commandBuffer, currentFrame, m_pipelineLayout, gpuData, i);
                 }
             }
-        }
+        };
 
-        for (auto* obj: GAME_VIEW->getDynamicObjects()) {
-            if (!obj) continue;
+        for (auto *obj: visibleObjects) renderStatic(obj);
+        for (auto* obj: GAME_VIEW->getDynamicObjects()) renderStatic(obj);
 
-            if (auto *component = obj->getComponent<OGStaticMeshComponent>()) {
-                component->renderShadow(commandBuffer, currentFrame, m_pipelineLayout, gpuData, i);
-            }
+        /* Bind Skinned Pipeline */
+        if (m_skinnedPipeline != VK_NULL_HANDLE) {
+            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_skinnedPipeline);
+            VkDescriptorSet skinnedSets[] = {
+                    GPU_RESOURCES->getBindlessSet(currentFrame),
+                    m_shadowSets[currentFrame % 2],
+                    GPU_RESOURCES->getBoneSet(currentFrame)
+            };
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                    m_skinnedPipelineLayout, 0, 3,
+                                    skinnedSets, 0, nullptr);
 
-            for (auto *child: obj->getChildren()) {
-                if (auto *component = child->getComponent<OGStaticMeshComponent>()) {
-                    component->renderShadow(commandBuffer, currentFrame, m_pipelineLayout, gpuData, i);
+            auto renderSkinned = [&](OGEntity* obj) {
+                if (!obj) return;
+                if (auto *component = obj->getComponent<OGSkeletalMeshComponent>()) {
+                    component->renderShadow(commandBuffer, currentFrame, m_skinnedPipelineLayout, gpuData, i);
                 }
-            }
+                for (auto *child: obj->getChildren()) {
+                    if (auto *childComp = child->getComponent<OGSkeletalMeshComponent>()) {
+                        childComp->renderShadow(commandBuffer, currentFrame, m_skinnedPipelineLayout, gpuData, i);
+                    }
+                }
+            };
+
+            for (auto *obj: visibleObjects) renderSkinned(obj);
+            for (auto* obj: GAME_VIEW->getDynamicObjects()) renderSkinned(obj);
         }
 
         vkCmdEndRenderPass(commandBuffer);

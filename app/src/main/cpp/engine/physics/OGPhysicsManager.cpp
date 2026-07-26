@@ -130,7 +130,7 @@ void OGPhysicsManager::step(float deltaTime) {
                   });
 
         // 3.1 Position Correction (Baumgarte) - only for actual penetrations
-        for (int iter = 0; iter < 3; iter++) {
+        for (int iter = 0; iter < 10; iter++) {
             for (const auto &m : m_manifolds) {
                 if (m.m_depth > 0) { // Only correct if overlapping
                     updatePositionManifold(m);
@@ -139,7 +139,7 @@ void OGPhysicsManager::step(float deltaTime) {
         }
 
         // 3.2 Velocity/Impulse iterations (handles speculative contacts)
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 15; i++) {
             for (auto &m : m_manifolds) {
                 for (size_t k = 0; k < m.m_contacts.size(); k++) {
                     applyRotationImpulse(m, (int) k, deltaTime);
@@ -153,6 +153,7 @@ void OGPhysicsManager::step(float deltaTime) {
         auto phys = actor->getComponent<OGPhysicsComponent>();
         if (phys && phys->isAwake()) {
             phys->integrateVelocity(deltaTime);
+            syncActorVolume(actor);
         }
     }
 }
@@ -174,8 +175,8 @@ void OGPhysicsManager::updatePositionManifold(const OGCollisionManifold &manifol
     float invMassB = bodyB ? bodyB->getInverseMass() : 0.0f;
     float totalInvMass = invMassA + invMassB;
 
-    const float slop = 0.005f;
-    const float percent = 0.5f;
+    const float slop = 0.01f;
+    const float percent = 0.2f;
 
     float depth = std::max(manifold.m_depth - slop, 0.0f);
     if (depth <= 0.0f) return;
@@ -185,17 +186,30 @@ void OGPhysicsManager::updatePositionManifold(const OGCollisionManifold &manifol
     if (totalInvMass > 0.0f) {
         if (invMassA > 0.0f) {
             bodyA->getOwner()->setTranslation(bodyA->getOwner()->getTranslation() - correctionVector * (invMassA / totalInvMass));
+            syncActorVolume(bodyA->getOwner());
         }
         if (bodyB && invMassB > 0.0f) {
             bodyB->getOwner()->setTranslation(bodyB->getOwner()->getTranslation() + correctionVector * (invMassB / totalInvMass));
+            syncActorVolume(bodyB->getOwner());
         }
     } else {
         if (!bodyB) {
             bodyA->getOwner()->setTranslation(bodyA->getOwner()->getTranslation() - correctionVector);
+            syncActorVolume(bodyA->getOwner());
         } else {
             bodyA->getOwner()->setTranslation(bodyA->getOwner()->getTranslation() - correctionVector * 0.5f);
             bodyB->getOwner()->setTranslation(bodyB->getOwner()->getTranslation() + correctionVector * 0.5f);
+            syncActorVolume(bodyA->getOwner());
+            syncActorVolume(bodyB->getOwner());
         }
+    }
+}
+
+void OGPhysicsManager::syncActorVolume(OGEntity *actor) {
+    if (!actor) return;
+    auto col = actor->getComponent<OGCollisionComponent>();
+    if (col) {
+        col->update(0.0); // Force volume transform update
     }
 }
 

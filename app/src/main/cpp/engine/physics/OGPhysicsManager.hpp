@@ -36,6 +36,8 @@ public:
 private:
     void updatePositionManifold(const OGCollisionManifold& manifold);
 
+    void syncActorVolume(OGEntity* actor);
+
     void applyRotationImpulse(const OGCollisionManifold& manifold, int c, float dt);
 
 protected:

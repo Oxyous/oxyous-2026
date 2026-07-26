@@ -33,7 +33,8 @@ public:
     /** Get Current Global Matrices */
     std::vector<glm::mat4> getCurrentGlobalMatrices(const std::vector<OGJointInfo>& hierarchy) const;
 
-private:
+    std::vector<glm::mat4> getBlendedGlobalMatrices(const std::vector<OGJointInfo>& hierarchy, OGAnimationPose& pose) const;
+
     /** Sample Animation */
     OGAnimationPose SampleAnimation(std::shared_ptr<OGAnimationClip> clip, float time) const;
 

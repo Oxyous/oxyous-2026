@@ -59,15 +59,7 @@ void GameView::update(double deltaTime) {
         m_camFrustum.update(ENGINE->getCameraProjection(), ENGINE->getCameraView());
     }
 
-    /*std::vector<AABBVolume> possibleVolumes;
-    ENGINE->getStaticFrustumIntersectionByBVH(m_camFrustum, possibleVolumes);
-
-    m_visibleEntities.clear();
-    for (const auto &volume: possibleVolumes) {
-        if (auto entity = volume.getOwner()) {
-            m_visibleEntities.push_back(entity);
-        }
-    }*/
+    (std::dynamic_pointer_cast<OGPlayerActor>(GAME_VIEW->getActivePlayer()))->handleInput(deltaTime);
 }
 
 bool GameView::initialize() {
@@ -126,9 +118,6 @@ bool GameView::initialize() {
     auto mesh = RESOURCE_MANAGER->get<GPUStaticMeshResource>("blender.osm");
 
     /* Prepare Game Logic*/
-
-    //ENGINE->setCameraPosition(glm::vec3(1.0, 1.0, 1.0));
-
     if (!loadSceneFile("village/scene_graph.xml")) {
         aout << "Error: Failed to load scene graph!" << std::endl;
         return false;

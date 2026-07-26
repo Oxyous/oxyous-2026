@@ -33,11 +33,14 @@ public:
     /** Set Is Grounded */
     void setGrounded(bool isGrounded, float groundHeight);
 
+    /** */
+    void handleInput(double deltaTime);
 
 private:
     OGAnimController m_animationController;
 
     float m_moveSpeed = 2.8f;
+    float m_movement = 0.0f;
     float m_yaw; // horizontal rotation
     float m_pitch; // vertical rotation
     float m_distance;
@@ -47,6 +50,12 @@ private:
     glm::mat4 m_projectionMatrix{};
     glm::vec3 m_cameraPosition{};
     bool m_isGrounded;
+
+    float m_idleTime = 0.0f;
+    float m_runTime = 0.0f;
+
+    std::shared_ptr<OGAnimationClip> m_idleAnimation;
+    std::shared_ptr<OGAnimationClip> m_runAnimation;
 };
 
 #endif //OXYOUS_2026_OGPLAYERACTOR_HPP

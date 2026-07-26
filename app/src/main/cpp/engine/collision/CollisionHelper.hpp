@@ -936,7 +936,8 @@ public:
         manifold.m_normal = bestAxis;
         manifold.m_depth = minOverlap;
 
-        // Manifold generation: find OBB vertices furthest in normal direction (deepest)
+        // Manifold generation: find deepest features
+        // 1. OBB vertices in normal direction
         std::vector<glm::vec3> obbVertices;
         computeObbVertices(obb, obbVertices);
 
@@ -947,14 +948,37 @@ public:
         }
 
         for (const auto& v : obbVertices) {
-            if (glm::dot(v, bestAxis) > maxProj - 1e-3f) {
+            if (glm::dot(v, bestAxis) > maxProj - 0.01f) {
                 manifold.m_contacts.push_back(v);
             }
         }
 
+        // 2. Polygon vertices inside OBB (especially if axis is an OBB axis)
+        for (int i = 0; i < 3; i++) {
+            if (pointInsideOBB(obb, polygon.vertices[i])) {
+                // Only add if not already present
+                bool duplicate = false;
+                for (const auto& existing : manifold.m_contacts) {
+                    if (glm::distance(existing, polygon.vertices[i]) < 0.01f) {
+                        duplicate = true;
+                        break;
+                    }
+                }
+                if (!duplicate) {
+                    manifold.m_contacts.push_back(polygon.vertices[i]);
+                }
+            }
+        }
+
+        if (manifold.m_contacts.empty()) {
+            manifold.m_contacts.push_back(obb.getCenter() + bestAxis * (projectRadius(obb, bestAxis) - manifold.m_depth * 0.5f));
+        }
+
         // Project contact points onto the contact plane (midpoint of penetration)
         for (auto& contact : manifold.m_contacts) {
-            contact -= bestAxis * (manifold.m_depth * 0.5f);
+            float proj = glm::dot(contact, bestAxis);
+            float targetProj = maxProj - manifold.m_depth * 0.5f;
+            contact += bestAxis * (targetProj - proj);
         }
 
         return manifold;

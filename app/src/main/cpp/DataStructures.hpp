@@ -170,6 +170,7 @@ typedef struct OGWeight {
 typedef struct OGJointTransform {
     glm::vec3 position;
     glm::quat orientation;
+    int parentIndex;
 } OGJointTransform;
 
 /** Animation Frame */
@@ -213,6 +214,7 @@ typedef struct OGAnimationClip
         frames = other.frames;
         baseFrames = other.baseFrames;
         skeletonFrames = other.skeletonFrames;
+        jointInfos = other.jointInfos;
     };
 
     std::string name;
@@ -225,6 +227,7 @@ typedef struct OGAnimationClip
     std::vector<OGAnimationPose> frames;            // Base Frames - Joint Transforms [], position/orientation
     std::vector<OGJointTransform> baseFrames;
     std::vector<OGFrameSkeleton> skeletonFrames;    // Skeleton Frames, OJoint[], mat4[]
+    std::vector<OGJointInfo> jointInfos;            // Joint Infos []
 
 }OGAnimationClip;
 

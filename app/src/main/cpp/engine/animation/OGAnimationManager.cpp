@@ -28,7 +28,6 @@ bool OGAnimationManager::loadAnimation(const std::string &name, const std::strin
 
     OGAnimationClip animClip;
 
-
     for (int i = 0; i < header->hierarchyCount; i++) {
         OGJointInfo jointInfo;
         uint32_t nameLength;
@@ -50,6 +49,7 @@ bool OGAnimationManager::loadAnimation(const std::string &name, const std::strin
         dataPtr += sizeof(uint32_t);
 
         animClip.joints.push_back(jointInfo);
+        animClip.jointInfos.push_back(jointInfo);
     }
 
     dataPtr = static_cast<const uint8_t *>(animationData);
@@ -113,6 +113,7 @@ bool OGAnimationManager::loadAnimation(const std::string &name, const std::strin
     clip->numberFrames = header->numOfFrames;
     clip->numberJoints = header->numOfJoints;
     clip->frameRate = header->frameRate;
+    clip->jointInfos = animClip.jointInfos;
 
     m_animations[name] = clip;
 
