@@ -201,7 +201,7 @@ bool GameView::initialize() {
                 ENGINE->setDemoCulling(!ENGINE->isDemoCulling());
             }));
 
-    /***/
+    /** Create UI Elements Button etc */
     UI->addButton(new OGButton("button3", "bvh-debug", glm::vec2(900, 32),
                                glm::vec2(128 * 2.5, 32 * 2.5), [&]() {
                     auto physicsObjects = GAME_VIEW->getDynamicObjects();

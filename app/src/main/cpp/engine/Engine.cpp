@@ -48,13 +48,6 @@ void Engine::update(float deltaTime) {
                 //bounds->setCenter(camPos);
             }
         }
-    } else {
-
-        const auto& dynamicActors = GAME_VIEW->getDynamicObjects();
-        for(auto& actor : dynamicActors) {
-            actor->update(deltaTime);
-        }
-
     }
 }
 
