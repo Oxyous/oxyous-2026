@@ -162,24 +162,9 @@ void OGSkeletalMesh::prepareMesh() {
     // 1. Compute Global Bind Pose
     for (int i = 0; i < numJoints; i++) {
         auto &joint = m_skeletalMesh->joints[i];
-        globalJoints[i] = joint;
 
-        static bool bindLogged = false;
-        if (!bindLogged && i < 5) {
-            aout << "Bind Joint " << i << " pos: " << joint.position.x << ", " << joint.position.y << ", " << joint.position.z << " parent: " << joint.parentIndex << std::endl;
-        }
-        if (i == 4) bindLogged = true;
-
-        if (joint.parentIndex >= 0 && (size_t)joint.parentIndex < i) {
-            OGJoint &parent = globalJoints[joint.parentIndex];
-            glm::vec3 rotatedPosition = parent.orientation * joint.position;
-            globalJoints[i].position = parent.position + rotatedPosition;
-            globalJoints[i].orientation = parent.orientation * joint.orientation;
-            globalJoints[i].orientation = glm::normalize(globalJoints[i].orientation);
-        }
-
-        m_bindPose[i] = glm::translate(glm::mat4(1.0f), globalJoints[i].position) *
-                        glm::mat4_cast(globalJoints[i].orientation);
+        m_bindPose[i] = glm::translate(glm::mat4(1.0f), joint.position) *
+                        glm::mat4_cast(joint.orientation);
         m_inverseBindPose[i] = glm::inverse(m_bindPose[i]);
     }
 
@@ -201,7 +186,7 @@ void OGSkeletalMesh::prepareMesh() {
             auto &weight = m_skeletalMesh->weights[vertex.startWeight + j];
             if (weight.jointIndex < 0 || weight.jointIndex >= (int)numJoints) continue;
 
-            auto &joint = globalJoints[weight.jointIndex];
+            auto &joint = m_skeletalMesh->joints[weight.jointIndex];
 
             // Reconstruct position in Global Bind Pose
             glm::vec3 rotPos = joint.orientation * weight.position;

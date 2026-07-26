@@ -58,6 +58,24 @@ void OGSkeletalMeshComponent::setMaterialIndex(uint32_t index) {
     m_materialIndex = index;
 }
 
+void OGSkeletalMeshComponent::renderShadow(VkCommandBuffer &commandBuffer, uint64_t currentFrame, VkPipelineLayout layout, CSMData data, uint32_t cascade) {
+    if (!m_mesh || !m_mesh->get()) return;
+
+    const auto &mesh = m_mesh->getSkeletalMesh();
+
+    ShadowMapPushConstants pc = {};
+    pc.objectIndex = m_objectIndex;
+    pc.cascadeIndex = cascade;
+
+    vkCmdPushConstants(commandBuffer, layout,
+                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                       0, sizeof(ShadowMapPushConstants), &pc);
+
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &mesh->getVertexBuffer()->buffer, &mesh->getVertexBuffer()->offset);
+    vkCmdBindIndexBuffer(commandBuffer, mesh->getIndexBuffer()->buffer, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexed(commandBuffer, *mesh->getIndexCount(), 1, 0, 0, 0);
+}
+
 OGEntity *OGSkeletalMeshComponent::getOwner() const {
     return OGComponent::getOwner();
 }

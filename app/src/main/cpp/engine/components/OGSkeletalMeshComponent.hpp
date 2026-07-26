@@ -28,6 +28,8 @@ public:
 
     void render(VkCommandBuffer &commandBuffer, uint64_t currentFrame) override;
 
+    void renderShadow(VkCommandBuffer &commandBuffer, uint64_t currentFrame, VkPipelineLayout layout, CSMData data, uint32_t cascade);
+
     OGEntity *getOwner() const override;
 
     std::shared_ptr<GPUSkeletalMeshResource> getMeshResource() const {
