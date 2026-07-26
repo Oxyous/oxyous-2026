@@ -92,10 +92,26 @@ public:
         return (T *) m_entities[name].get();
     }
 
-    /** Get Actor by Name */
     template<typename T>
-    T *getActor(const std::string &name) {
-        return m_entities.find(name) != m_entities.end() ? (T *) m_entities[name].get() : nullptr;
+    T* registerActor(T* actor) {
+        std::unique_ptr<OGEntity> uPtr{actor};
+
+        m_entities[actor->getName()] = std::move(uPtr);
+
+        m_entities[actor->getName()]->initialize();
+
+        return (T*) m_entities[actor->getName()].get();
+    }
+
+    template<typename T>
+    T* registerActor(std::unique_ptr<T> actor) {
+        T* rawPtr = actor.get();
+
+        m_entities[rawPtr->getName()] = std::move(actor);
+
+        m_entities[rawPtr->getName()]->initialize();
+
+        return rawPtr;
     }
 
     /** Get All actors with component */

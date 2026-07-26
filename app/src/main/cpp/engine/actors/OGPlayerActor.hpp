@@ -33,6 +33,7 @@ public:
     /** Set Is Grounded */
     void setGrounded(bool isGrounded, float groundHeight);
 
+
 private:
     OGAnimController m_animationController;
 

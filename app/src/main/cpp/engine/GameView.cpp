@@ -37,6 +37,7 @@
 #include "render/vulkan/pipelines/SkeletalMeshPipeline.hpp"
 #include "engine/components/OGSkeletalMeshComponent.hpp"
 #include "engine/animation/OGAnimationManager.hpp"
+#include "engine/actors/ActorFactory.hpp"
 
 void GameView::render() {
 
@@ -229,46 +230,7 @@ bool GameView::initialize() {
             }));
 
     /** Create Player Character */
-    auto spawnPlayer = addActor<OGPlayerActor>("main-player");
-    if (spawnPlayer) {
-        spawnPlayer->initialize();
-        spawnPlayer->setTranslation(glm::vec3(-2.0f, 0.0f, 2.0f));
-
-
-        //auto playerMeshComp = spawnPlayer->addComponent<OGStaticMeshComponent>();
-        //if (playerMeshComp) {
-        auto playerMeshComp = spawnPlayer->addComponent<OGSkeletalMeshComponent>();
-        if (playerMeshComp) {
-            auto skeletalMesh = RESOURCE_MANAGER->get<GPUSkeletalMeshResource>("animations/player/player.gmesh");
-            if (skeletalMesh) {
-                playerMeshComp->setMeshResource(skeletalMesh);
-            } else {
-                aout << "Error: Failed to load skeletal mesh!" << std::endl;
-            }
-            playerMeshComp->setMaterialIndex(boxMaterialSlot);
-
-            spawnPlayer->setProjectionMatrix(glm::perspective(glm::radians(60.0f),
-                                                              (float) SWAPCHAIN->getExtent().width /
-                                                              (float) SWAPCHAIN->getExtent().width,
-                                                              0.1f, 10000.0f));
-
-            auto collision = spawnPlayer->addComponent<OGCollisionComponent>();
-
-            //collision->setVolume(std::unique_ptr<OBBVolume>(CollisionFactory::createOBB(glm::vec3(0.0,0.0,0.0), glm::vec3(0.25f,1.0f,0.25f), glm::mat3(1.0f))));
-            collision->setVolume(std::unique_ptr<CapsuleVolume>(
-                    CollisionFactory::createCapsule(glm::vec3(0.0f, 0.0f, 0.0f),
-                                                    glm::vec3(0.0f, 1.0f, 0.0f), 0.25f)));
-
-            auto playerPhys = spawnPlayer->addComponent<OGPhysicsComponent>();
-            playerPhys->setMass(0.0f);
-            playerPhys->setVelocity(glm::vec3(0.0f, 0.0f, 0.0f));
-            playerPhys->setAngularVelocity(glm::vec3(0.0f, 0.0f, 0.0f));
-            playerPhys->setAcceleration(glm::vec3(0.0f, 0.0f, 0.0f));
-
-            setActivePlayer(spawnPlayer);
-            PHYSICS->registerPhysicsActor(spawnPlayer);
-        }
-    }
+    registerActor<OGPlayerActor>(ActorFactory::createPlayerActor());
 
     /** Physics test - Box */
     for (int i = 0; i < 25; i++) {

@@ -72,6 +72,11 @@ public:
         m_name = name;
     }
 
+    /** Get Actor Name */
+    std::string getName() const {
+        return m_name;
+    }
+
     /** Add Component to Entity */
     template<typename T, typename... TArgs>
     T* addComponent(TArgs&&... args) {
