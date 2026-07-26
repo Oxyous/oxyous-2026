@@ -15,6 +15,7 @@ OGSkeletalMeshComponent::~OGSkeletalMeshComponent() {
 }
 
 void OGSkeletalMeshComponent::initialize() {
+    m_boneIndex = GPU_RESOURCES->registerBoneBlock();
     GPUMeshHandle data = {};
     data.model = glm::mat4(1.0f);
     data.materialIndex = m_materialIndex;

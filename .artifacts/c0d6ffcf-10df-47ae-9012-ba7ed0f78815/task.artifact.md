@@ -1,0 +1,5 @@
+- [ ] Define bone slot constants in `DataStructures.hpp`
+- [ ] Implement bone slot allocation in `GPUResources`
+- [ ] Assign unique bone slots in `OGSkeletalMeshComponent`
+- [ ] Implement animation logic in `OGCharacter`
+- [ ] Verify build and animations

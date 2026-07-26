@@ -93,17 +93,6 @@ public:
     }
 
     template<typename T>
-    T* registerActor(T* actor) {
-        std::unique_ptr<OGEntity> uPtr{actor};
-
-        m_entities[actor->getName()] = std::move(uPtr);
-
-        m_entities[actor->getName()]->initialize();
-
-        return (T*) m_entities[actor->getName()].get();
-    }
-
-    template<typename T>
     T* registerActor(std::unique_ptr<T> actor) {
         T* rawPtr = actor.get();
 
@@ -120,6 +109,16 @@ public:
         std::vector<OGEntity *> results;
         for (auto const &[name, entity]: m_entities) {
             if (entity->hasComponent<T>()) {
+                results.push_back(entity.get());
+            }
+        }
+        return results;
+    }
+
+    std::vector<OGEntity *> getDynamicActors() {
+        std::vector<OGEntity *> results;
+        for (auto const &[name, entity]: m_entities) {
+            if(dynamic_cast<OGDynamicActor*>(entity.get())) {
                 results.push_back(entity.get());
             }
         }
@@ -234,15 +233,19 @@ public:
         m_dynamicEntities.clear();
         m_staticEntities.clear();
         for (auto const& [name, entity] : m_entities) {
-            auto colComp = entity->getComponent<OGCollisionComponent>();
-            if (colComp) {
-                if (colComp->getCollisionVolume<AABBVolume>()) {
+            if (dynamic_cast<OGDynamicActor*>(entity.get())) {
+                m_dynamicEntities.push_back(entity.get());
+            } else {
+                auto colComp = entity->getComponent<OGCollisionComponent>();
+                if (colComp) {
+                    if (colComp->getCollisionVolume<AABBVolume>()) {
+                        m_staticEntities.push_back(entity.get());
+                    } else {
+                        m_dynamicEntities.push_back(entity.get());
+                    }
+                } else if (entity->hasComponent<OGStaticMeshComponent>()) {
                     m_staticEntities.push_back(entity.get());
-                } else {
-                    m_dynamicEntities.push_back(entity.get());
                 }
-            } else if (entity->hasComponent<OGStaticMeshComponent>()) {
-                m_staticEntities.push_back(entity.get());
             }
         }
     }

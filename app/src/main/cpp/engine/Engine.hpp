@@ -222,6 +222,9 @@ public:
     /** Update visible objects for the current frame */
     void updateVisibleObjects();
 
+    /** Check if an actor is currently visible */
+    bool isActorVisible(OGEntity* entity);
+
     /** Get cached visible objects for the main camera */
     const std::vector<OGEntity*>& getCachedVisibleObjects() const { return m_visibleObjects; }
 

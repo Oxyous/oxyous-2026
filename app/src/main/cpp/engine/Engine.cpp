@@ -9,6 +9,7 @@
 #include "engine/components/OGCollisionComponent.hpp"
 #include "engine/components/OGStaticMeshComponent.hpp"
 #include "engine/physics/OGPhysicsManager.hpp"
+#include "engine/components/OGSkeletalMeshComponent.hpp"
 
 bool Engine::initialize(android_app *app) {
     m_app = app;
@@ -26,7 +27,8 @@ void Engine::render() {
 
 void Engine::update(float deltaTime) {
     m_input.update(deltaTime);
-    //m_camera->update(deltaTime);
+
+    updateVisibleObjects();
 
     if (isGameModeFly()) {
         auto camBound = m_camera->getComponent<OGCollisionComponent>();
@@ -47,10 +49,12 @@ void Engine::update(float deltaTime) {
             }
         }
     } else {
-        const auto player = dynamic_cast<OGPlayerActor *>(GAME_VIEW->getActivePlayer().get());
-        if (player) {
-            player->setGrounded(false, 0.0f);
+
+        const auto& dynamicActors = GAME_VIEW->getDynamicObjects();
+        for(auto& actor : dynamicActors) {
+            actor->update(deltaTime);
         }
+
     }
 }
 
@@ -202,4 +206,32 @@ Frustum Engine::getCameraFrustum() {
         frustum.update(ENGINE->getCameraProjection(), ENGINE->getCameraView());
     }
     return frustum;
+}
+
+bool Engine::isActorVisible(OGEntity *entity) {
+    if (!entity) return false;
+
+    // Active player is ALWAYS considered visible to avoid animation glitches
+    if (entity == GAME_VIEW->getActivePlayer().get()) {
+        return true;
+    }
+
+    // Check if the entity is in the cached visible objects list
+    {
+        std::lock_guard<std::mutex> lock(m_visibleObjectsMutex);
+        for (const auto* visible : m_visibleObjects) {
+            if (visible == entity) {
+                return true;
+            }
+        }
+    }
+
+    // Fallback: Perform a manual frustum check for dynamic actors or missed entities
+    const auto frustum = getCameraFrustum();
+    if (auto* bounds = entity->getBounds()) {
+        return frustum.intersects(bounds->getAABB());
+    }
+
+    // Final fallback: check position
+    return frustum.intersects(entity->getTranslation());
 }

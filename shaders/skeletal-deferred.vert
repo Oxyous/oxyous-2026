@@ -54,8 +54,8 @@ void main() {
     ivec4 boneIndices = inBoneIndices;
     vec4 fBoneWeights = inBoneWeights;
 
-    // Each object has its own set of bones starting at boneIndex * 100
-    uint boneOffset = obj.boneIndex * 100;
+    // Each object has its own set of bones starting at boneIndex * 512
+    uint boneOffset = obj.boneIndex * 512;
 
     mat4 transform = bones[boneOffset + boneIndices.x] * fBoneWeights.x;
     transform += bones[boneOffset + boneIndices.y] * fBoneWeights.y;

@@ -3,7 +3,7 @@
 //
 
 #include "OGPlayerActor.hpp"
-#include "engine/Engine.hpp"
+#include "../Engine.hpp"
 #include "engine/components/OGCollisionComponent.hpp"
 #include "engine/components/OGSkeletalMeshComponent.hpp"
 #include "engine/animation/OGAnimationManager.hpp"
@@ -40,6 +40,11 @@ void OGPlayerActor::update(double deltaTime) {
     blendFactor = std::clamp(blendFactor, 0.0f, 1.0f);
 
     OGAnimationPose blendPose = m_animationController.BlendPose(idlePose, runPose, blendFactor);
+
+    // Performance Optimization: Skip heavy animation logic if not visible
+    if (!ENGINE->isActorVisible(this)) {
+        return;
+    }
 
     auto skeletalMeshComp = getComponent<OGSkeletalMeshComponent>();
     if (skeletalMeshComp) {

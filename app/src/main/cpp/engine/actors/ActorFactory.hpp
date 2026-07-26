@@ -8,6 +8,7 @@
 #include <memory>
 #include "../entity/OGEntity.hpp"
 #include "OGPlayerActor.hpp"
+#include "OGCharacter.hpp"
 #include "engine/components/OGSkeletalMeshComponent.hpp"
 #include "engine/GPUResources.hpp"
 #include "render/vulkan/Swapchain.hpp"
@@ -61,6 +62,34 @@ public:
 
         GAME_VIEW->setActivePlayer(actor.get());
         PHYSICS->registerPhysicsActor(actor.get());
+
+        return actor;
+    }
+
+
+    /** Create NPC Actor*/
+    template<typename... Args>
+    static std::unique_ptr<OGCharacter> createNPC(Args&&... args) {
+        auto actor = createActor<OGCharacter>(std::forward<Args>(args)...);
+        actor->setName("NPC");
+        actor->setTranslation(glm::vec3(-3.0f, 0.0f, 2.0f));
+        auto skeletalMesh = actor->template addComponent<OGSkeletalMeshComponent>();
+        if (skeletalMesh) {
+            auto meshResource = RESOURCE_MANAGER->get<GPUSkeletalMeshResource>("animations/player/player.gmesh");
+
+            if (meshResource) {
+                skeletalMesh->setMeshResource(meshResource);
+            }
+
+            auto diffuse = RESOURCE_MANAGER->get<GPUTextureResource>("textures/player-diffuse.png");
+            auto normal = RESOURCE_MANAGER->get<GPUTextureResource>("textures/player-nm.png");
+
+            GPUMaterialHandle material = {
+                .albedoIndex = GPU_RESOURCES->registerTexture(*diffuse->get()),
+                .normalIndex = GPU_RESOURCES->registerTexture(*normal->get()),
+            };
+            skeletalMesh->setMaterialIndex(GPU_RESOURCES->registerMaterial(material));
+        }
 
         return actor;
     }

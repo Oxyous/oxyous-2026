@@ -22,5 +22,10 @@ public:
     }
 };
 
+class OGDynamicActor : public OGActor {
+public:
+    OGDynamicActor() : OGActor() {}
+};
+
 
 #endif //OXYOUS_2026_OGACTOR_HPP

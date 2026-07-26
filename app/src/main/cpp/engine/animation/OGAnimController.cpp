@@ -188,21 +188,48 @@ OGAnimController::getBlendedGlobalMatrices(const std::vector<OGJointInfo> &hiera
     size_t numJoints = pose.joints.size();
     if (numJoints == 0) return std::vector<glm::mat4>();
 
-    std::vector<glm::mat4> globalMatrices(numJoints, glm::mat4(1.0f));
-    std::vector<bool> resolved(numJoints, false);
+    std::vector<glm::mat4> globalMatrices(numJoints);
 
+    // Fast path: assume parents are always before children in the hierarchy
+    // This is true for most animation exports (FBX, glTF, MD5)
+    bool fastPathSucceeded = true;
+    for (size_t i = 0; i < numJoints; ++i) {
+        glm::mat4 localMatrix = glm::translate(glm::mat4(1.0f), pose.joints[i].position) *
+                                glm::mat4_cast(pose.joints[i].orientation);
+
+        int parentIdx = -1;
+        if (i < hierarchy.size()) {
+            parentIdx = hierarchy[i].parentIndex;
+        }
+
+        if (parentIdx < 0) {
+            globalMatrices[i] = localMatrix;
+        } else if (parentIdx < (int)i) {
+            globalMatrices[i] = globalMatrices[parentIdx] * localMatrix;
+        } else {
+            // Out of order hierarchy detected, abort fast path
+            fastPathSucceeded = false;
+            break;
+        }
+    }
+
+    if (fastPathSucceeded) {
+        return globalMatrices;
+    }
+
+    // Slow path: iterative resolution for unordered hierarchies
+    std::vector<bool> resolved(numJoints, false);
     bool changed = true;
     while (changed) {
         changed = false;
         for (size_t i = 0; i < numJoints; ++i) {
             if (resolved[i]) continue;
-            if (i >= hierarchy.size()) {
-                resolved[i] = true;
-                changed = true;
-                continue;
+
+            int parentIdx = -1;
+            if (i < hierarchy.size()) {
+                parentIdx = hierarchy[i].parentIndex;
             }
 
-            int parentIdx = hierarchy[i].parentIndex;
             if (parentIdx < 0 || (parentIdx < (int)numJoints && resolved[parentIdx])) {
                 glm::mat4 localMatrix = glm::translate(glm::mat4(1.0f), pose.joints[i].position) *
                                         glm::mat4_cast(pose.joints[i].orientation);

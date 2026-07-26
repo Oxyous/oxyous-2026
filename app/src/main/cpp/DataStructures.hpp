@@ -15,6 +15,8 @@ constexpr uint32_t MAX_MATERIALS = 4096;
 constexpr uint32_t MAX_LIGHTS = 256;
 constexpr uint32_t MAX_TEXTURES = 4096;
 constexpr uint32_t MAX_SCREEN_TEXTURES = 256;
+constexpr uint32_t MAX_BONE_SLOTS = 100;
+constexpr uint32_t MAX_BONES_PER_SLOT = 512;
 constexpr float DESIGN_HEIGHT = 1080.0f;
 
 struct saveState {

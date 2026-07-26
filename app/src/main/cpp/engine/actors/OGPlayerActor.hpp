@@ -9,7 +9,7 @@
 #include "OGActor.hpp"
 #include "engine/animation/OGAnimController.hpp"
 
-class OGPlayerActor : public OGActor {
+class OGPlayerActor : public OGDynamicActor {
 public:
     OGPlayerActor();
     virtual ~OGPlayerActor() = default;

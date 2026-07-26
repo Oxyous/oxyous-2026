@@ -20,6 +20,8 @@ public:
         m_bindlessRenderer.materials.clear();
         m_bindlessRenderer.textures.clear();
         m_bindlessRenderer.textureSlotUsed.assign(MAX_TEXTURES, false);
+        m_nextBoneSlot = 0;
+        std::fill(m_dirtyBones.begin(), m_dirtyBones.end(), 0);
     }
 public:
 
@@ -34,6 +36,9 @@ public:
 
     /* register object for bindless */
     uint32_t registerObject(GPUMeshHandle object);
+
+    /* Register bone block */
+    uint32_t registerBoneBlock();
 
     /* Update object data */
     void updateObject(uint32_t index, GPUMeshHandle object);
@@ -79,6 +84,8 @@ protected:
     FrameData m_frameData;
     BindlessRenderer m_bindlessRenderer;
     std::mutex m_resourceMutex;
+    uint32_t m_nextBoneSlot = 0;
+    std::vector<uint32_t> m_dirtyBones;
 };
 
 #define GPU_RESOURCES OGSingleton<GPUResources>::getInstance()

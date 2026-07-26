@@ -38,8 +38,16 @@ void GPUResources::uploadFrameData(FrameData &frameData) {
     std::memcpy(frameData.perFrameBuffer.mapped, &frameData.perFrame, sizeof(PerFrameUBO));
 
     if (!m_bindlessRenderer.bones.empty()) {
-        std::memcpy(frameData.boneBuffer.mapped, m_bindlessRenderer.bones.data(),
-                    sizeof(glm::mat4) * m_bindlessRenderer.bones.size());
+        // Only upload dirty bone blocks
+        for (uint32_t i = 0; i < m_dirtyBones.size(); ++i) {
+            if (m_dirtyBones[i] > 0) {
+                uint32_t offset = i * MAX_BONES_PER_SLOT;
+                uint8_t* dst = static_cast<uint8_t*>(frameData.boneBuffer.mapped) + (offset * sizeof(glm::mat4));
+                std::memcpy(dst, &m_bindlessRenderer.bones[offset], sizeof(glm::mat4) * MAX_BONES_PER_SLOT);
+
+                m_dirtyBones[i]--;
+            }
+        }
     }
 }
 
@@ -92,6 +100,17 @@ uint32_t GPUResources::registerObject(GPUMeshHandle object) {
     return index;
 }
 
+uint32_t GPUResources::registerBoneBlock() {
+    std::lock_guard<std::mutex> lock(m_resourceMutex);
+    if (m_nextBoneSlot >= MAX_BONE_SLOTS) {
+        aout << "Error: No more bone slots available!" << std::endl;
+        return 0;
+    }
+    uint32_t slot = m_nextBoneSlot++;
+    aout << "Registered bone block slot: " << slot << std::endl;
+    return slot;
+}
+
 void GPUResources::updateObject(uint32_t index, GPUMeshHandle object) {
     std::lock_guard<std::mutex> lock(m_resourceMutex);
     if (index < m_bindlessRenderer.meshes.size()) {
@@ -101,9 +120,12 @@ void GPUResources::updateObject(uint32_t index, GPUMeshHandle object) {
 
 void GPUResources::updateBones(uint32_t boneIndex, const std::vector<glm::mat4> &matrices) {
     std::lock_guard<std::mutex> lock(m_resourceMutex);
-    uint32_t offset = boneIndex * 100;
+    uint32_t offset = boneIndex * MAX_BONES_PER_SLOT;
     if (offset + matrices.size() <= m_bindlessRenderer.bones.size()) {
         std::memcpy(&m_bindlessRenderer.bones[offset], matrices.data(), sizeof(glm::mat4) * matrices.size());
+        if (boneIndex < m_dirtyBones.size()) {
+            m_dirtyBones[boneIndex] = MAX_FRAMES_IN_FLIGHT;
+        }
     }
 }
 
@@ -250,7 +272,8 @@ bool GPUResources::initializeFrames() {
         }
     }
 
-    m_bindlessRenderer.bones.assign(100 * 100, glm::mat4(1.0f));
+    m_bindlessRenderer.bones.assign(MAX_BONE_SLOTS * MAX_BONES_PER_SLOT, glm::mat4(1.0f));
+    m_dirtyBones.assign(MAX_BONE_SLOTS, 0);
 
     return true;
 }
@@ -295,11 +318,17 @@ bool GPUResources::initializeFrame(FrameData &frame) {
                                   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &frame.perFrameBuffer.size,
                                   &frame.perFrameBuffer);
 
-    RenderFramework::createBuffer(sizeof(glm::mat4) * 100 * 100, // 100 objects, 100 bones each
+    RenderFramework::createBuffer(sizeof(glm::mat4) * MAX_BONE_SLOTS * MAX_BONES_PER_SLOT, // 100 objects, 100 bones each
                                   VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                                   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                                   &frame.boneBuffer.size, &frame.boneBuffer);
+
+    // Initialize bone buffer with identity matrices
+    if (frame.boneBuffer.mapped) {
+        std::vector<glm::mat4> identityBones(MAX_BONE_SLOTS * MAX_BONES_PER_SLOT, glm::mat4(1.0f));
+        std::memcpy(frame.boneBuffer.mapped, identityBones.data(), sizeof(glm::mat4) * identityBones.size());
+    }
 
     /* Allocate Descriptor Set for this frame */
     uint32_t variableCount = MAX_TEXTURES;

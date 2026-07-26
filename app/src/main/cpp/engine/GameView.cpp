@@ -45,7 +45,7 @@ void GameView::render() {
 
 void GameView::update(double deltaTime) {
 
-    for (const auto entity: m_dynamicEntities) {
+    for (const auto& entity: m_dynamicEntities) {
         entity->update(deltaTime);
     }
 
@@ -220,6 +220,9 @@ bool GameView::initialize() {
 
     /** Create Player Character */
     registerActor<OGPlayerActor>(ActorFactory::createPlayerActor());
+
+    /** Create NPC Character*/
+    registerActor<OGCharacter>(ActorFactory::createNPC());
 
     /** Physics test - Box */
     for (int i = 0; i < 25; i++) {
