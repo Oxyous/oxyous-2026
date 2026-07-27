@@ -71,20 +71,12 @@ void OGPhysicsManager::step(float deltaTime) {
         sweptAABB.setMax(sweptAABB.getMax() + glm::vec3(ccdMargin));
 
         // Use octree/BVH to get potential polygons
-        ENGINE->getAABBIntersectionByBHV(sweptAABB, worldPolygons); // Assuming queryOctree can take AABB and return polygons
-        // Note: if queryOctree only returns entities, we'd need another way,
-        // but current implementation seems to have getXXXIntersectionByBHV which works with polygons.
+        ENGINE->getAABBIntersectionByBHV(sweptAABB, worldPolygons);
 
-        // Fallback to existing BHV query if octree doesn't support direct polygon retrieval
-        if (worldPolygons.empty()) {
-            if (auto obb = dynamic_cast<OBBVolume*>(volA)) {
-                ENGINE->getObbIntersectionByBHV(*obb, worldPolygons);
-            } else if (auto sphere = dynamic_cast<SphereVolume*>(volA)) {
-                ENGINE->getSphereIntersectionByBHV(*sphere, worldPolygons);
-            } else if (auto capsule = dynamic_cast<CapsuleVolume*>(volA)) {
-                ENGINE->getCapsuleIntersectionByBHV(*capsule, worldPolygons);
-            }
-        }
+        // Track only the deepest static collision to avoid additive "popping"
+        OGCollisionManifold bestStatic;
+        bestStatic.m_depth = -FLT_MAX;
+        bool foundStatic = false;
 
         for (const auto& poly : worldPolygons) {
             OGCollisionManifold mStatic;
@@ -100,12 +92,14 @@ void OGPhysicsManager::step(float deltaTime) {
                     foundContact = true;
                 }
             } else if (auto obb = dynamic_cast<OBBVolume*>(volA)) {
-                // OBB speculative contact is more complex, fallback to discrete for now
                 mStatic = CollisionHelper::resolveCollision(*obb, poly);
                 if (mStatic.m_colliding) {
                     mStatic.m_bodies[0] = physA;
                     mStatic.m_bodies[1] = nullptr;
-                    m_manifolds.emplace_back(mStatic);
+                    if (mStatic.m_depth > bestStatic.m_depth) {
+                        bestStatic = mStatic;
+                        foundStatic = true;
+                    }
                 }
                 continue;
             }
@@ -113,12 +107,20 @@ void OGPhysicsManager::step(float deltaTime) {
             if (foundContact) {
                 mStatic.m_colliding = true;
                 mStatic.m_normal = -contact.normal;
-                mStatic.m_depth = contact.depth; // positive for overlap, negative for gap
+                mStatic.m_depth = contact.depth;
                 mStatic.m_contacts.push_back(contact.hitPoint);
                 mStatic.m_bodies[0] = physA;
                 mStatic.m_bodies[1] = nullptr;
-                m_manifolds.emplace_back(mStatic);
+
+                if (mStatic.m_depth > bestStatic.m_depth) {
+                    bestStatic = mStatic;
+                    foundStatic = true;
+                }
             }
+        }
+
+        if (foundStatic) {
+            m_manifolds.emplace_back(bestStatic);
         }
     }
 
@@ -130,7 +132,7 @@ void OGPhysicsManager::step(float deltaTime) {
                   });
 
         // 3.1 Position Correction (Baumgarte) - only for actual penetrations
-        for (int iter = 0; iter < 10; iter++) {
+        for (int iter = 0; iter < 2; iter++) { // Reduced from 10
             for (const auto &m : m_manifolds) {
                 if (m.m_depth > 0) { // Only correct if overlapping
                     updatePositionManifold(m);
@@ -176,7 +178,7 @@ void OGPhysicsManager::updatePositionManifold(const OGCollisionManifold &manifol
     float totalInvMass = invMassA + invMassB;
 
     const float slop = 0.01f;
-    const float percent = 0.2f;
+    const float percent = 0.1f; // Reduced from 0.2
 
     float depth = std::max(manifold.m_depth - slop, 0.0f);
     if (depth <= 0.0f) return;
@@ -185,16 +187,29 @@ void OGPhysicsManager::updatePositionManifold(const OGCollisionManifold &manifol
 
     if (totalInvMass > 0.0f) {
         if (invMassA > 0.0f) {
-            bodyA->getOwner()->setTranslation(bodyA->getOwner()->getTranslation() - correctionVector * (invMassA / totalInvMass));
+            // Bypass vertical correction for grounded bodies to prevent fighting controller
+            glm::vec3 effectiveCorrection = correctionVector;
+            if (bodyA->isGrounded() && std::abs(manifold.m_normal.y) > 0.7f) {
+                effectiveCorrection.y = 0.0f;
+            }
+            bodyA->getOwner()->setTranslation(bodyA->getOwner()->getTranslation() - effectiveCorrection * (invMassA / totalInvMass));
             syncActorVolume(bodyA->getOwner());
         }
         if (bodyB && invMassB > 0.0f) {
-            bodyB->getOwner()->setTranslation(bodyB->getOwner()->getTranslation() + correctionVector * (invMassB / totalInvMass));
+            glm::vec3 effectiveCorrection = correctionVector;
+            if (bodyB->isGrounded() && std::abs(manifold.m_normal.y) > 0.7f) {
+                effectiveCorrection.y = 0.0f;
+            }
+            bodyB->getOwner()->setTranslation(bodyB->getOwner()->getTranslation() + effectiveCorrection * (invMassB / totalInvMass));
             syncActorVolume(bodyB->getOwner());
         }
     } else {
         if (!bodyB) {
-            bodyA->getOwner()->setTranslation(bodyA->getOwner()->getTranslation() - correctionVector);
+            glm::vec3 effectiveCorrection = correctionVector;
+            if (bodyA->isGrounded() && std::abs(manifold.m_normal.y) > 0.7f) {
+                effectiveCorrection.y = 0.0f;
+            }
+            bodyA->getOwner()->setTranslation(bodyA->getOwner()->getTranslation() - effectiveCorrection);
             syncActorVolume(bodyA->getOwner());
         } else {
             bodyA->getOwner()->setTranslation(bodyA->getOwner()->getTranslation() - correctionVector * 0.5f);
@@ -251,6 +266,11 @@ void OGPhysicsManager::applyRotationImpulse(const OGCollisionManifold &manifold,
 
     // Don't apply impulse if moving away fast enough
     if (velAlongNormal + bias > 0.0f) return;
+
+    // Bypass vertical impulses for grounded bodies to prevent fighting controller
+    // relativeNormal is manifold.m_normal. For static floor, normal points DOWN (into floor).
+    if (bodyA->isGrounded() && std::abs(relativeNormal.y) > 0.7f) return;
+    if (bodyB && bodyB->isGrounded() && std::abs(relativeNormal.y) > 0.7f) return;
 
     float e = bodyB ? fminf(bodyA->getRestitution(), bodyB->getRestitution()) : bodyA->getRestitution();
     // Disable restitution for speculative contacts to prevent "jumping"

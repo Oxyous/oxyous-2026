@@ -35,6 +35,10 @@ void OGPhysicsComponent::computeInertia() {
                 0.0, 1.0f / iy, 0.0,
                 0.0, 0.0, 1.0f / iz);
 
+        if (m_lockRotationX) m_inverseInertia[0] = glm::vec3(0.0f);
+        if (m_lockRotationY) m_inverseInertia[1] = glm::vec3(0.0f);
+        if (m_lockRotationZ) m_inverseInertia[2] = glm::vec3(0.0f);
+
         glm::mat3 rot = glm::mat3_cast(m_owner->getRotation());
         m_inverseInertiaWorld = rot * m_inverseInertia * glm::transpose(rot);
         return;
@@ -45,6 +49,11 @@ void OGPhysicsComponent::computeInertia() {
         float r2 = sphere->getRadius() * sphere->getRadius();
         float i = (2.0f / 5.0f) * (1.0f / m_massInverse) * r2;
         m_inverseInertia = glm::mat3(1.0f / i);
+
+        if (m_lockRotationX) m_inverseInertia[0][0] = 0.0f;
+        if (m_lockRotationY) m_inverseInertia[1][1] = 0.0f;
+        if (m_lockRotationZ) m_inverseInertia[2][2] = 0.0f;
+
         m_inverseInertiaWorld = m_inverseInertia;
         return;
     }
@@ -69,6 +78,10 @@ void OGPhysicsComponent::computeInertia() {
                 0.0, 1.0f / iy, 0.0,
                 0.0, 0.0, 1.0f / iz);
 
+        if (m_lockRotationX) m_inverseInertia[0] = glm::vec3(0.0f);
+        if (m_lockRotationY) m_inverseInertia[1] = glm::vec3(0.0f);
+        if (m_lockRotationZ) m_inverseInertia[2] = glm::vec3(0.0f);
+
         glm::mat3 rot = glm::mat3_cast(m_owner->getRotation());
         m_inverseInertiaWorld = rot * m_inverseInertia * glm::transpose(rot);
         return;
@@ -82,9 +95,22 @@ void OGPhysicsComponent::integrateForces(float dt) {
     m_velocity *= powf(0.98f, dt);
     m_angularVelocity *= powf(0.98f, dt);
 
-    m_velocity += m_acceleration * dt;
+    glm::vec3 effectiveAcceleration = m_acceleration;
+    if (m_isGrounded) {
+        effectiveAcceleration.y = 0.0f;
+        // Strict kill of downward velocity build-up
+        if (m_velocity.y < 0.0f) {
+            m_velocity.y = 0.0f;
+        }
+    }
+
+    m_velocity += effectiveAcceleration * dt;
 
     glm::vec3 angularAcceleration = m_inverseInertiaWorld * m_torques;
+    if (m_lockRotationX) angularAcceleration.x = 0.0f;
+    if (m_lockRotationY) angularAcceleration.y = 0.0f;
+    if (m_lockRotationZ) angularAcceleration.z = 0.0f;
+
     m_torques = glm::vec3(0.0f);
     m_angularVelocity += angularAcceleration * dt;
 }
@@ -97,6 +123,10 @@ void OGPhysicsComponent::integrateVelocity(float dt) {
     if (glm::length(m_velocity) > maxVelocity) {
         m_velocity = glm::normalize(m_velocity) * maxVelocity;
     }
+
+    if (m_lockRotationX) m_angularVelocity.x = 0.0f;
+    if (m_lockRotationY) m_angularVelocity.y = 0.0f;
+    if (m_lockRotationZ) m_angularVelocity.z = 0.0f;
 
     // Update position based on new velocity
     glm::vec3 newPosition = m_owner->getTranslation() + m_velocity * dt;

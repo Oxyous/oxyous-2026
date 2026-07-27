@@ -55,10 +55,12 @@ public:
                                                 glm::vec3(0.0f, 1.0f, 0.0f), 0.25f)));
 
         auto playerPhys = actor->template addComponent<OGPhysicsComponent>();
-        playerPhys->setMass(0.0f);
+        playerPhys->setMass(1.0f);
         playerPhys->setVelocity(glm::vec3(0.0f, 0.0f, 0.0f));
         playerPhys->setAngularVelocity(glm::vec3(0.0f, 0.0f, 0.0f));
         playerPhys->setAcceleration(glm::vec3(0.0f, 0.0f, 0.0f));
+        playerPhys->setRotationLock(true, true, true);
+        playerPhys->setRestitution(0.0f);
 
         GAME_VIEW->setActivePlayer(actor.get());
         PHYSICS->registerPhysicsActor(actor.get());

@@ -53,6 +53,10 @@ public:
 
     float getRestitution();
 
+    void setRestitution(float restitution) {
+        m_restitution = restitution;
+    }
+
     void initialize() override;
 
     void destroy() override;
@@ -69,7 +73,17 @@ public:
 
     void setMotion(float motion);
 
+    /** Set Rotation Lock */
+    void setRotationLock(bool lockX, bool lockY, bool lockZ) {
+        m_lockRotationX = lockX;
+        m_lockRotationY = lockY;
+        m_lockRotationZ = lockZ;
+    }
+
     bool isAwake() const { return m_isAwake; }
+
+    void setGrounded(bool grounded) { m_isGrounded = grounded; }
+    bool isGrounded() const { return m_isGrounded; }
 
 protected:
     void computeInertia();
@@ -79,6 +93,10 @@ private:
     bool m_isAwake = true;
     float m_friction = 1.0f;
     float m_motion = 1.0f;
+    bool m_isGrounded = false;
+    bool m_lockRotationX = false;
+    bool m_lockRotationY = false;
+    bool m_lockRotationZ = false;
     glm::mat3 m_inverseInertia;
     glm::vec3 m_acceleration;
     glm::vec3 m_lastAcceleration;

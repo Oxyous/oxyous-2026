@@ -200,10 +200,7 @@ void BVH::intersectsRecursive(int nodeIndex, const SphereVolume &sphere,
 
 void BVH::intersects(const OGSegment &segment, std::vector<OGPolygon> &results) {
     if (root != -1) {
-        OGPolygon poly;
-        if (segmentIntersectsPolygon(root, segment.start, segment.end, 0.0, 1.0, poly)) {
-            results.push_back(poly);
-        }
+        intersectsRecursive(root, segment, results);
     }
 }
 

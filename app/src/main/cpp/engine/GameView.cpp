@@ -208,7 +208,8 @@ bool GameView::initialize() {
                     float i =0;
                     for (auto obj : physicsObjects) {
                         auto physComp = obj->getComponent<OGPhysicsComponent>();
-                        if (physComp && physComp->getMass() == 1.0f) {
+                        const auto isPlayer = dynamic_cast<OGPlayerActor*>(obj);
+                        if (physComp && physComp->getMass() == 0.8f && !isPlayer) {
                             obj->setTranslation(glm::vec3(10.0f, 5.0f + i, 10.0f));
                             physComp->setAwake(true);
                             physComp->setVelocity(glm::vec3(0.0f, 9.81f, 0.0f));
@@ -225,7 +226,7 @@ bool GameView::initialize() {
     registerActor<OGCharacter>(ActorFactory::createNPC());
 
     /** Physics test - Box */
-    for (int i = 0; i < 25; i++) {
+    for (int i = 0; i < 5; i++) {
         auto box = addActor<OGActor>("box-" + std::to_string(m_entities.size() + 1));
         box->setTranslation(glm::vec3(10.0f, (3.0f * (float) i) + 10.0f, 10.0f));
         box->setRotation(glm::vec3(glm::radians(45.0f), glm::radians(45.0f), glm::radians(45.0f)));
@@ -238,7 +239,7 @@ bool GameView::initialize() {
                                                     glm::vec3(0.5f, 0.5f, 0.5f), glm::mat3(1.0f));
         boxObb->setVolume(std::unique_ptr<OBBVolume>(boxBound));
         boxBound->setOwner(box);
-        boxPhys->setMass(1.0f);
+        boxPhys->setMass(0.8f);
         PHYSICS->registerPhysicsActor(box);
     }
 

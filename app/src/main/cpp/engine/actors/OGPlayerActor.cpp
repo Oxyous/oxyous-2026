@@ -5,9 +5,12 @@
 #include "OGPlayerActor.hpp"
 #include "../Engine.hpp"
 #include "engine/components/OGCollisionComponent.hpp"
+#include "engine/components/OGPhysicsComponent.hpp"
 #include "engine/components/OGSkeletalMeshComponent.hpp"
 #include "engine/animation/OGAnimationManager.hpp"
 #include "engine/GPUResources.hpp"
+#include "engine/collision/CollisionHelper.hpp"
+#include "engine/GameView.hpp"
 
 OGPlayerActor::OGPlayerActor() {
     m_yaw = 0.0f;
@@ -74,41 +77,63 @@ void OGPlayerActor::update(double deltaTime) {
         }
     }
 
-   /* const auto &collision = getComponent<OGCollisionComponent>();
-    if (collision) {
+    // Grounded detection and stabilization
+    const auto &collision = getComponent<OGCollisionComponent>();
+    auto physics = getComponent<OGPhysicsComponent>();
+
+    if (collision && physics) {
         const auto volume = collision->getCollisionVolume<CapsuleVolume>();
         if (volume) {
-            const auto segment = OGSegment{volume->getBase() + glm::vec3(0, 0.0f, 0),
-                                           volume->getBase() - glm::vec3(0, 0.5f, 0)};
+            float radius = volume->getRadius();
+            // volume->getBase() is the center of the bottom sphere.
+            // Probe from slightly above the bottom of the capsule to slightly below.
+            const auto segment = OGSegment{volume->getBase() - glm::vec3(0, radius - 0.1f, 0),
+                                           volume->getBase() - glm::vec3(0, radius + 0.2f, 0)};
             std::vector<OGPolygon> polygons;
-            GAME_VIEW->getSegmentIntersectionByBHV(segment, polygons);
-            if (!polygons.empty()) {
-                const auto &closestPolygon = polygons[0];
-                const auto &plane = CollisionHelper::getPolygonPlane(closestPolygon);
-                const float distanceToGround =
-                        glm::dot(plane.m_normal, volume->getBase()) - plane.m_distance;
+            ENGINE->getSegmentIntersectionByBHV(segment, polygons);
 
-                if (distanceToGround < m_groundHeight) {
-                    setGrounded(true, volume->getBase().y - distanceToGround);
-                } else {
-                    setGrounded(false, 0.0f);
+            bool foundGround = false;
+            float highestGroundHeight = -FLT_MAX;
+
+            for (const auto& poly : polygons) {
+                const auto &plane = CollisionHelper::getPolygonPlane(poly);
+
+                // Only consider upward-facing surfaces (floors)
+                if (plane.m_normal.y > 0.6f) {
+                    // distanceToGround is distance from volume->getBase() (center) to the plane
+                    const float distanceToGround =
+                            glm::dot(plane.m_normal, volume->getBase()) - plane.m_distance;
+
+                    // The distance from center to floor should be radius.
+                    // Allow for a small margin.
+                    if (distanceToGround < (radius + 0.15f)) {
+                        // Floor height = base.y - distanceToGround
+                        // Target translation Y = Floor height
+                        float targetPivotY = volume->getBase().y - distanceToGround;
+
+                        if (targetPivotY > highestGroundHeight) {
+                            highestGroundHeight = targetPivotY;
+                            foundGround = true;
+                        }
+                    }
                 }
+            }
+
+            if (foundGround) {
+                setGrounded(true, highestGroundHeight);
+                physics->setGrounded(true);
+                m_airTime = 0.0f;
             } else {
-                setGrounded(false, 0.0f);
+                m_airTime += static_cast<float>(deltaTime);
+                // Only lose grounded status after being in the air for a short duration
+                // OR if moving upward (jumping)
+                if (m_airTime > 0.1f || physics->getVelocity().y > 0.1f) {
+                    setGrounded(false, 0.0f);
+                    physics->setGrounded(false);
+                }
             }
         }
     }
-    auto physics = getComponent<OGPhysicsComponent>();
-    if (physics) {
-        if (!m_isGrounded) {
-            // Apply gravity or other physics-related updates here
-            physics->setAcceleration(glm::vec3(0.0f, -9.81f, 0.0f)); // Example: Apply gravity
-            physics->setMass(1.0f); // Example: Set mass for physics
-        }else {
-            physics->setAcceleration(glm::vec3(0.0f, 0.0f, 0.0f)); // No acceleration when grounded
-            physics->setMass(0.0f); // Example: Set mass for physics
-        }
-    }*/
 }
 
 bool OGPlayerActor::initialize() {
@@ -144,10 +169,8 @@ glm::vec3 OGPlayerActor::getCameraPosition() const {
 }
 
 void OGPlayerActor::setGrounded(bool isGrounded, float groundHeight) {
-    if (isGrounded) {
-        setTranslation(glm::vec3(getTranslation().x, groundHeight, getTranslation().z));
-    }
     m_isGrounded = isGrounded;
+    m_targetGroundHeight = groundHeight;
 }
 
 void OGPlayerActor::handleInput(double deltaTime) {
@@ -178,11 +201,31 @@ void OGPlayerActor::handleInput(double deltaTime) {
     glm::vec3 moveDir = camForward * -ENGINE->getThumbStick(THUMBSTICK_LEFT)->getActuator().y +
                         cameraRight * -ENGINE->getThumbStick(THUMBSTICK_LEFT)->getActuator().x;
 
-    auto currentTranslation = getTranslation();
+    auto physComp = getComponent<OGPhysicsComponent>();
+    if (physComp) {
+        glm::vec3 currentVel = physComp->getVelocity();
+        glm::vec3 targetVel = moveDir * m_moveSpeed;
 
-    setTranslation(getTranslation() + moveDir * m_moveSpeed * static_cast<float>(deltaTime));
+        float finalVy = currentVel.y;
+        if (m_isGrounded) {
+            // Soft Snap: Correct vertical velocity to reach floor height
+            float verticalError = m_targetGroundHeight - getTranslation().y;
 
-    m_movement = glm::length(moveDir * 2.8f);
+            // Proportional correction with clamping
+            float snapVelocity = verticalError * 10.0f; // Kp = 10
+            finalVy = std::clamp(snapVelocity, -5.0f, 5.0f);
+
+            // If the error is tiny, just stop vertical movement
+            if (std::abs(verticalError) < 0.001f) {
+                finalVy = 0.0f;
+            }
+        }
+
+        physComp->setVelocity(glm::vec3(targetVel.x, finalVy, targetVel.z));
+        physComp->setAwake(true);
+    }
+
+    m_movement = glm::length(moveDir * m_moveSpeed);
 
     if (glm::length(moveDir) > 0.01f) {
         float targetYaw = atan2f(moveDir.x, moveDir.z);

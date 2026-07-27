@@ -263,8 +263,8 @@ public:
     /* */
     [[nodiscard]] inline static PlaneVolume getPolygonPlane(const OGPolygon &polygon) {
         PlaneVolume plane;
-        glm::vec3 ab = polygon.vertices[1] - polygon.vertices[0];
-        glm::vec3 ac = polygon.vertices[2] - polygon.vertices[0];
+        glm::vec3 ab = polygon.vertices[2] - polygon.vertices[0];
+        glm::vec3 ac = polygon.vertices[1] - polygon.vertices[0];
         plane.m_normal = glm::normalize(glm::cross(ab, ac));
         plane.m_distance = glm::dot(plane.m_normal, polygon.vertices[0]);
         return plane;
@@ -450,7 +450,7 @@ public:
     }
 
     inline static bool resolvePolygonAabbCollision(const OGPolygon& polygon, const AABBVolume& aabb, OGContact& contact) {
-        OBBVolume obb(aabb.getCentroid(), aabb.getMax() - aabb.getMin(), glm::quat(1, 0, 0, 0));
+        OBBVolume obb(aabb.getCentroid(), (aabb.getMax() - aabb.getMin()) * 0.5f, glm::quat(1, 0, 0, 0));
         return resolvePolygonObbCollision(polygon, obb, contact);
     }
 
