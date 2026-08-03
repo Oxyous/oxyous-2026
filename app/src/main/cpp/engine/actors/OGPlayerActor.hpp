@@ -24,6 +24,8 @@ public:
     /** */
     glm::mat4 getProjectionMatrix() const;
 
+    void jump();
+
     /** Set Projection Matrix */
     void setProjectionMatrix(const glm::mat4& matrix);
 
@@ -51,6 +53,8 @@ private:
     glm::mat4 m_projectionMatrix{};
     glm::vec3 m_cameraPosition{};
     bool m_isGrounded;
+    bool m_isJumping;
+
     float m_airTime = 0.0f;
 
     float m_idleTime = 0.0f;

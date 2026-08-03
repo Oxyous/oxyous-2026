@@ -14,7 +14,7 @@ bool OGUi::initializeUI() {
 }
 
 /** Create Sprite Vertex */
-uint32_t OGUi::addSprite(const std::string& spriteTextureName, glm::vec2 position, glm::vec2 scale) {
+uint32_t OGUi::addSprite(const std::string& spriteTextureName, glm::vec2 position, glm::vec2 scale, glm::vec4 colorAlpha) {
     uint32_t instanceId = -1;
     auto* spriteData = m_atlas.getSpriteData(spriteTextureName);
     if(spriteData) {
@@ -23,6 +23,7 @@ uint32_t OGUi::addSprite(const std::string& spriteTextureName, glm::vec2 positio
         instance.size = scale;
         instance.uvOffset = {spriteData->x, spriteData->y};
         instance.uvScale = {spriteData->width, spriteData->height};
+        instance.colorAlpha = colorAlpha;
         instanceId = static_cast<uint32_t>(m_instances.size());
         m_instances.push_back(instance);
     }
@@ -68,8 +69,8 @@ void OGUi::clearElements() {
     m_elements.clear();
 }
 
-void OGUi::drawString(VkCommandBuffer cmd, const std::string &text, float x, float y, float scale) {
-    m_fontEngine.renderString(cmd, text, x, y, scale);
+void OGUi::drawString(VkCommandBuffer cmd, const std::string &text, float x, float y, float scale, glm::vec4 colorAlpha) {
+    m_fontEngine.renderString(cmd, text, x, y, scale, colorAlpha);
 }
 
 void OGUi::addButton(OGButton *button) {

@@ -697,7 +697,7 @@ void ShadowCapture::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
     GAME_VIEW->getDynamicObjects();
 
     // Compute Cascade Splits
-    auto splits = RenderHelper::computeCascadeSplits(0.1f, 1000.0f, 0.98f);
+    auto splits = RenderHelper::computeCascadeSplits(0.75f, 1000.0f, 0.98f);
 
     for (int i = 0; i < m_cascadeCount; ++i) {
         AABBVolume cascadeVolume = RenderHelper::computeCSMBounds(ENGINE->getCameraProjection(),

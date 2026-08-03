@@ -9,13 +9,12 @@
 
 class OGButton {
 public:
-
-    OGButton(std::string name, std::string spriteName, glm::vec2 position, glm::vec2 size, std::function<void()> onTap) {
-        create(position, size, name, spriteName);
+    OGButton(std::string name, std::string spriteName, glm::vec2 position, glm::vec2 size, glm::vec4 colorAlpha, std::function<void()> onTap) {
+        create(position, size, name, spriteName, colorAlpha);
         setOnTap(onTap);
     }
 
-    void create(const glm::vec2 &origin, const glm::vec2 &size, const std::string &text, const std::string &spriteName);
+    void create(const glm::vec2 &origin, const glm::vec2 &size, const std::string &text, const std::string &spriteName, const glm::vec4 colorAlpha);
 
     bool handleInput(const glm::vec2& touchPosition, bool pressed);
 
@@ -25,6 +24,7 @@ protected:
     std::string m_text;
     glm::vec2 m_position;
     glm::vec2 m_size;
+    glm::vec4 m_colorAlpha;
     uint32_t m_spriteInstanceId;
     std::function<void()> m_onTap;
 };

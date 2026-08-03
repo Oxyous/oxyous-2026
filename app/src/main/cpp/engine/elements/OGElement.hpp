@@ -39,6 +39,7 @@ protected:
     glm::mat4 m_transform;
     glm::mat4 m_translation;
     glm::mat4 m_size;
+    glm::vec4 m_colorAlpha;
     bool m_visible = true;
 };
 
@@ -50,7 +51,7 @@ public:
 
     void update(float delta) override;
 
-    void create(const glm::vec2 &origin, const glm::vec2 &size);
+    void create(const glm::vec2 &origin, const glm::vec2 &size, const glm::vec4 colorAlpha = glm::vec4(1.0f));
 
     bool handleInput(const glm::vec2& touchPosition, bool pressed) override;
 

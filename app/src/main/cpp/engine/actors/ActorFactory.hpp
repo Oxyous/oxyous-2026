@@ -25,7 +25,7 @@ public:
 
         auto meshComp = actor->template addComponent<OGSkeletalMeshComponent>();
         if (meshComp) {
-            auto skeletalMesh = RESOURCE_MANAGER->get<GPUSkeletalMeshResource>("animations/player/player.gmesh");
+            auto skeletalMesh = RESOURCE_MANAGER->get<GPUSkeletalMeshResource>("animations/player2/player.gmesh");
             if (skeletalMesh) {
                 meshComp->setMeshResource(skeletalMesh);
             }
@@ -44,10 +44,10 @@ public:
         actor->setName("player");
         actor->setTranslation(glm::vec3(-2.0f, 0.0f, 2.0f));
 
-        actor->setProjectionMatrix(glm::perspective(glm::radians(60.0f),
+        actor->setProjectionMatrix(glm::perspective(glm::radians(45.0f),
                                                     (float) SWAPCHAIN->getExtent().width /
-                                                    (float) SWAPCHAIN->getExtent().width,
-                                                    0.1f, 10000.0f));
+                                                    (float) SWAPCHAIN->getExtent().height,
+                                                    0.75f, 1000.0f));
 
         auto collision = actor->template addComponent<OGCollisionComponent>();
         collision->setVolume(std::unique_ptr<CapsuleVolume>(
@@ -55,7 +55,7 @@ public:
                                                 glm::vec3(0.0f, 1.0f, 0.0f), 0.25f)));
 
         auto playerPhys = actor->template addComponent<OGPhysicsComponent>();
-        playerPhys->setMass(1.0f);
+        playerPhys->setMass(1.25f);
         playerPhys->setVelocity(glm::vec3(0.0f, 0.0f, 0.0f));
         playerPhys->setAngularVelocity(glm::vec3(0.0f, 0.0f, 0.0f));
         playerPhys->setAcceleration(glm::vec3(0.0f, 0.0f, 0.0f));
@@ -77,7 +77,7 @@ public:
         actor->setTranslation(glm::vec3(-3.0f, 0.0f, 2.0f));
         auto skeletalMesh = actor->template addComponent<OGSkeletalMeshComponent>();
         if (skeletalMesh) {
-            auto meshResource = RESOURCE_MANAGER->get<GPUSkeletalMeshResource>("animations/player/player.gmesh");
+            auto meshResource = RESOURCE_MANAGER->get<GPUSkeletalMeshResource>("animations/player2/player.gmesh");
 
             if (meshResource) {
                 skeletalMesh->setMeshResource(meshResource);

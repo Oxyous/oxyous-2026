@@ -15,6 +15,7 @@ void OGRect::draw(VkCommandBuffer& commandBuffer, uint32_t frame) {
     pc.transform = getTransform();
     pc.textureIndex = m_textureIndex;
     pc.objectIndex = m_objectIndex;
+    pc.colorAlpha = m_colorAlpha;
     vkCmdPushConstants(commandBuffer, SCREEN_RENDER->getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PCScreenElements), &pc);
 
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, &m_vertexBuffer.buffer, &m_vertexBuffer.offset);
@@ -32,7 +33,7 @@ void OGRect::update(float delta) {
     SCREEN_RENDER->updateElement(m_objectIndex, handle);
 }
 
-void OGRect::create(const glm::vec2 &origin, const glm::vec2 &size) {
+void OGRect::create(const glm::vec2 &origin, const glm::vec2 &size, const glm::vec4 colorAlpha) {
 
     GPUElementHandle handle{};
     handle.transform = m_transform;
@@ -64,6 +65,7 @@ void OGRect::create(const glm::vec2 &origin, const glm::vec2 &size) {
     }
 
     m_size = glm::scale(glm::mat4(1.0f), glm::vec3(size, 1.0f));
+    m_colorAlpha = colorAlpha;
 
     m_textureIndex = SCREEN_RENDER->registerTexture(*RESOURCE_MANAGER->get<GPUTextureResource>("thumbstick-bkg.png")->get());
 }

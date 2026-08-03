@@ -14,8 +14,8 @@ bool OGCharacter::initialize() {
     }
 
     // Load animations if they aren't already loaded by the manager
-    ANIMATION_MANAGER->loadAnimation("npc-idle", "animations/player/default.ganim");
-    ANIMATION_MANAGER->loadAnimation("npc-walk", "animations/player/run-forward.ganim");
+    ANIMATION_MANAGER->loadAnimation("npc-idle", "animations/player2/idle-anim.ganim");
+    ANIMATION_MANAGER->loadAnimation("npc-walk", "animations/player2/run-anim.ganim");
 
     m_idleAnimation = ANIMATION_MANAGER->getAnimation("npc-idle");
     m_runAnimation = ANIMATION_MANAGER->getAnimation("npc-walk");

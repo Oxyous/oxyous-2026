@@ -37,6 +37,8 @@ public:
 
     float getTemperature();
 
+    void onTimeoutCallback(std::function<void()> func, int msDelay);
+
 private:
     struct timespec startTime, endTime, previousTime;
     double m_deltaTime;

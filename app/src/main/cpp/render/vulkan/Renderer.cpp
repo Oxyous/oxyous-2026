@@ -176,7 +176,7 @@ bool Renderer::initialize(ANativeWindow *window) {
         postProcess->updateDescriptors();
     }
 
-    const auto projection = glm::perspective(glm::radians(60.0f), (float) m_width / (float) m_height, 0.1f, 10000.0f);
+    const auto projection = glm::perspective(glm::radians(60.0f), (float) m_width / (float) m_height, 0.75f, 1000.0f);
 
     ENGINE->setCameraProjection(projection);
 
@@ -653,7 +653,7 @@ void Renderer::update(double delta) {
     m_sharedCSMData = RenderHelper::computeCSMMatrices(
             ENGINE->getCameraProjection(),
             ENGINE->getCameraView(),
-            0.1f,
+            1.0f,
             1000.0f,
             1024, // Consistent resolution for stable computation
             glm::vec3(0.5f, 1.0f, 0.5f));

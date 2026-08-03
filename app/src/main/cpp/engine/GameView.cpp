@@ -45,7 +45,7 @@ void GameView::render() {
 
 void GameView::update(double deltaTime) {
 
-    for (const auto& entity: m_dynamicEntities) {
+    for (const auto &entity: m_dynamicEntities) {
         entity->update(deltaTime);
     }
 
@@ -59,7 +59,8 @@ void GameView::update(double deltaTime) {
         m_camFrustum.update(ENGINE->getCameraProjection(), ENGINE->getCameraView());
     }
 
-    (std::dynamic_pointer_cast<OGPlayerActor>(GAME_VIEW->getActivePlayer()))->handleInput(deltaTime);
+    (std::dynamic_pointer_cast<OGPlayerActor>(GAME_VIEW->getActivePlayer()))->handleInput(
+            deltaTime);
 }
 
 bool GameView::initialize() {
@@ -82,7 +83,8 @@ bool GameView::initialize() {
     /* Prepare Render Pipelines */
     const auto &deferred = ENGINE->createPipeline<Deferred>("deferred");
 
-    const auto &skinnedDeferred = ENGINE->createPipeline<SkeletalMeshPipeline>("skinned-deferred", deferred);
+    const auto &skinnedDeferred = ENGINE->createPipeline<SkeletalMeshPipeline>("skinned-deferred",
+                                                                               deferred);
 
     const auto &postProcess = ENGINE->createPipeline<PostProcess>("post-process");
 
@@ -189,34 +191,43 @@ bool GameView::initialize() {
 
     /** Create UI Elements Button etc*/
     UI->addButton(new OGButton("button1", "sm-button", glm::vec2(100, 500),
-                               glm::vec2(128 * 2.5, 32 * 2.5), []() {
+                               glm::vec2(128 * 2.5, 32 * 2.5),
+                               glm::vec4(1.0f,1.0f,1.0f,0.2f),[]() {
                 aout << "Button 1 clicked!" << std::endl;
                 ENGINE->setGameModeFly(!ENGINE->isGameModeFly());
             }));
 
     /** Create UI Elements Button etc*/
     UI->addButton(new OGButton("button2", "bvh-debug", glm::vec2(100, 700),
-                               glm::vec2(128 * 2.5, 32 * 2.5), [&]() {
+                               glm::vec2(128 * 2.5, 32 * 2.5),glm::vec4(1.0f), [&]() {
                 aout << "Button 2 clicked!" << std::endl;
                 ENGINE->setDemoCulling(!ENGINE->isDemoCulling());
             }));
 
     /** Create UI Elements Button etc */
     UI->addButton(new OGButton("button3", "bvh-debug", glm::vec2(900, 32),
-                               glm::vec2(128 * 2.5, 32 * 2.5), [&]() {
-                    auto physicsObjects = GAME_VIEW->getDynamicObjects();
-                    float i =0;
-                    for (auto obj : physicsObjects) {
-                        auto physComp = obj->getComponent<OGPhysicsComponent>();
-                        const auto isPlayer = dynamic_cast<OGPlayerActor*>(obj);
-                        if (physComp && physComp->getMass() == 0.8f && !isPlayer) {
-                            obj->setTranslation(glm::vec3(10.0f, 5.0f + i, 10.0f));
-                            physComp->setAwake(true);
-                            physComp->setVelocity(glm::vec3(0.0f, 9.81f, 0.0f));
-                            physComp->setMotion(10.0f);
-                        }
-                        i += 5.0f;
+                               glm::vec2(128 * 2.5, 32 * 2.5), glm::vec4(1.0f), [&]() {
+                auto physicsObjects = GAME_VIEW->getDynamicObjects();
+                float i = 0;
+                for (auto obj: physicsObjects) {
+                    auto physComp = obj->getComponent<OGPhysicsComponent>();
+                    const auto isPlayer = dynamic_cast<OGPlayerActor *>(obj);
+                    if (physComp && !isPlayer) {
+                        obj->setTranslation(glm::vec3(10.0f, 5.0f + i, 10.0f));
+                        physComp->setAwake(true);
+                        physComp->setVelocity(glm::vec3(0.0f, 9.81f, 0.0f));
+                        physComp->setMotion(10.0f);
                     }
+                    i += 5.0f;
+                }
+            }));
+
+    UI->addButton(new OGButton("button4", "bvh-debug", glm::vec2(2100, 540),
+                               glm::vec2(128 * 2.5, 32 * 2.5), glm::vec4(1.0f), [&]() {
+                auto player = ((OGPlayerActor*)GAME_VIEW->getActivePlayer().get());
+                if (player) {
+                    player->jump();
+                }
             }));
 
     /** Create Player Character */
@@ -263,8 +274,8 @@ bool GameView::initialize() {
     buildStaticVolumes(staticVolumes);
     ENGINE->buildStaticBVH(staticVolumes);
 
-    for(const auto& [name,entity]: m_entities) {
-        if(entity)
+    for (const auto &[name, entity]: m_entities) {
+        if (entity)
             entity->update(1.0f);
     }
 

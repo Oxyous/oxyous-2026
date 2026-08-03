@@ -303,7 +303,7 @@ void ScreenSpace::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
 
     std::stringstream ss;
     ss << "FPS : " << SYS_TIMER->getFPS();
-    UI->drawString(commandBuffer, ss.str(), 32.0f,64.0f, 1.0f);
+    UI->drawString(commandBuffer, ss.str(), 32.0f,64.0f, 1.0f, glm::vec4(1.0f,1.0f,1.0f,0.25f));
 
     ss.str("");
     ss.clear();
@@ -345,6 +345,18 @@ void ScreenSpace::record(VkCommandBuffer commandBuffer, uint64_t currentFrame,
 
     ss << "Temperature:" << SYS_TIMER->getTemperature();
     UI->drawString(commandBuffer, ss.str(), 32.0f, 320.0f, 1.0f);
+
+    ss.str("");
+    ss.clear();
+
+    ss << "Thumbstick Left: " << ENGINE->getThumbStick(THUMBSTICK_LEFT)->getPosition().x << ", " << ENGINE->getThumbStick(THUMBSTICK_LEFT)->getPosition().y;
+    UI->drawString(commandBuffer, ss.str(), 32.0f, 384.0f, 1.0f);
+
+    ss.str("");
+    ss.clear();
+
+    ss << "Thumbstick Right: " << ENGINE->getThumbStick(THUMBSTICK_RIGHT)->getPosition().x << ", " << ENGINE->getThumbStick(THUMBSTICK_RIGHT)->getPosition().y;
+    UI->drawString(commandBuffer, ss.str(), 32.0f, 448.0f, 1.0f);
 
     ss.str("");
     ss.clear();

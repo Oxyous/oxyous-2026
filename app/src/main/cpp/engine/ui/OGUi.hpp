@@ -41,7 +41,7 @@ public:
     const std::vector<std::unique_ptr<OGElement>> &getElements() const;
 
     /** Draw String */
-    void drawString(VkCommandBuffer cmd, const std::string &text, float x, float y, float scale = 1.0f);
+    void drawString(VkCommandBuffer cmd, const std::string &text, float x, float y, float scale = 1.0f, glm::vec4 colorAlpha = glm::vec4(1.0f));
 
     /** Remove All Elements*/
     void clearElements();
@@ -50,7 +50,7 @@ public:
     void clearInstances();
 
     /** Add Sprite Texture Atlas */
-    uint32_t addSprite(const std::string &spriteTextureName, glm::vec2 position, glm::vec2 scale);
+    uint32_t addSprite(const std::string &spriteTextureName, glm::vec2 position, glm::vec2 scale, glm::vec4 colorAlpha = glm::vec4(1.0f));
 
     /** Load Sprite Asset */
     bool loadSpriteAsset(const std::string &assetPath, const std::string &spriteSheetName);

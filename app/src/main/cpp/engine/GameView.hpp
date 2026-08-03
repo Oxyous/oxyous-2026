@@ -150,7 +150,7 @@ public:
     }
 
     /** Get Active Player */
-    std::shared_ptr<OGActor> getActivePlayer() const {
+    std::shared_ptr<OGActor> getActivePlayer() {
         return m_activePlayer;
     }
 

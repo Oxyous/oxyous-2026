@@ -22,7 +22,7 @@ public:
         const float m32 = projectionMatrix[3][2];
 
         if (std::abs(m22) < 1e-6f || std::abs(m22 + 1.0f) < 1e-6f) {
-            nearPlane = 0.1f;
+            nearPlane = 0.75f;
             farPlane = 1000.0f;
             return;
         }
@@ -31,7 +31,7 @@ public:
         farPlane = m32 / (m22 + 1.0f);
 
         if (!(nearPlane > 0.0f) || !(farPlane > nearPlane)) {
-            nearPlane = 0.1f;
+            nearPlane = 0.75f;
             farPlane = 1000.0f;
         }
     }

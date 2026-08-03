@@ -153,10 +153,9 @@ FreeTypeFont::~FreeTypeFont() {
 }
 
 void FreeTypeFont::renderString(VkCommandBuffer &cmd, const std::string &text, float x, float y,
-                                float scale) {
+                                float scale, glm::vec4 colorAlpha) {
 
     vkCmdBindVertexBuffers(cmd, 0, 1, &m_vertexBuffer.buffer, &m_vertexBuffer.offset);
-
 
     for (const char &c: text) {
         auto it = m_characters.find(c);
@@ -174,12 +173,13 @@ void FreeTypeFont::renderString(VkCommandBuffer &cmd, const std::string &text, f
         model = glm::scale(model, glm::vec3(w / 2.0f, h / 2.0f, 1.0f));
         handle.transform = model;
         handle.textureId = ch.textureId;
-        // SCREEN_RENDER->updateElement(ch.objectId, handle);
 
         PCScreenElements pc = {};
         pc.transform = model;
         pc.objectIndex = ch.objectId;
         pc.textureIndex = ch.textureId;
+        pc.colorAlpha = colorAlpha;
+
         vkCmdPushConstants(cmd, SCREEN_RENDER->getPipelineLayout(),
                            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                            sizeof(PCScreenElements), &pc);

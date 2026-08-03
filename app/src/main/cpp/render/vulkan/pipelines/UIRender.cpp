@@ -80,7 +80,7 @@ bool UIRender::initialize() {
     bindingDescription[1].stride = sizeof(SpriteInstance);
     bindingDescription[1].inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
 
-    std::array<VkVertexInputAttributeDescription, 6> attributeDescriptions{};
+    std::array<VkVertexInputAttributeDescription, 7> attributeDescriptions{};
     attributeDescriptions[0].binding = 0;
     attributeDescriptions[0].location = 0;
     attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
@@ -111,6 +111,11 @@ bool UIRender::initialize() {
     attributeDescriptions[5].location = 5;
     attributeDescriptions[5].format = VK_FORMAT_R32G32_SFLOAT;
     attributeDescriptions[5].offset = offsetof(SpriteInstance, uvScale);
+
+    attributeDescriptions[6].binding = 1;
+    attributeDescriptions[6].location = 6;
+    attributeDescriptions[6].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    attributeDescriptions[6].offset = offsetof(SpriteInstance, colorAlpha);
 
     /** Create Pipeline info */
 
@@ -379,9 +384,6 @@ void UIRender::record(VkCommandBuffer cmd, uint64_t currentFrame, VkFramebuffer 
     if (!instances.empty()) {
         vkCmdDrawIndexed(cmd, static_cast<uint32_t>(sizeof(spriteIndices) / sizeof(uint16_t)), static_cast<uint32_t>(instances.size()), 0, 0, 0);
     }
-
-
-
     vkCmdEndRenderPass(cmd);
 
 }

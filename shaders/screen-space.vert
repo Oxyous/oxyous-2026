@@ -35,6 +35,7 @@ out VS_OUTPUT
 layout(push_constant) uniform PushConstants
 {
     mat4 model;
+    vec4 colorAlpha;
     uint textureIndex;
     uint objectIndex;
 } pc;
@@ -49,4 +50,5 @@ void main()
 
     vec4 world = pc.model * vec4(position, 0.0, 1.0);
     gl_Position = orthoProjection * world;
+
 }

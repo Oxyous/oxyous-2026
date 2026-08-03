@@ -7,10 +7,11 @@
 #include "ScreenSpaceRenderer.hpp"
 #include "engine/ui/OGUi.hpp"
 
-void OGButton::create(const glm::vec2 &origin, const glm::vec2 &size, const std::string &text, const std::string& spriteName) {
+void OGButton::create(const glm::vec2 &origin, const glm::vec2 &size, const std::string &text, const std::string& spriteName, glm::vec4 colorAlpha) {
     m_position = origin;
     m_size = size;
-    m_spriteInstanceId = UI->addSprite(spriteName, origin, size);
+    m_colorAlpha = colorAlpha;
+    m_spriteInstanceId = UI->addSprite(spriteName, origin, size, colorAlpha);
 }
 
 void OGButton::setOnTap(std::function<void()> onTap) {

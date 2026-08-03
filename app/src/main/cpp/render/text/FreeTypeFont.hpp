@@ -17,7 +17,7 @@ public:
     bool initializeFont(const std::string& fontFile);
 
     /* Render String */
-    void renderString(VkCommandBuffer& cmd, const std::string& text, float x, float y, float scale);
+    void renderString(VkCommandBuffer& cmd, const std::string& text, float x, float y, float scale = 1.0f, glm::vec4 colorAlpha = glm::vec4(1.0f));
 
 private:
     FT_Library m_ftLibrary;

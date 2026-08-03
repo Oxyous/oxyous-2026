@@ -97,6 +97,7 @@ typedef struct SpriteInstance {
     glm::vec2 size;
     glm::vec2 uvOffset;
     glm::vec2 uvScale;
+    glm::vec4 colorAlpha;
 }SpriteInstance;
 
 /** Animated Mesh File Header */
@@ -477,6 +478,7 @@ typedef struct BindlessRenderer2D {
 
 typedef struct PCScreenElements {
     glm::mat4 transform;
+    glm::vec4 colorAlpha;
     uint32_t textureIndex;
     uint32_t objectIndex;
 } PCScreenElements;

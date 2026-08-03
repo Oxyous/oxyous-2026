@@ -7,8 +7,10 @@ layout(location = 2) in vec2 spritePos;
 layout(location = 3) in vec2 spriteSize;
 layout(location = 4) in vec2 spriteUVOffset;
 layout(location = 5) in vec2 spriteUVScale;
+layout(location = 6) in vec4 spriteColor;
 
 layout(location = 0) out vec2 fragUV;
+layout(location = 1) out vec4 fragColor;
 
 layout(push_constant) uniform PushConstants
 {
@@ -22,6 +24,7 @@ void main()
         inPos * spriteSize;
 
     fragUV = mix(spriteUVOffset.xy, spriteUVScale.xy, inUV);
+    fragColor = spriteColor;
 
     gl_Position =
         projection *

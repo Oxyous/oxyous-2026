@@ -11,6 +11,7 @@
 #include "engine/GPUResources.hpp"
 #include "engine/collision/CollisionHelper.hpp"
 #include "engine/GameView.hpp"
+#include "system/OGTimer.hpp"
 
 OGPlayerActor::OGPlayerActor() {
     m_yaw = 0.0f;
@@ -81,7 +82,7 @@ void OGPlayerActor::update(double deltaTime) {
     const auto &collision = getComponent<OGCollisionComponent>();
     auto physics = getComponent<OGPhysicsComponent>();
 
-    if (collision && physics) {
+    if (collision && physics && !m_isJumping) {
         const auto volume = collision->getCollisionVolume<CapsuleVolume>();
         if (volume) {
             float radius = volume->getRadius();
@@ -140,14 +141,14 @@ bool OGPlayerActor::initialize() {
     if (!OGActor::initialize()) {
         return false;
     }
-    ANIMATION_MANAGER->loadAnimation("default-player", "animations/player/default.ganim");
-    ANIMATION_MANAGER->loadAnimation("player-walk-forward", "animations/player/run-forward.ganim");
+    ANIMATION_MANAGER->loadAnimation("default-player", "animations/player2/idle-anim.ganim");
+    ANIMATION_MANAGER->loadAnimation("player-run", "animations/player2/run-anim.ganim");
 
     m_animationController.playAnimation(ANIMATION_MANAGER->getAnimation("default-player"));
-    m_animationController.playAnimation(ANIMATION_MANAGER->getAnimation("player-walk-forward"));
+    m_animationController.playAnimation(ANIMATION_MANAGER->getAnimation("player-run"));
 
     m_idleAnimation = ANIMATION_MANAGER->getAnimation("default-player");
-    m_runAnimation = ANIMATION_MANAGER->getAnimation("player-walk-forward");
+    m_runAnimation = ANIMATION_MANAGER->getAnimation("player-run");
 
     return true;
 }
@@ -233,5 +234,21 @@ void OGPlayerActor::handleInput(double deltaTime) {
     }
 
     m_viewMatrix = glm::lookAt(m_cameraPosition, target, glm::vec3(0.0f, 1.0f, 0.0f));
+}
+
+void OGPlayerActor::jump() {
+    if (m_isGrounded) {
+        auto physComp = getComponent<OGPhysicsComponent>();
+        if (physComp) {
+            physComp->setVelocity(glm::vec3(physComp->getVelocity().x, 2.5f, physComp->getVelocity().z));
+            physComp->setAwake(true);
+            setGrounded(false, 0.0f);
+            m_isJumping = true;
+
+            SYS_TIMER->onTimeoutCallback([this]() {
+                m_isJumping = false;
+            }, 500);
+        }
+    }
 }
 

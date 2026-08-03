@@ -4,6 +4,8 @@
 
 #include "OGTimer.hpp"
 #include <fstream>
+#include <thread>
+#include <chrono>
 
 void OGTimer::Start() {
     QueryPerformanceTimer(&m_previousTime);
@@ -116,4 +118,11 @@ float OGTimer::getTemperature() {
     }
 
     return -1.0f;
+}
+
+void OGTimer::onTimeoutCallback(std::function<void()> func, int msDelay) {
+    std::thread([func, msDelay](){
+        std::this_thread::sleep_for(std::chrono::milliseconds(msDelay));
+        func();
+    }).detach();
 }
