@@ -116,8 +116,16 @@ bool GameView::initialize() {
         return false;
     }
 
-    /* Test loading assets*/
-    auto mesh = RESOURCE_MANAGER->get<GPUStaticMeshResource>("blender.osm");
+    /* Start loading initial assets asynchronously */
+    auto blenderMeshFuture = ResourceManager::getAsync<GPUStaticMeshResource>("blender.osm");
+    auto boxMeshFuture = ResourceManager::getAsync<GPUStaticMeshResource>("box/box.osm");
+    auto boxAlbedoFuture = ResourceManager::getAsync<GPUTextureResource>("box/textures/box-diffuse.png");
+    auto boxNormalFuture = ResourceManager::getAsync<GPUTextureResource>("box/textures/box-normal.jpg");
+
+    /* Pre-fetch character resources */
+    auto playerMeshFuture = ResourceManager::getAsync<GPUSkeletalMeshResource>("animations/player2/player.gmesh");
+    auto playerDiffuseFuture = ResourceManager::getAsync<GPUTextureResource>("textures/player-diffuse.png");
+    auto playerNormalFuture = ResourceManager::getAsync<GPUTextureResource>("textures/player-nm.png");
 
     /* Prepare Game Logic*/
     if (!loadSceneFile("village/scene_graph.xml")) {
@@ -136,10 +144,13 @@ bool GameView::initialize() {
     /** Build Octree*/
     ENGINE->buildLevelOctree();
 
+    /* Await initial assets */
+    auto mesh = blenderMeshFuture.get();
+    auto boxMeshRes = boxMeshFuture.get();
+    auto boxAlbedo = boxAlbedoFuture.get();
+    auto boxNormal = boxNormalFuture.get();
+
     /** Box Resources */
-    auto boxMeshRes = RESOURCE_MANAGER->get<GPUStaticMeshResource>("box/box.osm");
-    auto boxAlbedo = RESOURCE_MANAGER->get<GPUTextureResource>("box/textures/box-diffuse.png");
-    auto boxNormal = RESOURCE_MANAGER->get<GPUTextureResource>("box/textures/box-normal.jpg");
 
     GPUMaterialHandle boxMaterial = {0, 0, 0, 0, 1.0f, 1.0f, 1.0f, 1.0f};
     boxMaterial.albedoIndex = GPU_RESOURCES->registerTexture(*boxAlbedo->get());
@@ -230,6 +241,11 @@ bool GameView::initialize() {
                 }
             }));
 
+    /* Await character resources */
+    playerMeshFuture.wait();
+    playerDiffuseFuture.wait();
+    playerNormalFuture.wait();
+
     /** Create Player Character */
     registerActor<OGPlayerActor>(ActorFactory::createPlayerActor());
 
@@ -308,6 +324,44 @@ bool GameView::loadSceneFile(const std::string &sceneFile) {
         return false;
     }
 
+    /* Phase 1: Pre-fetch resources in parallel */
+    std::vector<std::future<std::shared_ptr<GPUTextureResource>>> textureFutures;
+    std::vector<std::future<std::shared_ptr<GPUStaticMeshResource>>> meshFutures;
+
+    for (const auto &node: sceneRoot->getChildren()) {
+        if (node->getName() == "Material") {
+            const auto &attrs = node->getAttributes();
+            auto albedoAttr = attrs.find("albedo");
+            if (albedoAttr != attrs.end()) {
+                textureFutures.push_back(ResourceManager::getAsync<GPUTextureResource>(scenePath + "/textures/" + albedoAttr->second));
+            }
+            auto normalAttr = attrs.find("normal");
+            if (normalAttr != attrs.end()) {
+                textureFutures.push_back(ResourceManager::getAsync<GPUTextureResource>(scenePath + "/textures/" + normalAttr->second));
+            }
+            auto pbrAttr = attrs.find("pbr");
+            if (pbrAttr != attrs.end()) {
+                textureFutures.push_back(ResourceManager::getAsync<GPUTextureResource>(scenePath + "/textures/" + pbrAttr->second));
+            }
+        }
+
+        if (node->getName() == "Object") {
+            for (const auto &childElem: node->getChildren()) {
+                if (childElem->getName() == "MeshResource") {
+                    auto valueAttr = childElem->getAttributes().find("value");
+                    if (valueAttr != childElem->getAttributes().end()) {
+                        meshFutures.push_back(ResourceManager::getAsync<GPUStaticMeshResource>(scenePath + "/" + valueAttr->second + ".osm"));
+                    }
+                }
+            }
+        }
+    }
+
+    /* Wait for all pre-fetched resources to finish loading */
+    for (auto &f : textureFutures) f.wait();
+    for (auto &f : meshFutures) f.wait();
+
+    /* Phase 2: Process Materials and Objects (now mostly from cache) */
     for (const auto &node: sceneRoot->getChildren()) {
         if (node->getName() == "Material") {
             const auto &attrs = node->getAttributes();

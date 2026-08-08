@@ -5,7 +5,7 @@
 #include "GPUSkeletalMesh.hpp"
 #include "render/vulkan/RenderFramework.hpp"
 
-bool GPUSkeletalMeshResource::load(AAssetManager *assetManager, const std::vector<uint8_t> &data) {
+bool GPUSkeletalMeshResource::load(AAssetManager *assetManager) {
     auto meshAsset = AAssetManager_open(assetManager, m_assetPath.c_str(), AASSET_MODE_BUFFER);
 
     if (!meshAsset) {

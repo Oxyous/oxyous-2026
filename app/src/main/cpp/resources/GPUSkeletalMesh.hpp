@@ -74,7 +74,7 @@ public:
     }
 
     /** Load Skeletal Mesh Resource */
-    bool load(AAssetManager *assetManager, const std::vector<uint8_t> &data) override;
+    bool load(AAssetManager *assetManager) override;
 
     void destroy() override;
 

@@ -10,6 +10,8 @@
 #include "../system/OGSingleton.hpp"
 #include "../render/vulkan/DescriptorCache.hpp"
 #include <android/imagedecoder.h>
+#include <future>
+#include <mutex>
 
 template<typename T>
 class GPUResource {
@@ -23,7 +25,7 @@ public:
     virtual void destroy() = 0;
 
     /** Load resource from asset */
-    virtual bool load(AAssetManager *assetManager, const std::vector<uint8_t> &data) = 0;
+    virtual bool load(AAssetManager *assetManager) = 0;
 
     /** Get Resource*/
     virtual T *get() = 0;
@@ -118,9 +120,11 @@ public:
         AImageDecoder_delete(pAndroidDecoder);
         AAsset_close(resourceAsset);
 
-        data.resize(upAndroidImageData->size());
-        std::memcpy(data.data(), upAndroidImageData->data(), upAndroidImageData->size());
-        size = upAndroidImageData->size();
+        // upAndroidImageData already contains the decoded data.
+        // We move it to the output vector to avoid a full copy if possible,
+        // but since we need to match the signature, we'll just swap.
+        data.swap(*upAndroidImageData);
+        size = data.size();
         width = w;
         height = h;
 
@@ -130,24 +134,14 @@ public:
 public:
     /** Load Resource from Asset */
     template<typename T>
-    static std::shared_ptr<T> load(const std::string &assetPath, std::vector<uint8_t> &data) {
-        auto resourceAsset = AAssetManager_open(m_assetManager, assetPath.c_str(),
-                                                AASSET_MODE_BUFFER);
-        if (resourceAsset == nullptr) {
-            aout << "Failed to open asset: " << assetPath << std::endl;
-            return nullptr;
-        }
-
-        data.resize(AAsset_getLength(resourceAsset));
-        AAsset_read(resourceAsset, data.data(), data.size());
-        AAsset_close(resourceAsset);
-
+    static std::shared_ptr<T> load(const std::string &assetPath) {
         auto resource = std::make_shared<T>(assetPath);
-        if (!resource->load(m_assetManager, data)) {
+        if (!resource->load(m_assetManager)) {
             aout << "Failed to load resource: " << assetPath << std::endl;
             return nullptr;
         }
 
+        std::lock_guard<std::mutex> lock(m_resourceMutex);
         m_resources<T>[assetPath] = resource;
         return resource;
     }
@@ -155,23 +149,28 @@ public:
     /** Get or fetch (load) Resource */
     template<typename T>
     static std::shared_ptr<T> get(const std::string &assetPath) {
-        auto it = m_resources<T>.find(assetPath);
-        if (it != m_resources<T>.end()) {
-            return it->second;
+        {
+            std::lock_guard<std::mutex> lock(m_resourceMutex);
+            auto it = m_resources<T>.find(assetPath);
+            if (it != m_resources<T>.end()) {
+                return it->second;
+            }
         }
 
-        std::vector<uint8_t> data;
-        auto resource = load<T>(assetPath, data);
+        return load<T>(assetPath);
+    }
 
-        if (!resource) {
-            return nullptr;
-        }
-
-        return resource;
+    /** Get Resource Asynchronously */
+    template<typename T>
+    static std::future<std::shared_ptr<T>> getAsync(const std::string &assetPath) {
+        return std::async(std::launch::async, [assetPath]() {
+            return get<T>(assetPath);
+        });
     }
 
 private:
     inline static AAssetManager *m_assetManager = nullptr;
+    inline static std::mutex m_resourceMutex;
 private:
     template<typename T>
     inline static std::unordered_map<std::string, std::shared_ptr<T>> m_resources;

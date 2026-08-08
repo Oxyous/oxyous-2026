@@ -9,8 +9,11 @@
 #include "../../DataStructures.hpp"
 #include "../vulkan/RenderDevice.hpp"
 #include "../../resources/ResourceManager.hpp"
+#include <mutex>
 
 class RenderFramework {
+private:
+    inline static std::mutex m_frameworkMutex;
 public:
 
     /* Allocate Command Pool */
@@ -372,6 +375,7 @@ public:
     inline static bool
     createStagingBuffer(const void *data, uint32_t dataSize, VkBufferUsageFlagBits usage,
                         GPUBuffer *buffer) {
+        std::lock_guard<std::mutex> lock(m_frameworkMutex);
         VkDevice device = RENDER_DEVICE->getDevice();
 
         GPUBuffer stagingBuffer;
@@ -447,6 +451,7 @@ public:
     inline static bool
     createGpuTexture(const void *data, uint32_t dataSize, VkFormat format, int width, int height,
                      std::shared_ptr<GPUTexture> texture, VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT) {
+        std::lock_guard<std::mutex> lock(m_frameworkMutex);
         VkDevice device = RENDER_DEVICE->getDevice();
 
         if (!texture) {

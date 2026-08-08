@@ -34,7 +34,18 @@ void GPUStaticMesh::render(VkCommandBuffer &commandBuffer) {
 }
 
 /* Load Vertices/Indexes from raw data */
-bool GPUStaticMeshResource::load(AAssetManager *assetManager, const std::vector<uint8_t> &data) {
+bool GPUStaticMeshResource::load(AAssetManager *assetManager) {
+    auto resourceAsset = AAssetManager_open(assetManager, m_assetPath.c_str(),
+                                            AASSET_MODE_BUFFER);
+    if (resourceAsset == nullptr) {
+        aout << "Failed to open asset: " << m_assetPath << std::endl;
+        return false;
+    }
+
+    size_t length = AAsset_getLength(resourceAsset);
+    std::vector<uint8_t> data(length);
+    AAsset_read(resourceAsset, data.data(), length);
+    AAsset_close(resourceAsset);
 
     auto dataPtr = data.data();
 

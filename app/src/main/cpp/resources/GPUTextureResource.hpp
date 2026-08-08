@@ -25,7 +25,7 @@ public:
     virtual ~GPUTextureResource() = default;
 
     /* */
-    bool load(AAssetManager *assetManager, const std::vector<uint8_t> &data) override;
+    bool load(AAssetManager *assetManager) override;
 
     /* */
     virtual GPUTexture* get() override;

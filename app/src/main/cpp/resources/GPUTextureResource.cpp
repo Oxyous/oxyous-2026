@@ -6,7 +6,7 @@
 #include "../render/vulkan/RenderFramework.hpp"
 #include <android/imagedecoder.h>
 
-bool GPUTextureResource::load(AAssetManager *assetManager, const std::vector<uint8_t> &data) {
+bool GPUTextureResource::load(AAssetManager *assetManager) {
 
     auto textureAsset = AAssetManager_open(assetManager, m_assetPath.c_str(), AASSET_MODE_BUFFER);
     if (textureAsset == nullptr) {
@@ -18,6 +18,7 @@ bool GPUTextureResource::load(AAssetManager *assetManager, const std::vector<uin
     auto res = AImageDecoder_createFromAAsset(textureAsset, &pAndroidDecoder);
     if (res != ANDROID_IMAGE_DECODER_SUCCESS) {
         aout << "Failed to create image decoder" << std::endl;
+        AAsset_close(textureAsset);
         return false;
     }
 
@@ -30,28 +31,43 @@ bool GPUTextureResource::load(AAssetManager *assetManager, const std::vector<uin
     auto height = AImageDecoderHeaderInfo_getHeight(pAndroidHeader);
     auto stride = AImageDecoder_getMinimumStride(pAndroidDecoder);
 
-    auto upAndroidImageData = std::make_unique<std::vector<uint8_t>>(height * stride);
+    size_t packedSize = static_cast<size_t>(width) * static_cast<size_t>(height) * 4u;
+    std::vector<uint8_t> packedImageData(packedSize);
 
-    auto decodeResults = AImageDecoder_decodeImage(pAndroidDecoder, upAndroidImageData->data(),
-                                                   stride, upAndroidImageData->size());
+    // If stride matches packed width, we can decode directly into the final buffer
+    if (stride == width * 4u) {
+        auto decodeResults = AImageDecoder_decodeImage(pAndroidDecoder, packedImageData.data(),
+                                                       stride, packedImageData.size());
+        if (decodeResults != ANDROID_IMAGE_DECODER_SUCCESS) {
+            aout << "Failed to decode image" << std::endl;
+            AImageDecoder_delete(pAndroidDecoder);
+            AAsset_close(textureAsset);
+            return false;
+        }
+    } else {
+        auto upAndroidImageData = std::make_unique<std::vector<uint8_t>>(height * stride);
+        auto decodeResults = AImageDecoder_decodeImage(pAndroidDecoder, upAndroidImageData->data(),
+                                                       stride, upAndroidImageData->size());
+        if (decodeResults != ANDROID_IMAGE_DECODER_SUCCESS) {
+            aout << "Failed to decode image" << std::endl;
+            AImageDecoder_delete(pAndroidDecoder);
+            AAsset_close(textureAsset);
+            return false;
+        }
 
-    if (decodeResults != ANDROID_IMAGE_DECODER_SUCCESS) {
-        aout << "Failed to decode image" << std::endl;
-        return false;
+        const size_t rowBytes = static_cast<size_t>(width) * 4u;
+        for (int y = 0; y < height; ++y) {
+            std::memcpy(
+                    packedImageData.data() + static_cast<size_t>(y) * rowBytes,
+                    upAndroidImageData->data() + static_cast<size_t>(y) * static_cast<size_t>(stride),
+                    rowBytes);
+        }
     }
 
     AImageDecoder_delete(pAndroidDecoder);
     AAsset_close(textureAsset);
-    std::vector<uint8_t> packedImageData(static_cast<size_t>(width) * static_cast<size_t>(height) * 4u);
-    const size_t rowBytes = static_cast<size_t>(width) * 4u;
-    for (int y = 0; y < height; ++y) {
-        std::memcpy(
-                packedImageData.data() + static_cast<size_t>(y) * rowBytes,
-                upAndroidImageData->data() + static_cast<size_t>(y) * static_cast<size_t>(stride),
-                rowBytes);
-    }
 
-    m_texture = std::make_unique<GPUTexture>();
+    m_texture = std::make_shared<GPUTexture>();
     if (!RenderFramework::createGpuTexture(
             packedImageData.data(),
             static_cast<uint32_t>(packedImageData.size()),

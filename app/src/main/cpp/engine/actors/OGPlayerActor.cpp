@@ -141,8 +141,17 @@ bool OGPlayerActor::initialize() {
     if (!OGActor::initialize()) {
         return false;
     }
-    ANIMATION_MANAGER->loadAnimation("default-player", "animations/player2/idle-anim.ganim");
-    ANIMATION_MANAGER->loadAnimation("player-run", "animations/player2/run-anim.ganim");
+
+    /* Load animations in parallel */
+    auto anim1Future = std::async(std::launch::async, []() {
+        return ANIMATION_MANAGER->loadAnimation("default-player", "animations/player2/idle-anim.ganim");
+    });
+    auto anim2Future = std::async(std::launch::async, []() {
+        return ANIMATION_MANAGER->loadAnimation("player-run", "animations/player2/run-anim.ganim");
+    });
+
+    anim1Future.get();
+    anim2Future.get();
 
     m_animationController.playAnimation(ANIMATION_MANAGER->getAnimation("default-player"));
     m_animationController.playAnimation(ANIMATION_MANAGER->getAnimation("player-run"));
