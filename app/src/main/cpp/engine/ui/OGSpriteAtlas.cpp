@@ -21,7 +21,7 @@ bool OGSpriteAtlas::loadSprite(const std::string &assetPath, const std::string &
     /* Load XML Sprite Sheet data */
     std::vector<std::unique_ptr<OGXmlNode>> nodes;
 
-    if (!OGXml::loadGXml(spriteName + ".xml", nodes)) {
+    if (!OGXml::loadGXml(assetPath + spriteName + ".xml", nodes)) {
         aout << "Error: Failed to load sprite sheet XML: " << assetPath << std::endl;
         return false;
     }

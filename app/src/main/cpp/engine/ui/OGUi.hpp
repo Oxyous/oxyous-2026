@@ -12,6 +12,9 @@
 #include "OGSpriteAtlas.hpp"
 #include "engine/elements/OGButton.hpp"
 
+class UIWidget;
+class UILayer;
+
 class OGUi {
 public:
     OGUi() = default;
@@ -73,11 +76,23 @@ public:
     /** Handle Input for UI Elements */
     bool handleInput(const glm::vec2& touchPosition, bool pressed);
 
+    /** Create a new UI layer */
+    UILayer & addLayer(const std::string& name);
+
+    /** Get a UI layer by name */
+    UILayer* getLayer(const std::string& name);
+
+    /** Get all UI layers */
+    std::vector<std::shared_ptr<UILayer>>& getLayers() { return m_layers; }
+
 protected:
     std::vector<std::unique_ptr<OGElement>> m_elements;
     std::vector<OGButton*> m_buttons;
     std::vector<SpriteInstance> m_instances;
+    std::vector<std::shared_ptr<UILayer>> m_layers;
     OGSpriteAtlas m_atlas;
+
+    std::vector<std::unique_ptr<UIWidget>> m_widgets;
 
     GPUBuffer m_vertexBuffer;
     GPUBuffer m_indexBuffer;
@@ -86,5 +101,7 @@ private:
 };
 
 #define UI OGSingleton<OGUi>::getInstance()
+
+#include "UILayer.hpp"
 
 #endif //OXYOUS_2026_OGUI_HPP

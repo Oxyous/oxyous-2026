@@ -38,6 +38,7 @@
 #include "engine/components/OGSkeletalMeshComponent.hpp"
 #include "engine/animation/OGAnimationManager.hpp"
 #include "engine/actors/ActorFactory.hpp"
+#include "./ui/UIWidget.hpp"
 
 void GameView::render() {
 
@@ -112,7 +113,7 @@ bool GameView::initialize() {
         return false;
     }
 
-    if (!UI->loadSpriteAsset("", "sprite-ui")) {
+    if (!UI->loadSpriteAsset("ui/", "game-ui")) {
         return false;
     }
 
@@ -201,16 +202,16 @@ bool GameView::initialize() {
     };
 
     /** Create UI Elements Button etc*/
-    UI->addButton(new OGButton("button1", "sm-button", glm::vec2(100, 500),
-                               glm::vec2(128 * 2.5, 32 * 2.5),
-                               glm::vec4(1.0f,1.0f,1.0f,0.2f),[]() {
+    UI->addButton(new OGButton("button1", "character-avatar", glm::vec2(100, 500),
+                               glm::vec2(256, 256),
+                               glm::vec4(1.0f,1.0f,1.0f,1.0f),[]() {
                 aout << "Button 1 clicked!" << std::endl;
                 ENGINE->setGameModeFly(!ENGINE->isGameModeFly());
             }));
 
     /** Create UI Elements Button etc*/
-    UI->addButton(new OGButton("button2", "bvh-debug", glm::vec2(100, 700),
-                               glm::vec2(128 * 2.5, 32 * 2.5),glm::vec4(1.0f), [&]() {
+    UI->addButton(new OGButton("button2", "target", glm::vec2(100, 700),
+                               glm::vec2(256, 256),glm::vec4(1.0f), [&]() {
                 aout << "Button 2 clicked!" << std::endl;
                 ENGINE->setDemoCulling(!ENGINE->isDemoCulling());
             }));
@@ -240,6 +241,23 @@ bool GameView::initialize() {
                     player->jump();
                 }
             }));
+
+    auto& menuLayer = UI->addLayer("action-menu");
+
+    auto backButton = std::make_shared<UIButtonWidget>(UIProperties{
+        .onTapCallback = [&]() {
+            aout << "Back button clicked!" << std::endl;
+        },
+        .atlasSprite = "manor-bar",
+        .position = glm::vec2(100, 100),
+        .screenSize = glm::vec2(448, 96),
+        .colorAlpha = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)
+    });
+
+    auto attackMenu = std::make_shared<UIMenu>();
+    attackMenu->addChild(backButton);
+
+    menuLayer.addChild(attackMenu);
 
     /* Await character resources */
     playerMeshFuture.wait();

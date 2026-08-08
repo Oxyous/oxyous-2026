@@ -28,5 +28,6 @@ bool OGButton::handleInput(const glm::vec2 &touchPos, bool pressed) {
         }
         return true;
     }
+
     return isInside;
 }

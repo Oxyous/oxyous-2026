@@ -380,12 +380,14 @@ void UIRender::record(VkCommandBuffer cmd, uint64_t currentFrame, VkFramebuffer 
 
     vkCmdPushConstants(cmd, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::mat4), &ortho);
 
-    auto& instances = UI->getInstances();
-    if (!instances.empty()) {
-        vkCmdDrawIndexed(cmd, static_cast<uint32_t>(sizeof(spriteIndices) / sizeof(uint16_t)), static_cast<uint32_t>(instances.size()), 0, 0, 0);
+    for (const auto& layer : UI->getLayers()) {
+        const auto &instances = layer->getInstances();
+        if (!instances.empty()) {
+            vkCmdDrawIndexed(cmd, static_cast<uint32_t>(sizeof(spriteIndices) / sizeof(uint16_t)), static_cast<uint32_t>(instances.size()), 0, 0, 0);
+        }
     }
-    vkCmdEndRenderPass(cmd);
 
+    vkCmdEndRenderPass(cmd);
 }
 
 void UIRender::setRenderPass(VkRenderPass renderPass) {
@@ -490,8 +492,10 @@ bool UIRender::initializeDescriptorPool() {
 }
 
 void UIRender::updateInstances() {
-    auto& instances = UI->getInstances();
-    if (!instances.empty()) {
+    auto &layers = UI->getLayers();
+
+    for (const auto& layer : layers) {
+        const auto &instances = layer->getInstances();
         const VkDeviceSize uploadSize = sizeof(SpriteInstance) * instances.size();
         if (uploadSize > m_instanceBuffer.size) {
             aout << "UIRender::updateInstances overflow: " << uploadSize

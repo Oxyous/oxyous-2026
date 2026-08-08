@@ -10,6 +10,9 @@ bool OGUi::initializeUI() {
         throw std::runtime_error("Error: loading font");
         return false;
     }
+
+    addLayer("default");
+
     return true;
 }
 
@@ -17,15 +20,20 @@ bool OGUi::initializeUI() {
 uint32_t OGUi::addSprite(const std::string& spriteTextureName, glm::vec2 position, glm::vec2 scale, glm::vec4 colorAlpha) {
     uint32_t instanceId = -1;
     auto* spriteData = m_atlas.getSpriteData(spriteTextureName);
-    if(spriteData) {
+    if (spriteData) {
         SpriteInstance instance;
         instance.position = position;
         instance.size = scale;
         instance.uvOffset = {spriteData->x, spriteData->y};
         instance.uvScale = {spriteData->width, spriteData->height};
         instance.colorAlpha = colorAlpha;
-        instanceId = static_cast<uint32_t>(m_instances.size());
-        m_instances.push_back(instance);
+        auto layer = getLayer("default");
+        //instanceId = static_cast<uint32_t>(layer->getInstanceIds().size());
+        if (layer) {
+            layer->addInstance(instance);
+        }
+
+        //m_instances.push_back(instance);
     }
 
     return instanceId;
@@ -63,6 +71,9 @@ const std::vector<SpriteInstance>& OGUi::getInstances() const {
 
 void OGUi::clearInstances() {
     m_instances.clear();
+    for (auto& layer : m_layers) {
+        layer->clear();
+    }
 }
 
 void OGUi::clearElements() {
@@ -83,5 +94,26 @@ bool OGUi::handleInput(const glm::vec2 &touchPosition, bool pressed) {
             return true;
         }
     }
+
+    for(const auto& layer: m_layers) {
+        if (layer->handleInput(touchPosition, pressed)) {
+            return true;
+        }
+    }
+
     return false;
+}
+
+UILayer & OGUi::addLayer(const std::string &name) {
+    m_layers.push_back(std::make_shared<UILayer>(name));
+    return *m_layers.back();
+}
+
+UILayer *OGUi::getLayer(const std::string &name) {
+    for (auto& layer : m_layers) {
+        if (layer->getName() == name) {
+            return layer.get();
+        }
+    }
+    return nullptr;
 }

@@ -98,6 +98,14 @@ typedef struct SpriteInstance {
     glm::vec2 uvOffset;
     glm::vec2 uvScale;
     glm::vec4 colorAlpha;
+
+    bool operator==(const SpriteInstance& other) const {
+        return position == other.position &&
+               size == other.size &&
+               uvOffset == other.uvOffset &&
+               uvScale == other.uvScale &&
+               colorAlpha == other.colorAlpha;
+    }
 }SpriteInstance;
 
 /** Animated Mesh File Header */
